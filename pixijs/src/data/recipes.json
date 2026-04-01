@@ -1,0 +1,14 @@
+[
+  {
+    "tile": "work",
+    "input": ["might"],
+    "output": "finesse",
+    "time": 60
+  },
+  {
+    "tile": "work",
+    "input": ["finesse", "might"],
+    "output": "insight",
+    "time": 120
+  }
+]
