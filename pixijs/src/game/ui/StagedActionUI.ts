@@ -2,16 +2,24 @@ import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { getCompatibilityHint } from '../actions/compatibility';
 import type { StagedTileAction } from '../actions/types';
 import type { CardDefinition } from '../cards/types';
+import type { HexTile, TileTypeDefinition, VerbDefinition } from '../world/types';
 
 interface TokenHitArea {
   index: number;
   bounds: Rectangle;
 }
 
+export interface SelectedTileDetails {
+  tile: HexTile;
+  tileType?: TileTypeDefinition;
+  availableVerbs: VerbDefinition[];
+  stagedAction: StagedTileAction | null;
+}
+
 export class StagedActionUI {
   readonly root = new Container();
 
-  private staged: StagedTileAction | null = null;
+  private selectedTile: SelectedTileDetails | null = null;
 
   private readonly cardsById: Map<string, CardDefinition>;
 
@@ -51,11 +59,23 @@ export class StagedActionUI {
   }
 
   setStagedAction(staged: StagedTileAction | null): void {
-    this.staged = staged;
+    if (!this.selectedTile) {
+      return;
+    }
+    this.selectedTile = {
+      ...this.selectedTile,
+      stagedAction: staged,
+    };
+    this.render();
+  }
+
+  setSelectedTile(selectedTile: SelectedTileDetails | null): void {
+    this.selectedTile = selectedTile;
     this.render();
   }
 
   render(): void {
+    this.root.visible = this.selectedTile !== null;
     this.root.removeChildren();
     this.startBounds = null;
     this.repeatBounds = null;
@@ -63,59 +83,107 @@ export class StagedActionUI {
     this.clearBounds = null;
     this.tokenAreas = [];
 
+    if (!this.selectedTile) {
+      return;
+    }
+
+    const { tile, tileType, availableVerbs, stagedAction } = this.selectedTile;
+
     const panel = new Graphics();
-    panel.roundRect(0, 0, 320, 280, 12).fill({ color: 0x0f1725, alpha: 0.92 }).stroke({
+    panel.roundRect(0, 0, 360, 340, 12).fill({ color: 0x0f1725, alpha: 0.92 }).stroke({
       color: 0x35507e,
       width: 2,
     });
     this.root.addChild(panel);
 
     const title = new Text({
-      text: 'Tile Action Staging',
+      text: 'Selected Tile Details',
       style: { fill: '#dce9ff', fontSize: 15, fontWeight: '700' },
     });
     title.position.set(12, 10);
     this.root.addChild(title);
 
-    if (!this.staged) {
-      const empty = new Text({ text: 'Drop an Action card on a hex tile first.', style: { fill: '#a9bfdc', fontSize: 12 } });
-      empty.position.set(12, 42);
+    const tileTypeName = tileType?.name ?? tile.tileType;
+    const tileTitle = new Text({
+      text: `${tileTypeName} (${tile.q}, ${tile.r})`,
+      style: { fill: '#f6e9c5', fontSize: 13, fontWeight: '700' },
+    });
+    tileTitle.position.set(12, 38);
+    this.root.addChild(tileTitle);
+
+    const attributesText = new Text({
+      text: `Attributes: Move ${tileType?.defaultProperties.moveCost ?? '?'}, Blocks Sight ${tileType?.defaultProperties.blocksSight ? 'Yes' : 'No'}`,
+      style: { fill: '#a9bfdc', fontSize: 11 },
+    });
+    attributesText.position.set(12, 58);
+    this.root.addChild(attributesText);
+
+    const hiddenAttributesText = new Text({
+      text: `Hidden: Presence ${tile.hiddenPresenceCount}`,
+      style: { fill: '#e4c67e', fontSize: 11, fontWeight: '700' },
+    });
+    hiddenAttributesText.position.set(12, 74);
+    this.root.addChild(hiddenAttributesText);
+
+    const attachedVerbsText = new Text({
+      text: `Tile Verbs: ${availableVerbs.length > 0 ? availableVerbs.map((verb) => verb.name).join(', ') : 'None'}`,
+      style: { fill: '#8fd9fc', fontSize: 11 },
+    });
+    attachedVerbsText.position.set(12, 92);
+    this.root.addChild(attachedVerbsText);
+
+    if (!stagedAction) {
+      const empty = new Text({
+        text: 'No staged action on this tile. Drop an Action card on the tile to begin.',
+        style: { fill: '#a9bfdc', fontSize: 12 },
+      });
+      empty.position.set(12, 118);
       this.root.addChild(empty);
       return;
     }
 
-    const verbCard = this.getCardByInstanceId(this.staged.verbCardInstanceId);
-    const verbLabel = verbCard?.name ?? this.staged.verbCardInstanceId;
+    const verbCard = this.getCardByInstanceId(stagedAction.verbCardInstanceId);
+    const verbLabel = verbCard?.name ?? stagedAction.verbCardInstanceId;
 
     const verbText = new Text({ text: `Verb: ${verbLabel}`, style: { fill: '#ffe2ad', fontSize: 13, fontWeight: '700' } });
-    verbText.position.set(12, 42);
+    verbText.position.set(12, 118);
     this.root.addChild(verbText);
 
     const hintText = new Text({
       text: getCompatibilityHint(verbCard?.id ?? ''),
       style: { fill: '#8fd9fc', fontSize: 10 },
     });
-    hintText.position.set(12, 62);
+    hintText.position.set(12, 138);
     this.root.addChild(hintText);
 
-    const statusText = new Text({
-      text: `Status: ${this.staged.status}${this.staged.error ? ` (${this.staged.error})` : ''}`,
-      style: { fill: this.staged.status === 'queued' ? '#95f2a8' : '#a9bfdc', fontSize: 11 },
+    const stagedTitles = stagedAction.inputCardInstanceIds
+      .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(instanceId)?.name ?? instanceId)
+      .join(', ');
+    const stagedText = new Text({
+      text: `Staged: ${stagedTitles.length > 0 ? stagedTitles : 'None'}`,
+      style: { fill: '#d5e5ff', fontSize: 11, fontWeight: '700' },
     });
-    statusText.position.set(12, 78);
+    stagedText.position.set(12, 152);
+    this.root.addChild(stagedText);
+
+    const statusText = new Text({
+      text: `Status: ${stagedAction.status}${stagedAction.error ? ` (${stagedAction.error})` : ''}`,
+      style: { fill: stagedAction.status === 'queued' ? '#95f2a8' : '#a9bfdc', fontSize: 11 },
+    });
+    statusText.position.set(12, 168);
     this.root.addChild(statusText);
 
-    const dropZoneY = 100;
+    const dropZoneY = 188;
     const dropZone = new Graphics();
-    dropZone.roundRect(12, dropZoneY, 296, 104, 8).fill({ color: 0x192235, alpha: 1 }).stroke({
+    dropZone.roundRect(12, dropZoneY, 336, 104, 8).fill({ color: 0x192235, alpha: 1 }).stroke({
       color: this.inputDropHighlight ? 0x80f5b4 : 0x49618b,
       width: this.inputDropHighlight ? 2 : 1,
     });
     this.root.addChild(dropZone);
-    this.inputDropBounds = new Rectangle(this.root.position.x + 12, this.root.position.y + dropZoneY, 296, 104);
+    this.inputDropBounds = new Rectangle(this.root.position.x + 12, this.root.position.y + dropZoneY, 336, 104);
 
     const slotText = new Text({
-      text: this.staged.inputCardInstanceIds.length > 0 ? 'Staged inputs' : 'Drop compatible cards here',
+      text: stagedAction.inputCardInstanceIds.length > 0 ? 'Staged inputs' : 'Drop compatible cards here',
       style: { fill: '#d5e5ff', fontSize: 12 },
     });
     slotText.position.set(18, dropZoneY + 8);
@@ -123,12 +191,12 @@ export class StagedActionUI {
 
     let chipX = 18;
     let chipY = dropZoneY + 32;
-    for (let index = 0; index < this.staged.inputCardInstanceIds.length; index += 1) {
-      const instanceId = this.staged.inputCardInstanceIds[index];
+    for (let index = 0; index < stagedAction.inputCardInstanceIds.length; index += 1) {
+      const instanceId = stagedAction.inputCardInstanceIds[index];
       const cardName = this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(instanceId)?.name ?? instanceId;
       const chipTextWidth = Math.max(32, cardName.length * 6);
       const chipWidth = Math.min(132, chipTextWidth + 26);
-      if (chipX + chipWidth > 302) {
+      if (chipX + chipWidth > 342) {
         chipX = 18;
         chipY += 24;
       }
@@ -154,37 +222,37 @@ export class StagedActionUI {
     }
 
     const repeatBtn = new Graphics();
-    repeatBtn.roundRect(12, 232, 98, 34, 8).fill({ color: this.staged.repeat ? 0x6ac98f : 0x48607e, alpha: 1 });
+    repeatBtn.roundRect(12, 304, 116, 30, 8).fill({ color: stagedAction.repeat ? 0x6ac98f : 0x48607e, alpha: 1 });
     this.root.addChild(repeatBtn);
 
     const repeatText = new Text({
-      text: `Repeat: ${this.staged.repeat ? 'ON' : 'OFF'}`,
-      style: { fill: '#091118', fontSize: 12, fontWeight: '700' },
+      text: `Repeat: ${stagedAction.repeat ? 'ON' : 'OFF'}`,
+      style: { fill: '#091118', fontSize: 11, fontWeight: '700' },
     });
-    repeatText.position.set(21, 242);
+    repeatText.position.set(24, 312);
     this.root.addChild(repeatText);
-    this.repeatBounds = new Rectangle(this.root.position.x + 12, this.root.position.y + 232, 98, 34);
+    this.repeatBounds = new Rectangle(this.root.position.x + 12, this.root.position.y + 304, 116, 30);
 
     const clearBtn = new Graphics();
-    clearBtn.roundRect(116, 232, 86, 34, 8).fill({ color: 0x965a5a, alpha: 1 });
+    clearBtn.roundRect(136, 304, 98, 30, 8).fill({ color: 0x965a5a, alpha: 1 });
     this.root.addChild(clearBtn);
 
-    const clearText = new Text({ text: 'Cancel', style: { fill: '#ffe9e9', fontSize: 12, fontWeight: '700' } });
-    clearText.position.set(138, 242);
+    const clearText = new Text({ text: 'Cancel', style: { fill: '#ffe9e9', fontSize: 11, fontWeight: '700' } });
+    clearText.position.set(166, 312);
     this.root.addChild(clearText);
-    this.clearBounds = new Rectangle(this.root.position.x + 116, this.root.position.y + 232, 86, 34);
+    this.clearBounds = new Rectangle(this.root.position.x + 136, this.root.position.y + 304, 98, 30);
 
     const startBtn = new Graphics();
-    startBtn.roundRect(206, 232, 102, 34, 8).fill({ color: 0xffb74d, alpha: 1 });
+    startBtn.roundRect(242, 304, 106, 30, 8).fill({ color: 0xffb74d, alpha: 1 });
     this.root.addChild(startBtn);
 
     const startText = new Text({
-      text: this.staged.status === 'queued' ? 'Queued' : 'Start',
-      style: { fill: '#14181f', fontSize: 12, fontWeight: '700' },
+      text: stagedAction.status === 'queued' ? 'Queued' : 'Start',
+      style: { fill: '#14181f', fontSize: 11, fontWeight: '700' },
     });
-    startText.position.set(236, 242);
+    startText.position.set(278, 312);
     this.root.addChild(startText);
-    this.startBounds = new Rectangle(this.root.position.x + 206, this.root.position.y + 232, 102, 34);
+    this.startBounds = new Rectangle(this.root.position.x + 242, this.root.position.y + 304, 106, 30);
   }
 
   inputChipIndexAt(globalX: number, globalY: number): number | null {

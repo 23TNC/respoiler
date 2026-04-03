@@ -55,11 +55,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   worldHexLayer.addChild(boardRenderer.root);
 
   const characterBoard = new CharacterBoardUI(selectedCharacter, cardData.cardsById, (instanceId) => cardStateByInstanceId.get(instanceId) ?? 'in_inventory');
-  characterBoard.setPosition(16, 16);
   fixedUiLayer.addChild(characterBoard.root);
 
   const stagedActionUI = new StagedActionUI(cardData.cardsById, (instanceId) => cardDefinitionByInstanceId.get(instanceId));
-  stagedActionUI.setPosition(app.screen.width - 336, 16);
   fixedUiLayer.addChild(stagedActionUI.root);
 
   let selectedTileKey: string | null = null;
@@ -122,13 +120,22 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       staticData,
       (coord) => {
         selectedTileKey = axialKey(coord);
-        stagedActionUI.setStagedAction(stagedByTileKey.get(selectedTileKey) ?? null);
         render();
       },
       stagedByTileId,
     );
 
-    stagedActionUI.setStagedAction(selectedTileKey ? (stagedByTileKey.get(selectedTileKey) ?? null) : null);
+    const selectedTile = selectedTileKey ? world.tiles.get(selectedTileKey) ?? null : null;
+    stagedActionUI.setSelectedTile(
+      selectedTile
+        ? {
+            tile: selectedTile,
+            tileType: staticData.tileTypeById.get(selectedTile.tileType),
+            availableVerbs: selectedTile.activeVerbs.map((verbId) => staticData.verbById.get(verbId)).filter((verb): verb is NonNullable<typeof verb> => Boolean(verb)),
+            stagedAction: stagedByTileKey.get(selectedTileKey ?? '') ?? null,
+          }
+        : null,
+    );
     characterBoard.render();
   };
 
@@ -205,24 +212,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return true;
   };
 
-  const stageInputCard = (payload: DragCardPayload, x: number, y: number): boolean => {
-    if (payload.card.group === 'actions') {
-      return false;
-    }
-
-    if (!selectedTileKey) {
-      return false;
-    }
-
-    if (!stagedActionUI.isPointInInputDrop(x, y)) {
-      return false;
-    }
-
-    const staged = stagedByTileKey.get(selectedTileKey);
-    if (!staged) {
-      return false;
-    }
-
+  const tryAddInputCardToStaged = (payload: DragCardPayload, staged: StagedTileAction): boolean => {
     const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
     if (!verbCard || !isCardCompatibleForVerb(verbCard.id, payload.card)) {
       staged.error = `Incompatible input. ${getCompatibilityHint(verbCard?.id ?? '')}`;
@@ -239,6 +229,36 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     staged.error = undefined;
     staged.status = 'staged';
     return true;
+  };
+
+  const stageInputCard = (payload: DragCardPayload, x: number, y: number): boolean => {
+    if (payload.card.group === 'actions') {
+      return false;
+    }
+
+    let targetTileKey: string | null = null;
+    if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
+      targetTileKey = selectedTileKey;
+    } else {
+      const coord = boardRenderer.tileAtPixel(x, y);
+      const hoveredTileKey = axialKey(coord);
+      const tile = world.tiles.get(hoveredTileKey);
+      if (tile && tile.activeVerbs.length > 0 && stagedByTileKey.has(hoveredTileKey)) {
+        targetTileKey = hoveredTileKey;
+      }
+    }
+
+    if (!targetTileKey) {
+      return false;
+    }
+
+    const staged = stagedByTileKey.get(targetTileKey);
+    if (!staged) {
+      return false;
+    }
+
+    selectedTileKey = targetTileKey;
+    return tryAddInputCardToStaged(payload, staged);
   };
 
   const clickStart = (): void => {
@@ -406,12 +426,22 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     clearDrag();
   });
 
+  const layoutUi = (): void => {
+    const boardSize = characterBoard.size();
+    const characterBoardX = Math.max(16, (app.screen.width - boardSize.width) * 0.5);
+    const characterBoardY = app.screen.height - boardSize.height - 16;
+    characterBoard.setPosition(characterBoardX, characterBoardY);
+
+    stagedActionUI.setPosition(app.screen.width - 376, app.screen.height - 356);
+    const boardCenterY = Math.max(180, (characterBoardY - 40) * 0.5);
+    boardRenderer.centerOn(app.screen.width, boardCenterY);
+  };
+
+  layoutUi();
   render();
 
   window.addEventListener('resize', () => {
-    boardRenderer.centerOn(app.screen.width, app.screen.height);
-    stagedActionUI.setPosition(app.screen.width - 336, 16);
-    characterBoard.setPosition(16, 16);
+    layoutUi();
     render();
   });
 }
