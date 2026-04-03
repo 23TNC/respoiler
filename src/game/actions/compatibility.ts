@@ -36,6 +36,17 @@ export function getMinInputsForVerb(verbId: string): number {
   return RULES[verbId]?.minInputs ?? 1;
 }
 
+export function getCompatibilityHint(verbId: string): string {
+  const rule = RULES[verbId];
+  if (!rule) {
+    return 'Accepts: Compatible cards only';
+  }
+
+  const groups = rule.allowedGroups.map((group) => group[0].toUpperCase() + group.slice(1));
+  const extras = (rule.allowedCardIds ?? []).map((id) => id.replace(/-/g, ' '));
+  return `Accepts: ${[...groups, ...extras].join(', ')}`;
+}
+
 export function isCardCompatibleForVerb(verbId: string, card: CardDefinition): boolean {
   const rule = RULES[verbId];
   if (!rule) {

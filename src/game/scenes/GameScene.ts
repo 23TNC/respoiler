@@ -3,14 +3,15 @@ import { loadStaticData } from '../../data/loader';
 import { loadCardDefinitions } from '../../data/cards/loader';
 import { loadSelectedCharacter } from '../../data/characters/loader';
 import { axialKey } from '../hex/coords';
-import { HexBoardRenderer } from '../render/HexBoardRenderer';
-import { generateMockWorld } from '../world/mockWorld';
-import { isCardCompatibleForVerb } from '../actions/compatibility';
-import type { StagedTileAction } from '../actions/types';
+import { getCompatibilityHint, isCardCompatibleForVerb } from '../actions/compatibility';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
+import type { StagedTileAction } from '../actions/types';
+import type { CardDefinition, CardInstanceState } from '../cards/types';
+import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
-import { StagedActionUI } from '../ui/StagedActionUI';
 import type { DragCardPayload } from '../ui/dragTypes';
+import { StagedActionUI } from '../ui/StagedActionUI';
+import { generateMockWorld } from '../world/mockWorld';
 
 export async function startGameScene(container: HTMLElement): Promise<void> {
   const app = new Application();
@@ -29,17 +30,37 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const selectedCharacter = loadSelectedCharacter();
   const world = generateMockWorld(staticData.tileTypes, staticData.verbs, 2);
 
+  const allInstances = Object.values(selectedCharacter.inventory).flat();
+  const cardDefinitionByInstanceId = new Map(allInstances.map((instance) => [instance.instanceId, cardData.cardsById.get(instance.cardId)]));
+  const cardStateByInstanceId = new Map(allInstances.map((instance) => [instance.instanceId, 'in_inventory' as CardInstanceState]));
+
+  const worldBaseLayer = new Container();
+  const worldHexLayer = new Container();
+  const worldOverlayLayer = new Container();
+  const stagedActionLayer = new Container();
+  const fixedUiLayer = new Container();
+  const dragPreviewLayer = new Container();
+
+  app.stage.sortableChildren = true;
+  worldBaseLayer.zIndex = 0;
+  worldHexLayer.zIndex = 10;
+  worldOverlayLayer.zIndex = 20;
+  stagedActionLayer.zIndex = 30;
+  fixedUiLayer.zIndex = 40;
+  dragPreviewLayer.zIndex = 50;
+  app.stage.addChild(worldBaseLayer, worldHexLayer, worldOverlayLayer, stagedActionLayer, fixedUiLayer, dragPreviewLayer);
+
   const boardRenderer = new HexBoardRenderer(52);
   boardRenderer.centerOn(app.screen.width, app.screen.height);
-  app.stage.addChild(boardRenderer.root);
+  worldHexLayer.addChild(boardRenderer.root);
 
-  const characterBoard = new CharacterBoardUI(selectedCharacter, cardData.cardsById);
+  const characterBoard = new CharacterBoardUI(selectedCharacter, cardData.cardsById, (instanceId) => cardStateByInstanceId.get(instanceId) ?? 'in_inventory');
   characterBoard.setPosition(16, 16);
-  app.stage.addChild(characterBoard.root);
+  fixedUiLayer.addChild(characterBoard.root);
 
-  const stagedActionUI = new StagedActionUI(staticData.verbById, cardData.cardsById);
+  const stagedActionUI = new StagedActionUI(cardData.cardsById, (instanceId) => cardDefinitionByInstanceId.get(instanceId));
   stagedActionUI.setPosition(app.screen.width - 336, 16);
-  app.stage.addChild(stagedActionUI.root);
+  fixedUiLayer.addChild(stagedActionUI.root);
 
   let selectedTileKey: string | null = null;
   const stagedByTileKey = new Map<string, StagedTileAction>();
@@ -47,7 +68,29 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   let draggingPayload: DragCardPayload | null = null;
   const dragGhost = new Container();
-  app.stage.addChild(dragGhost);
+  dragPreviewLayer.addChild(dragGhost);
+
+  const getCardByInstanceId = (instanceId: string): CardDefinition | undefined => cardDefinitionByInstanceId.get(instanceId);
+
+  const releaseStagedCards = (staged: StagedTileAction): void => {
+    if (staged.status === 'queued') {
+      return;
+    }
+
+    cardStateByInstanceId.set(staged.verbCardInstanceId, 'in_inventory');
+    for (const inputId of staged.inputCardInstanceIds) {
+      cardStateByInstanceId.set(inputId, 'in_inventory');
+    }
+  };
+
+  const removeStagedAction = (tileKey: string): void => {
+    const existing = stagedByTileKey.get(tileKey);
+    if (!existing) {
+      return;
+    }
+    releaseStagedCards(existing);
+    stagedByTileKey.delete(tileKey);
+  };
 
   const render = (): void => {
     for (const tile of world.tiles.values()) {
@@ -55,21 +98,31 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const stagedByTileId = new Map(
-      Array.from(stagedByTileKey.values()).map((staged) => [staged.tileId, { verbId: staged.verbId, status: staged.status }]),
+      Array.from(stagedByTileKey.values()).map((staged) => {
+        const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name ?? staged.verbCardInstanceId;
+        const inputSummary = staged.inputCardInstanceIds.map((id) => getCardByInstanceId(id)?.name ?? id).join(', ');
+        return [staged.tileId, { verbLabel, inputSummary, repeat: staged.repeat, status: staged.status }] as const;
+      }),
     );
 
-    boardRenderer.renderTiles(
-      world.tiles.values(),
-      staticData,
-      (coord) => {
-        selectedTileKey = axialKey(coord);
-        stagedActionUI.setStagedAction(stagedByTileKey.get(selectedTileKey) ?? null);
-        render();
-      },
-      stagedByTileId,
-    );
+    boardRenderer.renderTiles(world.tiles.values(), staticData, (coord) => {
+      selectedTileKey = axialKey(coord);
+      stagedActionUI.setStagedAction(stagedByTileKey.get(selectedTileKey) ?? null);
+      render();
+    }, stagedByTileId);
 
     stagedActionUI.setStagedAction(selectedTileKey ? (stagedByTileKey.get(selectedTileKey) ?? null) : null);
+    characterBoard.render();
+  };
+
+  const setDragRejection = (message: string): void => {
+    if (!selectedTileKey) {
+      return;
+    }
+    const staged = stagedByTileKey.get(selectedTileKey);
+    if (staged) {
+      staged.error = message;
+    }
   };
 
   const updateGhost = (x: number, y: number): void => {
@@ -79,85 +132,96 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const bg = new Graphics();
-    bg.roundRect(0, 0, 110, 24, 6).fill({ color: 0xffffff, alpha: 0.9 }).stroke({ color: 0x1b2537, width: 1 });
+    bg.roundRect(0, 0, 130, 28, 6).fill({ color: 0xffffff, alpha: 0.95 }).stroke({ color: 0x1b2537, width: 1 });
     const label = new Text({ text: draggingPayload.card.name, style: { fill: '#111827', fontSize: 12, fontWeight: '700' } });
-    label.position.set(8, 4);
+    label.position.set(8, 6);
 
     dragGhost.position.set(x + 10, y + 10);
     dragGhost.addChild(bg, label);
   };
 
   const beginDrag = (payload: DragCardPayload, x: number, y: number): void => {
+    if ((cardStateByInstanceId.get(payload.instance.instanceId) ?? 'in_inventory') !== 'in_inventory') {
+      return;
+    }
+
     draggingPayload = payload;
     updateGhost(x, y);
   };
 
   const clearDrag = (): void => {
     draggingPayload = null;
+    boardRenderer.setDropHoverTile(null);
+    stagedActionUI.setInputDropHighlight(false);
     dragGhost.removeChildren();
+    render();
   };
 
-  const stageVerbOnTile = (payload: DragCardPayload, x: number, y: number): void => {
+  const stageVerbOnTile = (payload: DragCardPayload, x: number, y: number): boolean => {
     if (payload.card.group !== 'actions') {
-      return;
+      return false;
     }
 
     const coord = boardRenderer.tileAtPixel(x, y);
-    const tile = world.tiles.get(axialKey(coord));
+    const tileKey = axialKey(coord);
+    const tile = world.tiles.get(tileKey);
     if (!tile) {
-      return;
+      return false;
     }
 
+    removeStagedAction(tileKey);
+
     const staged: StagedTileAction = {
-      stagedId: `staged-${tile.id}`,
+      stagedActionId: `staged-${tile.id}-${selectedCharacter.id}`,
       characterId: selectedCharacter.id,
       tileId: tile.id,
-      tileKey: axialKey(coord),
-      verbId: payload.card.id,
-      inputCardIds: [],
+      tileKey,
+      verbCardInstanceId: payload.instance.instanceId,
+      inputCardInstanceIds: [],
       repeat: false,
       status: 'staged',
     };
 
     stagedByTileKey.set(staged.tileKey, staged);
+    cardStateByInstanceId.set(payload.instance.instanceId, 'staged');
     selectedTileKey = staged.tileKey;
-    render();
+    return true;
   };
 
-  const stageInputCard = (payload: DragCardPayload, x: number, y: number): void => {
+  const stageInputCard = (payload: DragCardPayload, x: number, y: number): boolean => {
     if (payload.card.group === 'actions') {
-      return;
+      return false;
     }
 
     if (!selectedTileKey) {
-      return;
+      return false;
     }
 
     if (!stagedActionUI.isPointInInputDrop(x, y)) {
-      return;
+      return false;
     }
 
     const staged = stagedByTileKey.get(selectedTileKey);
     if (!staged) {
-      return;
+      return false;
     }
 
-    if (!isCardCompatibleForVerb(staged.verbId, payload.card)) {
-      staged.error = `Incompatible input: ${payload.card.name}`;
-      render();
-      return;
+    const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
+    if (!verbCard || !isCardCompatibleForVerb(verbCard.id, payload.card)) {
+      staged.error = `Incompatible input. ${getCompatibilityHint(verbCard?.id ?? '')}`;
+      return false;
     }
 
-    if (staged.inputCardIds.includes(payload.card.id)) {
+    if (staged.inputCardInstanceIds.includes(payload.instance.instanceId)) {
       staged.error = 'Cannot stage duplicate card in one action.';
-      render();
-      return;
+      return false;
     }
 
-    staged.inputCardIds.push(payload.card.id);
+    staged.inputCardInstanceIds.push(payload.instance.instanceId);
+    cardStateByInstanceId.set(payload.instance.instanceId, 'staged');
     staged.error = undefined;
     staged.status = 'staged';
-    render();
+    return true;
   };
 
   const clickStart = (): void => {
@@ -166,16 +230,18 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const staged = stagedByTileKey.get(selectedTileKey);
-    if (!staged) {
+    if (!staged || staged.status === 'queued') {
       return;
     }
 
     const tileExists = Array.from(world.tiles.values()).some((tile) => tile.id === staged.tileId);
-    const validation = validateStagedAction({ staged, tileExists, verbsById: staticData.verbById });
+    const validation = validateStagedAction({
+      staged,
+      tileExists,
+      getCardDefinitionByInstanceId: getCardByInstanceId,
+    });
     if (!validation.ok) {
       staged.error = validation.error;
-      // eslint-disable-next-line no-console
-      console.warn('[action-validation-failed]', validation.error, staged);
       render();
       return;
     }
@@ -185,8 +251,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     staged.status = 'queued';
     staged.error = undefined;
 
-    // eslint-disable-next-line no-console
-    console.log('[local-queued-action]', queued);
+    cardStateByInstanceId.set(staged.verbCardInstanceId, 'queued');
+    for (const input of staged.inputCardInstanceIds) {
+      cardStateByInstanceId.set(input, 'queued');
+    }
+
     render();
   };
 
@@ -196,7 +265,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const staged = stagedByTileKey.get(selectedTileKey);
-    if (!staged) {
+    if (!staged || staged.status === 'queued') {
       return;
     }
 
@@ -204,11 +273,56 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     render();
   };
 
+  const clickClear = (): void => {
+    if (!selectedTileKey) {
+      return;
+    }
+    removeStagedAction(selectedTileKey);
+    render();
+  };
+
+  const clickRemoveInputChip = (globalX: number, globalY: number): boolean => {
+    if (!selectedTileKey) {
+      return false;
+    }
+
+    const staged = stagedByTileKey.get(selectedTileKey);
+    if (!staged || staged.status === 'queued') {
+      return false;
+    }
+
+    const chipIndex = stagedActionUI.inputChipIndexAt(globalX, globalY);
+    if (chipIndex === null) {
+      return false;
+    }
+
+    const [removed] = staged.inputCardInstanceIds.splice(chipIndex, 1);
+    if (removed) {
+      cardStateByInstanceId.set(removed, 'in_inventory');
+      staged.error = undefined;
+      render();
+      return true;
+    }
+
+    return false;
+  };
+
   app.stage.eventMode = 'static';
   app.stage.hitArea = app.screen;
 
+  app.canvas.addEventListener('wheel', (event) => {
+    if (characterBoard.handleWheel(event.clientX, event.clientY, event.deltaY)) {
+      event.preventDefault();
+      render();
+    }
+  });
+
   app.stage.on('pointerdown', (event) => {
     const { x, y } = event.global;
+
+    if (clickRemoveInputChip(x, y)) {
+      return;
+    }
 
     if (stagedActionUI.isPointInStart(x, y)) {
       clickStart();
@@ -220,6 +334,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return;
     }
 
+    if (stagedActionUI.isPointInClear(x, y)) {
+      clickClear();
+      return;
+    }
+
     const payload = characterBoard.cardAtPoint(x, y);
     if (payload) {
       beginDrag(payload, x, y);
@@ -227,11 +346,24 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   });
 
   app.stage.on('globalpointermove', (event) => {
+    const { x, y } = event.global;
+
+    if (draggingPayload?.card.group === 'actions') {
+      const hoverCoord = boardRenderer.tileAtPixel(x, y);
+      const hoverTileKey = axialKey(hoverCoord);
+      boardRenderer.setDropHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
+    }
+
+    if (draggingPayload && draggingPayload.card.group !== 'actions') {
+      stagedActionUI.setInputDropHighlight(stagedActionUI.isPointInInputDrop(x, y));
+    }
+
     if (!draggingPayload) {
       return;
     }
-    const { x, y } = event.global;
+
     updateGhost(x, y);
+    render();
   });
 
   app.stage.on('pointerup', (event) => {
@@ -240,8 +372,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const { x, y } = event.global;
-    stageVerbOnTile(draggingPayload, x, y);
-    stageInputCard(draggingPayload, x, y);
+    const stagedVerb = stageVerbOnTile(draggingPayload, x, y);
+    const stagedInput = stageInputCard(draggingPayload, x, y);
+
+    if (!stagedVerb && !stagedInput) {
+      setDragRejection('Invalid drop target.');
+    }
+
     clearDrag();
   });
 
@@ -254,8 +391,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   window.addEventListener('resize', () => {
     boardRenderer.centerOn(app.screen.width, app.screen.height);
     stagedActionUI.setPosition(app.screen.width - 336, 16);
-    characterBoard.render();
+    characterBoard.setPosition(16, 16);
     render();
   });
-
 }

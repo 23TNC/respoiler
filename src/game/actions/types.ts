@@ -1,10 +1,10 @@
 export interface StagedTileAction {
-  stagedId: string;
+  stagedActionId: string;
   characterId: string;
   tileId: string;
   tileKey: string;
-  verbId: string;
-  inputCardIds: string[];
+  verbCardInstanceId: string;
+  inputCardInstanceIds: string[];
   repeat: boolean;
   status: 'staged' | 'queued';
   error?: string;
@@ -14,8 +14,8 @@ export interface QueuedAction {
   actionId: string;
   characterId: string;
   tileId: string;
-  verbId: string;
-  inputCardIds: string[];
+  verbCardInstanceId: string;
+  inputCardInstanceIds: string[];
   repeat: boolean;
   status: 'queued';
 }
