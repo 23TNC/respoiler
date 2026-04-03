@@ -1,0 +1,6 @@
+[
+  { "id": "inspect", "name": "Inspect", "iconKey": "icon.inspect" },
+  { "id": "gather", "name": "Gather", "iconKey": "icon.gather" },
+  { "id": "rest", "name": "Rest", "iconKey": "icon.rest" },
+  { "id": "build", "name": "Build", "iconKey": "icon.build" }
+]
