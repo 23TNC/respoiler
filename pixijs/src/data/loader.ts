@@ -1,12 +1,15 @@
 import rawTileDefs from './tiles/base.tiles.json';
 import rawVerbDefs from './verbs/base.verbs.json';
 import type { TileTypeDefinition, VerbDefinition } from '../game/world/types';
+import { loadRecipes } from './recipes/loader';
+import type { RecipeDefinition } from '../game/recipes/types';
 
 interface StaticData {
   tileTypes: TileTypeDefinition[];
   verbs: VerbDefinition[];
   tileTypeById: Map<string, TileTypeDefinition>;
   verbById: Map<string, VerbDefinition>;
+  recipes: RecipeDefinition[];
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -73,6 +76,7 @@ function parseVerbs(input: unknown): VerbDefinition[] {
 export function loadStaticData(): StaticData {
   const tileTypes = parseTileTypes(rawTileDefs);
   const verbs = parseVerbs(rawVerbDefs);
+  const recipes = loadRecipes();
 
   const tileTypeById = new Map(tileTypes.map((tile) => [tile.id, tile]));
   const verbById = new Map(verbs.map((verb) => [verb.id, verb]));
@@ -82,5 +86,6 @@ export function loadStaticData(): StaticData {
     verbs,
     tileTypeById,
     verbById,
+    recipes,
   };
 }
