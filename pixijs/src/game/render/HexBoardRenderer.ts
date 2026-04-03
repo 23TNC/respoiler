@@ -9,10 +9,13 @@ interface RenderContext {
 
 export interface RenderedTileActionBadge {
   verbLabel: string;
+  tileLabel?: string;
   stagedCardNames: string[];
   repeat: boolean;
   status: 'staged' | 'queued';
 }
+
+export type DropFeedbackState = 'none' | 'valid' | 'invalid';
 
 export class HexBoardRenderer {
   readonly root = new Container();
@@ -30,6 +33,10 @@ export class HexBoardRenderer {
   private hoverTileKey: string | null = null;
 
   private dropHoverTileKey: string | null = null;
+
+  private readonly popupBoundsByTileKey = new Map<string, { x: number; y: number; width: number; height: number }>();
+
+  private readonly popupDropStateByTileKey = new Map<string, DropFeedbackState>();
 
   constructor(size = 42) {
     this.size = size;
@@ -50,6 +57,36 @@ export class HexBoardRenderer {
     this.hoverTileKey = tileKey;
   }
 
+  setPopupDropState(tileKey: string | null, state: DropFeedbackState): void {
+    if (!tileKey || state === 'none') {
+      if (tileKey) {
+        this.popupDropStateByTileKey.delete(tileKey);
+      }
+      return;
+    }
+
+    this.popupDropStateByTileKey.set(tileKey, state);
+  }
+
+  clearPopupDropStates(): void {
+    this.popupDropStateByTileKey.clear();
+  }
+
+  popupTileKeyAtGlobal(globalX: number, globalY: number): string | null {
+    for (const [tileKey, bounds] of this.popupBoundsByTileKey.entries()) {
+      if (
+        globalX >= bounds.x
+        && globalX <= bounds.x + bounds.width
+        && globalY >= bounds.y
+        && globalY <= bounds.y + bounds.height
+      ) {
+        return tileKey;
+      }
+    }
+
+    return null;
+  }
+
   renderTiles(
     tiles: Iterable<HexTile>,
     context: RenderContext,
@@ -59,6 +96,7 @@ export class HexBoardRenderer {
     this.worldHexLayer.removeChildren();
     this.worldOverlayLayer.removeChildren();
     this.stagedActionLayer.removeChildren();
+    this.popupBoundsByTileKey.clear();
 
     const tileByKey = new Map<string, HexTile>();
     const tileCenterByKey = new Map<string, { x: number; y: number }>();
@@ -91,8 +129,8 @@ export class HexBoardRenderer {
           fontWeight: '700',
         },
       });
-      tileLabel.anchor.set(0.5, 0.6);
-      tileLabel.position.set(0, -4);
+      tileLabel.anchor.set(0.5, 0);
+      tileLabel.position.set(0, 0);
 
       container.addChild(shape, tileLabel);
 
@@ -123,16 +161,26 @@ export class HexBoardRenderer {
       const staged = stagedByTileId.get(tile.id);
       if (staged) {
         const overlay = new Container();
-        overlay.position.set(px.x, px.y - this.size - 10);
+        overlay.position.set(px.x, px.y + 2);
+
+        const popupState = this.popupDropStateByTileKey.get(tileKey) ?? 'none';
+        const popupStroke = popupState === 'valid'
+          ? 0x80f5b4
+          : popupState === 'invalid'
+            ? 0xff7d7d
+            : staged.status === 'queued'
+              ? 0x71dc93
+              : 0xffcc66;
+        const popupFill = popupState === 'invalid' ? 0x332020 : 0x5f4b19;
 
         const bg = new Graphics();
-        bg.roundRect(-48, -16, 96, 32, 8).fill({ color: 0x0d1524, alpha: 0.95 }).stroke({
-          color: staged.status === 'queued' ? 0x71dc93 : 0xffcc66,
+        bg.roundRect(-48, 0, 96, 32, 8).fill({ color: popupFill, alpha: 0.95 }).stroke({
+          color: popupStroke,
           width: 1,
         });
 
         const verbText = new Text({
-          text: staged.verbLabel,
+          text: staged.tileLabel ? `${staged.verbLabel} (${staged.tileLabel})` : staged.verbLabel,
           style: {
             fontSize: 10,
             fill: '#f8e3b4',
@@ -140,7 +188,7 @@ export class HexBoardRenderer {
           },
         });
         verbText.anchor.set(0, 0.5);
-        verbText.position.set(-43, -5);
+        verbText.position.set(-43, 10);
 
         const metaText = new Text({
           text: `${staged.status === 'queued' ? 'Q' : 'S'} · ${staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None'} · ${staged.repeat ? 'R' : '-'}`,
@@ -151,10 +199,18 @@ export class HexBoardRenderer {
           },
         });
         metaText.anchor.set(0, 0.5);
-        metaText.position.set(-43, 8);
+        metaText.position.set(-43, 23);
 
         overlay.addChild(bg, verbText, metaText);
         this.stagedActionLayer.addChild(overlay);
+
+        const bounds = bg.getBounds();
+        this.popupBoundsByTileKey.set(tileKey, {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+        });
       }
     }
 

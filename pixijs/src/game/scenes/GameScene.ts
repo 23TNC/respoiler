@@ -8,6 +8,7 @@ import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
 import type { CardDefinition, CardInstanceState } from '../cards/types';
 import { HexBoardRenderer } from '../render/HexBoardRenderer';
+import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
 import type { DragCardPayload } from '../ui/dragTypes';
 import { StagedActionUI } from '../ui/StagedActionUI';
@@ -107,6 +108,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
           staged.tileId,
           {
             verbLabel,
+            tileLabel: staticData.tileTypeById.get(world.tiles.get(staged.tileKey)?.tileType ?? '')?.name,
             stagedCardNames: staged.inputCardInstanceIds.map(
               (instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId,
             ),
@@ -178,9 +180,35 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const clearDrag = (): void => {
     draggingPayload = null;
     boardRenderer.setDropHoverTile(null);
-    stagedActionUI.setInputDropHighlight(false);
+    boardRenderer.clearPopupDropStates();
+    stagedActionUI.setInputDropFeedback('none');
     dragGhost.removeChildren();
     render();
+  };
+
+  const getInputDropFeedback = (
+    payload: DragCardPayload,
+    targetTileKey: string | null,
+  ): { state: DropFeedbackState; reason?: string } => {
+    if (payload.card.group === 'actions' || !targetTileKey) {
+      return { state: 'invalid', reason: 'Invalid drop target.' };
+    }
+
+    const staged = stagedByTileKey.get(targetTileKey);
+    if (!staged) {
+      return { state: 'invalid', reason: 'No staged action on target tile.' };
+    }
+
+    const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
+    if (!verbCard || !isCardCompatibleForVerb(verbCard.id, payload.card)) {
+      return { state: 'invalid', reason: `Incompatible input. ${getCompatibilityHint(verbCard?.id ?? '')}` };
+    }
+
+    if (staged.inputCardInstanceIds.includes(payload.instance.instanceId)) {
+      return { state: 'invalid', reason: 'Cannot stage duplicate card in one action.' };
+    }
+
+    return { state: 'valid' };
   };
 
   const stageVerbOnTile = (payload: DragCardPayload, x: number, y: number): boolean => {
@@ -215,14 +243,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const tryAddInputCardToStaged = (payload: DragCardPayload, staged: StagedTileAction): boolean => {
-    const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
-    if (!verbCard || !isCardCompatibleForVerb(verbCard.id, payload.card)) {
-      staged.error = `Incompatible input. ${getCompatibilityHint(verbCard?.id ?? '')}`;
-      return false;
-    }
-
-    if (staged.inputCardInstanceIds.includes(payload.instance.instanceId)) {
-      staged.error = 'Cannot stage duplicate card in one action.';
+    const feedback = getInputDropFeedback(payload, staged.tileKey);
+    if (feedback.state !== 'valid') {
+      staged.error = feedback.reason;
       return false;
     }
 
@@ -242,6 +265,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
       targetTileKey = selectedTileKey;
     } else {
+      const popupTileKey = boardRenderer.popupTileKeyAtGlobal(x, y);
+      if (popupTileKey) {
+        targetTileKey = popupTileKey;
+      }
+    }
+
+    if (!targetTileKey) {
       const coord = boardRenderer.tileAtPixel(x, y);
       const hoveredTileKey = axialKey(coord);
       const tile = world.tiles.get(hoveredTileKey);
@@ -259,8 +289,35 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return false;
     }
 
+    const feedback = getInputDropFeedback(payload, targetTileKey);
+    if (feedback.state !== 'valid') {
+      staged.error = feedback.reason;
+      selectedTileKey = targetTileKey;
+      return false;
+    }
+
     selectedTileKey = targetTileKey;
     return tryAddInputCardToStaged(payload, staged);
+  };
+
+  const updateDragFeedback = (payload: DragCardPayload, x: number, y: number): void => {
+    boardRenderer.clearPopupDropStates();
+    stagedActionUI.setInputDropFeedback('none');
+
+    if (payload.card.group === 'actions') {
+      return;
+    }
+
+    const popupTileKey = boardRenderer.popupTileKeyAtGlobal(x, y);
+    if (popupTileKey) {
+      const popupFeedback = getInputDropFeedback(payload, popupTileKey);
+      boardRenderer.setPopupDropState(popupTileKey, popupFeedback.state);
+    }
+
+    if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
+      const stagedFeedback = getInputDropFeedback(payload, selectedTileKey);
+      stagedActionUI.setInputDropFeedback(stagedFeedback.state);
+    }
   };
 
   const clickStart = (): void => {
@@ -395,15 +452,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       boardRenderer.setDropHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
     }
 
-    if (draggingPayload && draggingPayload.card.group !== 'actions') {
-      stagedActionUI.setInputDropHighlight(stagedActionUI.isPointInInputDrop(x, y));
-    }
-
     if (!draggingPayload) {
       render();
       return;
     }
 
+    updateDragFeedback(draggingPayload, x, y);
     updateGhost(x, y);
     render();
   });

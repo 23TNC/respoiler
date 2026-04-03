@@ -2,6 +2,7 @@ import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { getCompatibilityHint } from '../actions/compatibility';
 import type { StagedTileAction } from '../actions/types';
 import type { CardDefinition } from '../cards/types';
+import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import type { HexTile, TileTypeDefinition, VerbDefinition } from '../world/types';
 
 interface TokenHitArea {
@@ -35,7 +36,7 @@ export class StagedActionUI {
 
   private tokenAreas: TokenHitArea[] = [];
 
-  private inputDropHighlight = false;
+  private inputDropFeedback: DropFeedbackState = 'none';
 
   constructor(
     cardsById: Map<string, CardDefinition>,
@@ -50,11 +51,11 @@ export class StagedActionUI {
     this.render();
   }
 
-  setInputDropHighlight(active: boolean): void {
-    if (this.inputDropHighlight === active) {
+  setInputDropFeedback(state: DropFeedbackState): void {
+    if (this.inputDropFeedback === state) {
       return;
     }
-    this.inputDropHighlight = active;
+    this.inputDropFeedback = state;
     this.render();
   }
 
@@ -175,9 +176,15 @@ export class StagedActionUI {
 
     const dropZoneY = 188;
     const dropZone = new Graphics();
+    const dropOutlineColor = this.inputDropFeedback === 'valid'
+      ? 0x80f5b4
+      : this.inputDropFeedback === 'invalid'
+        ? 0xff7d7d
+        : 0x49618b;
+    const dropOutlineWidth = this.inputDropFeedback === 'none' ? 1 : 2;
     dropZone.roundRect(12, dropZoneY, 336, 104, 8).fill({ color: 0x192235, alpha: 1 }).stroke({
-      color: this.inputDropHighlight ? 0x80f5b4 : 0x49618b,
-      width: this.inputDropHighlight ? 2 : 1,
+      color: dropOutlineColor,
+      width: dropOutlineWidth,
     });
     this.root.addChild(dropZone);
     this.inputDropBounds = new Rectangle(this.root.position.x + 12, this.root.position.y + dropZoneY, 336, 104);
