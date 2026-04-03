@@ -1,34 +1,57 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { axialKey, axialToPixel, pixelToAxial } from '../hex/coords';
 import type { AxialCoord } from '../hex/coords';
-import type { HexTile, TileTypeDefinition, VerbDefinition } from '../world/types';
+import type { HexTile, TileTypeDefinition } from '../world/types';
 
 interface RenderContext {
   tileTypeById: Map<string, TileTypeDefinition>;
-  verbById: Map<string, VerbDefinition>;
 }
 
-interface StagedActionBadge {
-  verbId: string;
+export interface RenderedTileActionBadge {
+  verbLabel: string;
+  inputSummary: string;
+  repeat: boolean;
   status: 'staged' | 'queued';
 }
 
 export class HexBoardRenderer {
   readonly root = new Container();
 
+  readonly worldBaseLayer = new Container();
+
+  readonly worldHexLayer = new Container();
+
+  readonly worldOverlayLayer = new Container();
+
+  readonly stagedActionLayer = new Container();
+
   private readonly size: number;
+
+  private hoverTileKey: string | null = null;
 
   constructor(size = 42) {
     this.size = size;
+
+    this.root.sortableChildren = true;
+    this.worldBaseLayer.zIndex = 0;
+    this.worldHexLayer.zIndex = 10;
+    this.worldOverlayLayer.zIndex = 20;
+    this.stagedActionLayer.zIndex = 30;
+    this.root.addChild(this.worldBaseLayer, this.worldHexLayer, this.worldOverlayLayer, this.stagedActionLayer);
+  }
+
+  setDropHoverTile(tileKey: string | null): void {
+    this.hoverTileKey = tileKey;
   }
 
   renderTiles(
     tiles: Iterable<HexTile>,
     context: RenderContext,
     onTileSelected: (coord: AxialCoord) => void,
-    stagedByTileId: Map<string, StagedActionBadge> = new Map(),
+    stagedByTileId: Map<string, RenderedTileActionBadge> = new Map(),
   ): void {
-    this.root.removeChildren();
+    this.worldHexLayer.removeChildren();
+    this.stagedActionLayer.removeChildren();
 
     for (const tile of tiles) {
       const tileType = context.tileTypeById.get(tile.tileType);
@@ -49,77 +72,84 @@ export class HexBoardRenderer {
       shape.cursor = 'pointer';
       shape.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
 
-      const nameText = new Text({
+      const tileLabel = new Text({
         text: tileType.name,
         style: {
-          fontSize: 11,
+          fontSize: 12,
           fill: tileType.style.labelColor,
-          fontWeight: '600',
+          fontWeight: '700',
         },
       });
-      nameText.anchor.set(0.5, 0.6);
-      nameText.position.set(0, -4);
-
-      const sideText = new Text({
-        text: tile.visibleSides.slice(0, 3).join(' · '),
-        style: {
-          fontSize: 9,
-          fill: '#ffffff',
-        },
-      });
-      sideText.anchor.set(0.5, 0.5);
-      sideText.position.set(0, 10);
+      tileLabel.anchor.set(0.5, 0.6);
+      tileLabel.position.set(0, -4);
 
       const hiddenText = new Text({
-        text: tile.hiddenPresenceCount > 0 ? `?${tile.hiddenPresenceCount}` : '',
+        text: tile.hiddenPresenceCount > 0 ? `Hidden ${tile.hiddenPresenceCount}` : '',
         style: {
-          fontSize: 10,
+          fontSize: 9,
           fill: '#ffd37e',
           fontWeight: '700',
         },
       });
-      hiddenText.anchor.set(1, 0);
-      hiddenText.position.set(this.size * 0.68, -this.size * 0.8);
+      hiddenText.anchor.set(0.5, 0.5);
+      hiddenText.position.set(0, 12);
 
-      const verbNames = tile.activeVerbs
-        .map((id) => context.verbById.get(id)?.name)
-        .filter((value): value is string => Boolean(value));
-      const verbText = new Text({
-        text: verbNames.length > 0 ? `⚙ ${verbNames.join(', ')}` : '',
-        style: {
-          fontSize: 8,
-          fill: '#d8e7ff',
-        },
-      });
-      verbText.anchor.set(0.5, 0);
-      verbText.position.set(0, this.size * 0.35);
+      const tileKey = axialKey({ q: tile.q, r: tile.r });
+      if (this.hoverTileKey === tileKey) {
+        const hoverRing = new Graphics();
+        hoverRing.poly(this.hexPoints(this.size + 2), true).stroke({ color: 0x80f5b4, width: 3 });
+        container.addChild(hoverRing);
+      }
 
-      container.addChild(shape, nameText, sideText, hiddenText, verbText);
+      container.addChild(shape, tileLabel, hiddenText);
+      this.worldHexLayer.addChild(container);
 
       const staged = stagedByTileId.get(tile.id);
       if (staged) {
-        const stagedVerb = context.verbById.get(staged.verbId)?.name ?? staged.verbId;
-        const badge = new Graphics();
-        badge.roundRect(-this.size * 0.58, -this.size * 1.16, this.size * 1.16, 16, 5).fill({
-          color: staged.status === 'queued' ? 0x6ac98f : 0xffcc66,
-          alpha: 1,
+        const overlay = new Container();
+        overlay.position.set(px.x, px.y - this.size - 8);
+
+        const bg = new Graphics();
+        bg.roundRect(-46, -18, 92, 38, 8).fill({ color: 0x0d1524, alpha: 0.96 }).stroke({
+          color: staged.status === 'queued' ? 0x71dc93 : 0xffcc66,
+          width: 1,
         });
 
-        const stagedText = new Text({
-          text: `${stagedVerb} • ${staged.status}`,
+        const verbText = new Text({
+          text: staged.verbLabel,
           style: {
-            fontSize: 8,
-            fill: '#11151c',
+            fontSize: 10,
+            fill: '#f8e3b4',
             fontWeight: '700',
           },
         });
-        stagedText.anchor.set(0.5, 0.5);
-        stagedText.position.set(0, -this.size * 1.02);
+        verbText.anchor.set(0.5, 0.5);
+        verbText.position.set(0, -9);
 
-        container.addChild(badge, stagedText);
+        const inputsText = new Text({
+          text: staged.inputSummary || 'No Inputs',
+          style: {
+            fontSize: 9,
+            fill: '#d8e7ff',
+          },
+        });
+        inputsText.anchor.set(0.5, 0.5);
+        inputsText.position.set(0, 2);
+
+        const metaText = new Text({
+          text: `${staged.repeat ? 'R' : '-'} · ${staged.status}`,
+          style: {
+            fontSize: 8,
+            fill: staged.status === 'queued' ? '#9af3b1' : '#ffd999',
+            fontWeight: '700',
+          },
+        });
+        metaText.anchor.set(0.5, 0.5);
+        metaText.position.set(0, 12);
+
+        overlay.addChild(bg, verbText, inputsText, metaText);
+        this.stagedActionLayer.addChild(overlay);
       }
-
-      this.root.addChild(container);
     }
   }
 

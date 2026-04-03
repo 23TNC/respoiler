@@ -1,30 +1,31 @@
 import { getMinInputsForVerb } from './compatibility';
 import type { StagedTileAction, ValidationResult, QueuedAction } from './types';
-import type { VerbDefinition } from '../world/types';
+import type { CardDefinition } from '../cards/types';
 
 interface ValidateArgs {
   staged: StagedTileAction;
   tileExists: boolean;
-  verbsById: Map<string, VerbDefinition>;
+  getCardDefinitionByInstanceId: (instanceId: string) => CardDefinition | undefined;
 }
 
 export function validateStagedAction(args: ValidateArgs): ValidationResult {
-  const { staged, tileExists, verbsById } = args;
+  const { staged, tileExists, getCardDefinitionByInstanceId } = args;
 
-  if (!verbsById.has(staged.verbId)) {
-    return { ok: false, error: 'Unknown verb.' };
+  const verbCard = getCardDefinitionByInstanceId(staged.verbCardInstanceId);
+  if (!verbCard || verbCard.group !== 'actions') {
+    return { ok: false, error: 'Unknown or invalid verb card.' };
   }
 
   if (!tileExists) {
     return { ok: false, error: 'Tile no longer exists.' };
   }
 
-  if (staged.inputCardIds.length < getMinInputsForVerb(staged.verbId)) {
+  if (staged.inputCardInstanceIds.length < getMinInputsForVerb(verbCard.id)) {
     return { ok: false, error: 'At least one compatible input is required.' };
   }
 
-  const uniqueIds = new Set(staged.inputCardIds);
-  if (uniqueIds.size !== staged.inputCardIds.length) {
+  const uniqueIds = new Set(staged.inputCardInstanceIds);
+  if (uniqueIds.size !== staged.inputCardInstanceIds.length) {
     return { ok: false, error: 'Cannot stage the same card twice.' };
   }
 
@@ -36,8 +37,8 @@ export function toQueuedAction(staged: StagedTileAction): QueuedAction {
     actionId: `queued-${Date.now()}`,
     characterId: staged.characterId,
     tileId: staged.tileId,
-    verbId: staged.verbId,
-    inputCardIds: [...staged.inputCardIds],
+    verbCardInstanceId: staged.verbCardInstanceId,
+    inputCardInstanceIds: [...staged.inputCardInstanceIds],
     repeat: staged.repeat,
     status: 'queued',
   };
