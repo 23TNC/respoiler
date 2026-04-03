@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { axialKey, axialToPixel, pixelToAxial } from '../hex/coords';
 import type { AxialCoord } from '../hex/coords';
 import type { HexTile, TileTypeDefinition } from '../world/types';
@@ -72,15 +72,16 @@ export class HexBoardRenderer {
       const container = new Container();
       const px = axialToPixel({ q: tile.q, r: tile.r }, this.size);
       container.position.set(px.x, px.y);
+      container.eventMode = 'static';
+      container.cursor = 'pointer';
+      container.hitArea = new Rectangle(-this.size, -this.size - 20, this.size * 2, this.size * 2 + 48);
+      container.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
 
       const shape = new Graphics();
       shape.poly(this.hexPoints(this.size), true).fill(tileType.style.fillColor).stroke({
         color: tileType.style.strokeColor,
         width: 2,
       });
-      shape.eventMode = 'static';
-      shape.cursor = 'pointer';
-      shape.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
 
       const tileLabel = new Text({
         text: tileType.name,

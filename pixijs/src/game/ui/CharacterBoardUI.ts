@@ -26,7 +26,7 @@ interface GroupPanelLayout {
 }
 
 const HEADER_HEIGHT = 28;
-const PANEL_WIDTH = 180;
+const PANEL_WIDTH = 172;
 const PANEL_HEIGHT = 126;
 const VIEWPORT_HEIGHT = PANEL_HEIGHT - HEADER_HEIGHT - 10;
 const PANEL_GAP = 10;
@@ -80,17 +80,15 @@ export class CharacterBoardUI {
     title.position.set(12, 8);
     this.root.addChild(title);
 
-    let y = 32;
+    const rowY = 32;
     for (let i = 0; i < INVENTORY_GROUP_ORDER.length; i += 1) {
       const group = INVENTORY_GROUP_ORDER[i];
-      const x = ROOT_PADDING + (i % 2) * (PANEL_WIDTH + PANEL_GAP);
-      const row = Math.floor(i / 2);
-      y = 32 + row * (PANEL_HEIGHT + PANEL_GAP);
+      const x = ROOT_PADDING + i * (PANEL_WIDTH + PANEL_GAP);
 
       const layout: GroupPanelLayout = {
         group,
         x,
-        y,
+        y: rowY,
         width: PANEL_WIDTH,
         height: PANEL_HEIGHT,
       };
@@ -185,13 +183,19 @@ export class CharacterBoardUI {
   cardAtPoint(globalX: number, globalY: number): DragCardPayload | null {
     for (const visual of this.cardVisuals) {
       const group = visual.payload.card.group;
+      const layout = this.layouts.find((entry) => entry.group === group);
+      if (!layout) {
+        continue;
+      }
+
       const scrolledBounds = new Rectangle(
         this.root.position.x + visual.bounds.x,
         this.root.position.y + visual.bounds.y - this.scrollOffsetByGroup[group],
         visual.bounds.width,
         visual.bounds.height,
       );
-      if (scrolledBounds.contains(globalX, globalY)) {
+      const viewportBounds = this.viewportBounds(layout);
+      if (scrolledBounds.contains(globalX, globalY) && viewportBounds.contains(globalX, globalY)) {
         return visual.payload;
       }
     }
@@ -207,17 +211,30 @@ export class CharacterBoardUI {
     return new Rectangle(this.root.position.x, this.root.position.y, this.boardWidth(), this.boardHeight());
   }
 
+  size(): { width: number; height: number } {
+    return { width: this.boardWidth(), height: this.boardHeight() };
+  }
+
   private clampScroll(group: CardGroup): void {
     const maxScroll = Math.max(0, this.contentHeightByGroup[group] - VIEWPORT_HEIGHT + 8);
     this.scrollOffsetByGroup[group] = Math.max(0, Math.min(maxScroll, this.scrollOffsetByGroup[group]));
   }
 
   private boardWidth(): number {
-    return ROOT_PADDING * 2 + PANEL_WIDTH * 2 + PANEL_GAP;
+    return ROOT_PADDING * 2 + PANEL_WIDTH * INVENTORY_GROUP_ORDER.length + PANEL_GAP * (INVENTORY_GROUP_ORDER.length - 1);
   }
 
   private boardHeight(): number {
-    return 32 + PANEL_HEIGHT * 3 + PANEL_GAP * 2 + ROOT_PADDING;
+    return 32 + PANEL_HEIGHT + ROOT_PADDING;
+  }
+
+  private viewportBounds(layout: GroupPanelLayout): Rectangle {
+    return new Rectangle(
+      this.root.position.x + layout.x + 6,
+      this.root.position.y + layout.y + HEADER_HEIGHT,
+      layout.width - 12,
+      VIEWPORT_HEIGHT,
+    );
   }
 
   private colorForGroup(group: CardGroup): number {
