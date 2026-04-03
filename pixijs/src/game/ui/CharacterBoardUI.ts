@@ -17,23 +17,43 @@ interface InventoryCardVisual {
   payload: DragCardPayload;
 }
 
-const PANEL_WIDTH = 280;
-const PANEL_HEIGHT = 660;
-const HEADER_HEIGHT = 42;
-const VIEWPORT_HEIGHT = PANEL_HEIGHT - HEADER_HEIGHT - 12;
+interface GroupPanelLayout {
+  group: CardGroup;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const HEADER_HEIGHT = 28;
+const PANEL_WIDTH = 180;
+const PANEL_HEIGHT = 126;
+const VIEWPORT_HEIGHT = PANEL_HEIGHT - HEADER_HEIGHT - 10;
+const PANEL_GAP = 10;
+const ROOT_PADDING = 10;
 
 export class CharacterBoardUI {
   readonly root = new Container();
 
   private readonly cardVisuals: InventoryCardVisual[] = [];
 
-  private readonly content = new Container();
+  private readonly scrollOffsetByGroup: Record<CardGroup, number> = {
+    actions: 0,
+    attributes: 0,
+    items: 0,
+    memories: 0,
+    people: 0,
+  };
 
-  private readonly contentMask = new Graphics();
+  private readonly contentHeightByGroup: Record<CardGroup, number> = {
+    actions: 0,
+    attributes: 0,
+    items: 0,
+    memories: 0,
+    people: 0,
+  };
 
-  private scrollOffset = 0;
-
-  private contentHeight = 0;
+  private readonly layouts: GroupPanelLayout[] = [];
 
   constructor(
     private readonly character: CharacterModel,
@@ -43,49 +63,69 @@ export class CharacterBoardUI {
 
   render(): void {
     this.root.removeChildren();
-    this.content.removeChildren();
     this.cardVisuals.length = 0;
+    this.layouts.length = 0;
+
+    const board = new Graphics();
+    board.roundRect(0, 0, this.boardWidth(), this.boardHeight(), 12).fill({ color: 0x0b1320, alpha: 0.85 }).stroke({
+      color: 0x2d4772,
+      width: 2,
+    });
+    this.root.addChild(board);
+
+    const title = new Text({
+      text: `Character: ${this.character.name}`,
+      style: { fill: '#dce9ff', fontSize: 14, fontWeight: '700' },
+    });
+    title.position.set(12, 8);
+    this.root.addChild(title);
+
+    let y = 32;
+    for (let i = 0; i < INVENTORY_GROUP_ORDER.length; i += 1) {
+      const group = INVENTORY_GROUP_ORDER[i];
+      const x = ROOT_PADDING + (i % 2) * (PANEL_WIDTH + PANEL_GAP);
+      const row = Math.floor(i / 2);
+      y = 32 + row * (PANEL_HEIGHT + PANEL_GAP);
+
+      const layout: GroupPanelLayout = {
+        group,
+        x,
+        y,
+        width: PANEL_WIDTH,
+        height: PANEL_HEIGHT,
+      };
+      this.layouts.push(layout);
+      this.renderGroupPanel(layout);
+    }
+  }
+
+  private renderGroupPanel(layout: GroupPanelLayout): void {
+    const { group, x, y, width, height } = layout;
 
     const panel = new Graphics();
-    panel.roundRect(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 12).fill({ color: 0x0f1725, alpha: 0.92 }).stroke({
-      color: 0x35507e,
+    panel.roundRect(x, y, width, height, 10).fill({ color: 0x10213a, alpha: 0.96 }).stroke({
+      color: 0x446ba6,
       width: 2,
     });
     this.root.addChild(panel);
 
-    const title = new Text({
-      text: `Character: ${this.character.name}`,
-      style: { fill: '#dce9ff', fontSize: 15, fontWeight: '700' },
-    });
-    title.position.set(12, 10);
-    this.root.addChild(title);
-
-    this.root.addChild(this.content);
-
-    this.contentMask.clear();
-    this.contentMask.rect(10, HEADER_HEIGHT, PANEL_WIDTH - 20, VIEWPORT_HEIGHT).fill({ color: 0xffffff, alpha: 1 });
-    this.root.addChild(this.contentMask);
-    this.content.mask = this.contentMask;
-
-    let y = HEADER_HEIGHT + 4;
-    for (const group of INVENTORY_GROUP_ORDER) {
-      y = this.renderGroup(group, y);
-    }
-
-    this.contentHeight = y - HEADER_HEIGHT;
-    this.applyScroll();
-  }
-
-  private renderGroup(group: CardGroup, yStart: number): number {
     const label = new Text({
       text: GROUP_LABEL[group],
       style: { fill: '#8cb4ff', fontSize: 12, fontWeight: '700' },
     });
-    label.position.set(12, yStart);
-    this.content.addChild(label);
+    label.position.set(x + 10, y + 7);
+    this.root.addChild(label);
 
-    let y = yStart + 20;
+    const content = new Container();
+    this.root.addChild(content);
+
+    const mask = new Graphics();
+    mask.rect(x + 6, y + HEADER_HEIGHT, width - 12, VIEWPORT_HEIGHT).fill({ color: 0xffffff, alpha: 1 });
+    this.root.addChild(mask);
+    content.mask = mask;
+
     const list = this.character.inventory[group];
+    let rowY = y + HEADER_HEIGHT + 4;
 
     for (const instance of list) {
       if (this.getCardState(instance.instanceId) !== 'in_inventory') {
@@ -98,49 +138,60 @@ export class CharacterBoardUI {
       }
 
       const bg = new Graphics();
-      bg.roundRect(12, y, PANEL_WIDTH - 24, 24, 6).fill({ color: this.colorForGroup(group), alpha: 0.95 }).stroke({
+      bg.roundRect(x + 8, rowY, width - 16, 24, 6).fill({ color: this.colorForGroup(group), alpha: 0.95 }).stroke({
         color: 0x1b2537,
         width: 1,
       });
-      this.content.addChild(bg);
+      content.addChild(bg);
 
       const text = new Text({
         text: card.name,
         style: { fill: '#0a1118', fontSize: 12, fontWeight: '700' },
       });
-      text.position.set(20, y + 4);
-      this.content.addChild(text);
+      text.position.set(x + 14, rowY + 4);
+      content.addChild(text);
 
       this.cardVisuals.push({
-        bounds: new Rectangle(this.root.position.x + 12, this.root.position.y + y, PANEL_WIDTH - 24, 24),
+        bounds: new Rectangle(x + 8, rowY, width - 16, 24),
         payload: { card, instance },
       });
 
-      y += 28;
+      rowY += 28;
     }
 
-    return y + 8;
+    this.contentHeightByGroup[group] = rowY - (y + HEADER_HEIGHT);
+    this.clampScroll(group);
+
+    const scrollOffset = this.scrollOffsetByGroup[group];
+    content.position.set(0, -scrollOffset);
   }
 
   handleWheel(globalX: number, globalY: number, deltaY: number): boolean {
-    if (!this.panelBounds().contains(globalX, globalY)) {
-      return false;
+    for (const layout of this.layouts) {
+      const panelBounds = new Rectangle(this.root.position.x + layout.x, this.root.position.y + layout.y, layout.width, layout.height);
+      if (!panelBounds.contains(globalX, globalY)) {
+        continue;
+      }
+
+      this.scrollOffsetByGroup[layout.group] += deltaY;
+      this.clampScroll(layout.group);
+      this.render();
+      return true;
     }
 
-    const maxScroll = Math.max(0, this.contentHeight - VIEWPORT_HEIGHT + 12);
-    this.scrollOffset = Math.max(0, Math.min(maxScroll, this.scrollOffset + deltaY));
-    this.applyScroll();
-    return true;
-  }
-
-  private applyScroll(): void {
-    this.content.position.set(0, -this.scrollOffset);
+    return false;
   }
 
   cardAtPoint(globalX: number, globalY: number): DragCardPayload | null {
     for (const visual of this.cardVisuals) {
-      const bounds = new Rectangle(visual.bounds.x, visual.bounds.y - this.scrollOffset, visual.bounds.width, visual.bounds.height);
-      if (bounds.contains(globalX, globalY)) {
+      const group = visual.payload.card.group;
+      const scrolledBounds = new Rectangle(
+        this.root.position.x + visual.bounds.x,
+        this.root.position.y + visual.bounds.y - this.scrollOffsetByGroup[group],
+        visual.bounds.width,
+        visual.bounds.height,
+      );
+      if (scrolledBounds.contains(globalX, globalY)) {
         return visual.payload;
       }
     }
@@ -153,7 +204,20 @@ export class CharacterBoardUI {
   }
 
   panelBounds(): Rectangle {
-    return new Rectangle(this.root.position.x, this.root.position.y, PANEL_WIDTH, PANEL_HEIGHT);
+    return new Rectangle(this.root.position.x, this.root.position.y, this.boardWidth(), this.boardHeight());
+  }
+
+  private clampScroll(group: CardGroup): void {
+    const maxScroll = Math.max(0, this.contentHeightByGroup[group] - VIEWPORT_HEIGHT + 8);
+    this.scrollOffsetByGroup[group] = Math.max(0, Math.min(maxScroll, this.scrollOffsetByGroup[group]));
+  }
+
+  private boardWidth(): number {
+    return ROOT_PADDING * 2 + PANEL_WIDTH * 2 + PANEL_GAP;
+  }
+
+  private boardHeight(): number {
+    return 32 + PANEL_HEIGHT * 3 + PANEL_GAP * 2 + ROOT_PADDING;
   }
 
   private colorForGroup(group: CardGroup): number {

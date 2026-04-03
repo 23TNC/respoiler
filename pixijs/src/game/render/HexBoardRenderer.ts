@@ -9,7 +9,7 @@ interface RenderContext {
 
 export interface RenderedTileActionBadge {
   verbLabel: string;
-  inputSummary: string;
+  inputCount: number;
   repeat: boolean;
   status: 'staged' | 'queued';
 }
@@ -29,6 +29,8 @@ export class HexBoardRenderer {
 
   private hoverTileKey: string | null = null;
 
+  private dropHoverTileKey: string | null = null;
+
   constructor(size = 42) {
     this.size = size;
 
@@ -41,6 +43,10 @@ export class HexBoardRenderer {
   }
 
   setDropHoverTile(tileKey: string | null): void {
+    this.dropHoverTileKey = tileKey;
+  }
+
+  setPointerHoverTile(tileKey: string | null): void {
     this.hoverTileKey = tileKey;
   }
 
@@ -51,7 +57,11 @@ export class HexBoardRenderer {
     stagedByTileId: Map<string, RenderedTileActionBadge> = new Map(),
   ): void {
     this.worldHexLayer.removeChildren();
+    this.worldOverlayLayer.removeChildren();
     this.stagedActionLayer.removeChildren();
+
+    const tileByKey = new Map<string, HexTile>();
+    const tileCenterByKey = new Map<string, { x: number; y: number }>();
 
     for (const tile of tiles) {
       const tileType = context.tileTypeById.get(tile.tileType);
@@ -65,8 +75,8 @@ export class HexBoardRenderer {
 
       const shape = new Graphics();
       shape.poly(this.hexPoints(this.size), true).fill(tileType.style.fillColor).stroke({
-        color: tile.selected ? '#fff6a0' : tileType.style.strokeColor,
-        width: tile.selected ? 4 : 2,
+        color: tileType.style.strokeColor,
+        width: 2,
       });
       shape.eventMode = 'static';
       shape.cursor = 'pointer';
@@ -83,34 +93,39 @@ export class HexBoardRenderer {
       tileLabel.anchor.set(0.5, 0.6);
       tileLabel.position.set(0, -4);
 
-      const hiddenText = new Text({
-        text: tile.hiddenPresenceCount > 0 ? `Hidden ${tile.hiddenPresenceCount}` : '',
-        style: {
-          fontSize: 9,
-          fill: '#ffd37e',
-          fontWeight: '700',
-        },
-      });
-      hiddenText.anchor.set(0.5, 0.5);
-      hiddenText.position.set(0, 12);
+      container.addChild(shape, tileLabel);
 
-      const tileKey = axialKey({ q: tile.q, r: tile.r });
-      if (this.hoverTileKey === tileKey) {
-        const hoverRing = new Graphics();
-        hoverRing.poly(this.hexPoints(this.size + 2), true).stroke({ color: 0x80f5b4, width: 3 });
-        container.addChild(hoverRing);
+      if (tile.hiddenPresenceCount > 0) {
+        const hiddenBadge = new Graphics();
+        hiddenBadge.roundRect(-21, 10, 42, 16, 8).fill({ color: 0x2d324a, alpha: 0.95 }).stroke({ color: 0xe3bd6a, width: 1 });
+
+        const hiddenText = new Text({
+          text: `? ${tile.hiddenPresenceCount}`,
+          style: {
+            fontSize: 9,
+            fill: '#ffd37e',
+            fontWeight: '700',
+          },
+        });
+        hiddenText.anchor.set(0.5, 0.5);
+        hiddenText.position.set(0, 18);
+
+        container.addChild(hiddenBadge, hiddenText);
       }
 
-      container.addChild(shape, tileLabel, hiddenText);
       this.worldHexLayer.addChild(container);
+
+      const tileKey = axialKey({ q: tile.q, r: tile.r });
+      tileByKey.set(tileKey, tile);
+      tileCenterByKey.set(tileKey, px);
 
       const staged = stagedByTileId.get(tile.id);
       if (staged) {
         const overlay = new Container();
-        overlay.position.set(px.x, px.y - this.size - 8);
+        overlay.position.set(px.x, px.y - this.size - 10);
 
         const bg = new Graphics();
-        bg.roundRect(-46, -18, 92, 38, 8).fill({ color: 0x0d1524, alpha: 0.96 }).stroke({
+        bg.roundRect(-48, -16, 96, 32, 8).fill({ color: 0x0d1524, alpha: 0.95 }).stroke({
           color: staged.status === 'queued' ? 0x71dc93 : 0xffcc66,
           width: 1,
         });
@@ -123,34 +138,45 @@ export class HexBoardRenderer {
             fontWeight: '700',
           },
         });
-        verbText.anchor.set(0.5, 0.5);
-        verbText.position.set(0, -9);
-
-        const inputsText = new Text({
-          text: staged.inputSummary || 'No Inputs',
-          style: {
-            fontSize: 9,
-            fill: '#d8e7ff',
-          },
-        });
-        inputsText.anchor.set(0.5, 0.5);
-        inputsText.position.set(0, 2);
+        verbText.anchor.set(0, 0.5);
+        verbText.position.set(-43, -5);
 
         const metaText = new Text({
-          text: `${staged.repeat ? 'R' : '-'} · ${staged.status}`,
+          text: `${staged.status === 'queued' ? 'Q' : 'S'} · ${staged.inputCount} · ${staged.repeat ? 'R' : '-'}`,
           style: {
             fontSize: 8,
             fill: staged.status === 'queued' ? '#9af3b1' : '#ffd999',
             fontWeight: '700',
           },
         });
-        metaText.anchor.set(0.5, 0.5);
-        metaText.position.set(0, 12);
+        metaText.anchor.set(0, 0.5);
+        metaText.position.set(-43, 8);
 
-        overlay.addChild(bg, verbText, inputsText, metaText);
+        overlay.addChild(bg, verbText, metaText);
         this.stagedActionLayer.addChild(overlay);
       }
     }
+
+    this.drawHighlight(tileCenterByKey.get(this.hoverTileKey ?? ''), 0x8cc7ff, this.size + 2, 2);
+    this.drawHighlight(tileCenterByKey.get(this.dropHoverTileKey ?? ''), 0x80f5b4, this.size + 4, 3);
+
+    for (const [tileKey, tile] of tileByKey.entries()) {
+      if (!tile.selected) {
+        continue;
+      }
+      this.drawHighlight(tileCenterByKey.get(tileKey), 0xfff6a0, this.size + 4, 4);
+    }
+  }
+
+  private drawHighlight(center: { x: number; y: number } | undefined, color: number, radius: number, width: number): void {
+    if (!center) {
+      return;
+    }
+
+    const ring = new Graphics();
+    ring.poly(this.hexPoints(radius), true).stroke({ color, width });
+    ring.position.set(center.x, center.y);
+    this.worldOverlayLayer.addChild(ring);
   }
 
   private hexPoints(radius: number): number[] {

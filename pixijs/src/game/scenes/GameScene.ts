@@ -5,7 +5,7 @@ import { loadSelectedCharacter } from '../../data/characters/loader';
 import { axialKey } from '../hex/coords';
 import { getCompatibilityHint, isCardCompatibleForVerb } from '../actions/compatibility';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
-import type { StagedTileAction } from '../actions/types';
+import type { QueuedAction, StagedTileAction } from '../actions/types';
 import type { CardDefinition, CardInstanceState } from '../cards/types';
 import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
@@ -64,7 +64,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   let selectedTileKey: string | null = null;
   const stagedByTileKey = new Map<string, StagedTileAction>();
-  const queuedActions: ReturnType<typeof toQueuedAction>[] = [];
+  const queuedActions: QueuedAction[] = [];
 
   let draggingPayload: DragCardPayload | null = null;
   const dragGhost = new Container();
@@ -72,14 +72,17 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   const getCardByInstanceId = (instanceId: string): CardDefinition | undefined => cardDefinitionByInstanceId.get(instanceId);
 
-  const releaseStagedCards = (staged: StagedTileAction): void => {
-    if (staged.status === 'queued') {
-      return;
-    }
-
-    cardStateByInstanceId.set(staged.verbCardInstanceId, 'in_inventory');
-    for (const inputId of staged.inputCardInstanceIds) {
+  const returnCardsToInventory = (action: Pick<StagedTileAction, 'verbCardInstanceId' | 'inputCardInstanceIds'>): void => {
+    cardStateByInstanceId.set(action.verbCardInstanceId, 'in_inventory');
+    for (const inputId of action.inputCardInstanceIds) {
       cardStateByInstanceId.set(inputId, 'in_inventory');
+    }
+  };
+
+  const removeQueuedActionForTile = (tileId: string): void => {
+    const index = queuedActions.findIndex((action) => action.tileId === tileId && action.characterId === selectedCharacter.id);
+    if (index >= 0) {
+      queuedActions.splice(index, 1);
     }
   };
 
@@ -88,7 +91,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (!existing) {
       return;
     }
-    releaseStagedCards(existing);
+
+    returnCardsToInventory(existing);
+    removeQueuedActionForTile(existing.tileId);
     stagedByTileKey.delete(tileKey);
   };
 
@@ -100,16 +105,28 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const stagedByTileId = new Map(
       Array.from(stagedByTileKey.values()).map((staged) => {
         const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name ?? staged.verbCardInstanceId;
-        const inputSummary = staged.inputCardInstanceIds.map((id) => getCardByInstanceId(id)?.name ?? id).join(', ');
-        return [staged.tileId, { verbLabel, inputSummary, repeat: staged.repeat, status: staged.status }] as const;
+        return [
+          staged.tileId,
+          {
+            verbLabel,
+            inputCount: staged.inputCardInstanceIds.length,
+            repeat: staged.repeat,
+            status: staged.status,
+          },
+        ] as const;
       }),
     );
 
-    boardRenderer.renderTiles(world.tiles.values(), staticData, (coord) => {
-      selectedTileKey = axialKey(coord);
-      stagedActionUI.setStagedAction(stagedByTileKey.get(selectedTileKey) ?? null);
-      render();
-    }, stagedByTileId);
+    boardRenderer.renderTiles(
+      world.tiles.values(),
+      staticData,
+      (coord) => {
+        selectedTileKey = axialKey(coord);
+        stagedActionUI.setStagedAction(stagedByTileKey.get(selectedTileKey) ?? null);
+        render();
+      },
+      stagedByTileId,
+    );
 
     stagedActionUI.setStagedAction(selectedTileKey ? (stagedByTileKey.get(selectedTileKey) ?? null) : null);
     characterBoard.render();
@@ -348,9 +365,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   app.stage.on('globalpointermove', (event) => {
     const { x, y } = event.global;
 
+    const hoverCoord = boardRenderer.tileAtPixel(x, y);
+    const hoverTileKey = axialKey(hoverCoord);
+    boardRenderer.setPointerHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
+
     if (draggingPayload?.card.group === 'actions') {
-      const hoverCoord = boardRenderer.tileAtPixel(x, y);
-      const hoverTileKey = axialKey(hoverCoord);
       boardRenderer.setDropHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
     }
 
@@ -359,6 +378,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     if (!draggingPayload) {
+      render();
       return;
     }
 
