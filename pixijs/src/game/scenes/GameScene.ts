@@ -107,6 +107,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         return [
           staged.tileId,
           {
+            verbId: getCardByInstanceId(staged.verbCardInstanceId)?.id ?? '',
             verbLabel,
             tileLabel: staticData.tileTypeById.get(world.tiles.get(staged.tileKey)?.tileType ?? '')?.name,
             stagedCardNames: staged.inputCardInstanceIds.map(
@@ -180,7 +181,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const clearDrag = (): void => {
     draggingPayload = null;
     boardRenderer.setDropHoverTile(null);
-    boardRenderer.clearPopupDropStates();
     stagedActionUI.setInputDropFeedback('none');
     dragGhost.removeChildren();
     render();
@@ -264,18 +264,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     let targetTileKey: string | null = null;
     if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
       targetTileKey = selectedTileKey;
-    } else {
-      const popupTileKey = boardRenderer.popupTileKeyAtGlobal(x, y);
-      if (popupTileKey) {
-        targetTileKey = popupTileKey;
-      }
     }
 
     if (!targetTileKey) {
       const coord = boardRenderer.tileAtPixel(x, y);
       const hoveredTileKey = axialKey(coord);
       const tile = world.tiles.get(hoveredTileKey);
-      if (tile && tile.activeVerbs.length > 0 && stagedByTileKey.has(hoveredTileKey)) {
+      if (tile && stagedByTileKey.has(hoveredTileKey)) {
         targetTileKey = hoveredTileKey;
       }
     }
@@ -301,22 +296,29 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const updateDragFeedback = (payload: DragCardPayload, x: number, y: number): void => {
-    boardRenderer.clearPopupDropStates();
+    boardRenderer.setDropHoverTile(null);
     stagedActionUI.setInputDropFeedback('none');
 
-    if (payload.card.group === 'actions') {
-      return;
-    }
+    const hoverCoord = boardRenderer.tileAtPixel(x, y);
+    const hoverTileKey = axialKey(hoverCoord);
+    const hasStagedAction = stagedByTileKey.has(hoverTileKey);
 
-    const popupTileKey = boardRenderer.popupTileKeyAtGlobal(x, y);
-    if (popupTileKey) {
-      const popupFeedback = getInputDropFeedback(payload, popupTileKey);
-      boardRenderer.setPopupDropState(popupTileKey, popupFeedback.state);
+    if (payload.card.group === 'actions') {
+      boardRenderer.setDropHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
+      return;
     }
 
     if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
       const stagedFeedback = getInputDropFeedback(payload, selectedTileKey);
       stagedActionUI.setInputDropFeedback(stagedFeedback.state);
+      return;
+    }
+
+    if (hasStagedAction) {
+      const stagedFeedback = getInputDropFeedback(payload, hoverTileKey);
+      if (stagedFeedback.state === 'valid') {
+        boardRenderer.setDropHoverTile(hoverTileKey);
+      }
     }
   };
 
@@ -447,10 +449,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const hoverCoord = boardRenderer.tileAtPixel(x, y);
     const hoverTileKey = axialKey(hoverCoord);
     boardRenderer.setPointerHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
-
-    if (draggingPayload?.card.group === 'actions') {
-      boardRenderer.setDropHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
-    }
 
     if (!draggingPayload) {
       render();
