@@ -1,4 +1,4 @@
-import { Container, Graphics, Rectangle, Text } from 'pixi.js';
+import { Container, Graphics, Point, Polygon, Text } from 'pixi.js';
 import { axialKey, axialToPixel, pixelToAxial } from '../hex/coords';
 import type { AxialCoord } from '../hex/coords';
 import type { HexTile, TileTypeDefinition } from '../world/types';
@@ -9,7 +9,7 @@ interface RenderContext {
 
 export interface RenderedTileActionBadge {
   verbLabel: string;
-  inputCount: number;
+  stagedCardNames: string[];
   repeat: boolean;
   status: 'staged' | 'queued';
 }
@@ -72,12 +72,12 @@ export class HexBoardRenderer {
       const container = new Container();
       const px = axialToPixel({ q: tile.q, r: tile.r }, this.size);
       container.position.set(px.x, px.y);
-      container.eventMode = 'static';
-      container.cursor = 'pointer';
-      container.hitArea = new Rectangle(-this.size, -this.size - 20, this.size * 2, this.size * 2 + 48);
-      container.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
 
       const shape = new Graphics();
+      shape.eventMode = 'static';
+      shape.cursor = 'pointer';
+      shape.hitArea = new Polygon(this.hexPoints(this.size));
+      shape.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
       shape.poly(this.hexPoints(this.size), true).fill(tileType.style.fillColor).stroke({
         color: tileType.style.strokeColor,
         width: 2,
@@ -143,7 +143,7 @@ export class HexBoardRenderer {
         verbText.position.set(-43, -5);
 
         const metaText = new Text({
-          text: `${staged.status === 'queued' ? 'Q' : 'S'} · ${staged.inputCount} · ${staged.repeat ? 'R' : '-'}`,
+          text: `${staged.status === 'queued' ? 'Q' : 'S'} · ${staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None'} · ${staged.repeat ? 'R' : '-'}`,
           style: {
             fontSize: 8,
             fill: staged.status === 'queued' ? '#9af3b1' : '#ffd999',
@@ -194,9 +194,8 @@ export class HexBoardRenderer {
   }
 
   tileAtPixel(localX: number, localY: number): AxialCoord {
-    const translatedX = localX - this.root.position.x;
-    const translatedY = localY - this.root.position.y;
-    return pixelToAxial(translatedX, translatedY, this.size);
+    const localPoint = this.root.toLocal(new Point(localX, localY));
+    return pixelToAxial(localPoint.x, localPoint.y, this.size);
   }
 
   tileKey(coord: AxialCoord): string {

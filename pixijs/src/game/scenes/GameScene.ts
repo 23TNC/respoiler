@@ -107,7 +107,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
           staged.tileId,
           {
             verbLabel,
-            inputCount: staged.inputCardInstanceIds.length,
+            stagedCardNames: staged.inputCardInstanceIds.map(
+              (instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId,
+            ),
             repeat: staged.repeat,
             status: staged.status,
           },
@@ -427,20 +429,21 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   });
 
   const layoutUi = (): void => {
+    app.stage.hitArea = app.screen;
     const boardSize = characterBoard.size();
     const characterBoardX = Math.max(16, (app.screen.width - boardSize.width) * 0.5);
     const characterBoardY = app.screen.height - boardSize.height - 16;
     characterBoard.setPosition(characterBoardX, characterBoardY);
 
     stagedActionUI.setPosition(app.screen.width - 376, app.screen.height - 356);
-    const boardCenterY = Math.max(180, (characterBoardY - 40) * 0.5);
-    boardRenderer.centerOn(app.screen.width, boardCenterY);
+    const boardViewportHeight = Math.max(220, characterBoardY - 40);
+    boardRenderer.centerOn(app.screen.width, boardViewportHeight);
   };
 
   layoutUi();
   render();
 
-  window.addEventListener('resize', () => {
+  app.renderer.on('resize', () => {
     layoutUi();
     render();
   });
