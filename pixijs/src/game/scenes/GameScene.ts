@@ -12,6 +12,7 @@ import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
 import type { DragCardPayload } from '../ui/dragTypes';
 import { StagedActionUI } from '../ui/StagedActionUI';
+import { uiSoundEffects } from '../ui/soundEffects';
 import { generateMockWorld } from '../world/mockWorld';
 
 export async function startGameScene(container: HTMLElement): Promise<void> {
@@ -154,6 +155,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
   };
 
+
+  const shouldPlayCardPickupSound = (payload: DragCardPayload): boolean => (
+    payload.card.group === 'actions'
+      || payload.card.group === 'attributes'
+      || payload.card.group === 'items'
+      || payload.card.group === 'memories'
+      || payload.card.group === 'people'
+  );
+
   const updateGhost = (x: number, y: number): void => {
     dragGhost.removeChildren();
     if (!draggingPayload) {
@@ -176,6 +186,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     draggingPayload = payload;
     updateGhost(x, y);
+    if (shouldPlayCardPickupSound(payload)) {
+      uiSoundEffects.play('cardUp');
+    }
   };
 
   const clearDrag = (): void => {
@@ -519,6 +532,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     if (!stagedVerb && !stagedInput) {
       setDragRejection('Invalid drop target.');
+    }
+
+    if (stagedVerb || stagedInput) {
+      uiSoundEffects.play('cardDown');
     }
 
     clearDrag();
