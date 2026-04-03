@@ -114,42 +114,43 @@ export class StagedActionUI {
     this.root.addChild(dropZone);
     this.inputDropBounds = new Rectangle(this.root.position.x + 12, this.root.position.y + dropZoneY, 296, 104);
 
-    const summary = this.staged.inputCardInstanceIds
-      .map((id) => this.getCardByInstanceId(id)?.name ?? this.cardsById.get(id)?.name ?? id)
-      .join(', ');
-
     const slotText = new Text({
-      text: summary || 'Drop compatible cards here',
-      style: { fill: '#d5e5ff', fontSize: 12, wordWrap: true, wordWrapWidth: 280 },
+      text: this.staged.inputCardInstanceIds.length > 0 ? 'Staged inputs' : 'Drop compatible cards here',
+      style: { fill: '#d5e5ff', fontSize: 12 },
     });
     slotText.position.set(18, dropZoneY + 8);
     this.root.addChild(slotText);
 
     let chipX = 18;
-    let chipY = dropZoneY + 52;
+    let chipY = dropZoneY + 32;
     for (let index = 0; index < this.staged.inputCardInstanceIds.length; index += 1) {
       const instanceId = this.staged.inputCardInstanceIds[index];
-      const cardName = this.getCardByInstanceId(instanceId)?.name ?? instanceId;
-      const chipWidth = Math.min(94, Math.max(54, cardName.length * 6 + 18));
+      const cardName = this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(instanceId)?.name ?? instanceId;
+      const chipTextWidth = Math.max(32, cardName.length * 6);
+      const chipWidth = Math.min(132, chipTextWidth + 26);
       if (chipX + chipWidth > 302) {
         chipX = 18;
-        chipY += 22;
+        chipY += 24;
       }
 
       const chip = new Graphics();
-      chip.roundRect(chipX, chipY, chipWidth, 18, 9).fill({ color: 0x2a3e5f }).stroke({ color: 0x7ba9ef, width: 1 });
+      chip.roundRect(chipX, chipY, chipWidth, 20, 10).fill({ color: 0x2a3e5f }).stroke({ color: 0x7ba9ef, width: 1 });
       this.root.addChild(chip);
 
-      const chipText = new Text({ text: `${cardName} ×`, style: { fill: '#e8f1ff', fontSize: 10 } });
-      chipText.position.set(chipX + 6, chipY + 3);
+      const chipText = new Text({ text: cardName, style: { fill: '#e8f1ff', fontSize: 10, fontWeight: '700' } });
+      chipText.position.set(chipX + 7, chipY + 4);
       this.root.addChild(chipText);
+
+      const closeText = new Text({ text: '×', style: { fill: '#d6ebff', fontSize: 11, fontWeight: '700' } });
+      closeText.position.set(chipX + chipWidth - 12, chipY + 3);
+      this.root.addChild(closeText);
 
       this.tokenAreas.push({
         index,
-        bounds: new Rectangle(this.root.position.x + chipX, this.root.position.y + chipY, chipWidth, 18),
+        bounds: new Rectangle(this.root.position.x + chipX, this.root.position.y + chipY, chipWidth, 20),
       });
 
-      chipX += chipWidth + 6;
+      chipX += chipWidth + 8;
     }
 
     const repeatBtn = new Graphics();
