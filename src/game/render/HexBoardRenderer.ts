@@ -8,6 +8,11 @@ interface RenderContext {
   verbById: Map<string, VerbDefinition>;
 }
 
+interface StagedActionBadge {
+  verbId: string;
+  status: 'staged' | 'queued';
+}
+
 export class HexBoardRenderer {
   readonly root = new Container();
 
@@ -21,6 +26,7 @@ export class HexBoardRenderer {
     tiles: Iterable<HexTile>,
     context: RenderContext,
     onTileSelected: (coord: AxialCoord) => void,
+    stagedByTileId: Map<string, StagedActionBadge> = new Map(),
   ): void {
     this.root.removeChildren();
 
@@ -89,6 +95,30 @@ export class HexBoardRenderer {
       verbText.position.set(0, this.size * 0.35);
 
       container.addChild(shape, nameText, sideText, hiddenText, verbText);
+
+      const staged = stagedByTileId.get(tile.id);
+      if (staged) {
+        const stagedVerb = context.verbById.get(staged.verbId)?.name ?? staged.verbId;
+        const badge = new Graphics();
+        badge.roundRect(-this.size * 0.58, -this.size * 1.16, this.size * 1.16, 16, 5).fill({
+          color: staged.status === 'queued' ? 0x6ac98f : 0xffcc66,
+          alpha: 1,
+        });
+
+        const stagedText = new Text({
+          text: `${stagedVerb} • ${staged.status}`,
+          style: {
+            fontSize: 8,
+            fill: '#11151c',
+            fontWeight: '700',
+          },
+        });
+        stagedText.anchor.set(0.5, 0.5);
+        stagedText.position.set(0, -this.size * 1.02);
+
+        container.addChild(badge, stagedText);
+      }
+
       this.root.addChild(container);
     }
   }
