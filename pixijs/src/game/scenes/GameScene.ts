@@ -179,8 +179,36 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     draggingPayload = null;
     boardRenderer.setDropHoverTile(null);
     stagedActionUI.setInputDropHighlight(false);
+    stagedActionUI.setPopupDragHover('none');
     dragGhost.removeChildren();
     render();
+  };
+
+  const getInputDropTarget = (x: number, y: number): string | null => {
+    if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
+      return selectedTileKey;
+    }
+
+    const coord = boardRenderer.tileAtPixel(x, y);
+    const hoveredTileKey = axialKey(coord);
+    const tile = world.tiles.get(hoveredTileKey);
+    if (tile && tile.activeVerbs.length > 0 && stagedByTileKey.has(hoveredTileKey)) {
+      return hoveredTileKey;
+    }
+
+    return null;
+  };
+
+  const getInputCompatibility = (payload: DragCardPayload, tileKey: string | null): boolean => {
+    if (!tileKey) {
+      return false;
+    }
+    const staged = stagedByTileKey.get(tileKey);
+    if (!staged) {
+      return false;
+    }
+    const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
+    return Boolean(verbCard && isCardCompatibleForVerb(verbCard.id, payload.card));
   };
 
   const stageVerbOnTile = (payload: DragCardPayload, x: number, y: number): boolean => {
@@ -238,17 +266,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return false;
     }
 
-    let targetTileKey: string | null = null;
-    if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
-      targetTileKey = selectedTileKey;
-    } else {
-      const coord = boardRenderer.tileAtPixel(x, y);
-      const hoveredTileKey = axialKey(coord);
-      const tile = world.tiles.get(hoveredTileKey);
-      if (tile && tile.activeVerbs.length > 0 && stagedByTileKey.has(hoveredTileKey)) {
-        targetTileKey = hoveredTileKey;
-      }
-    }
+    const targetTileKey = getInputDropTarget(x, y);
 
     if (!targetTileKey) {
       return false;
@@ -396,7 +414,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     if (draggingPayload && draggingPayload.card.group !== 'actions') {
-      stagedActionUI.setInputDropHighlight(stagedActionUI.isPointInInputDrop(x, y));
+      const targetTileKey = getInputDropTarget(x, y);
+      const compatible = getInputCompatibility(draggingPayload, targetTileKey);
+      stagedActionUI.setInputDropHighlight(stagedActionUI.isPointInInputDrop(x, y), compatible);
+
+      const popupHovered = stagedActionUI.isPointInPanel(x, y);
+      stagedActionUI.setPopupDragHover(popupHovered ? (compatible ? 'compatible' : 'incompatible') : 'none');
     }
 
     if (!draggingPayload) {
@@ -435,16 +458,36 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const characterBoardY = app.screen.height - boardSize.height - 16;
     characterBoard.setPosition(characterBoardX, characterBoardY);
 
-    stagedActionUI.setPosition(app.screen.width - 376, app.screen.height - 356);
     const boardViewportHeight = Math.max(220, characterBoardY - 40);
     boardRenderer.centerOn(app.screen.width, boardViewportHeight);
   };
 
+  const layoutSelectedTilePopup = (): void => {
+    if (!selectedTileKey) {
+      return;
+    }
+    const selectedCoord = world.tiles.get(selectedTileKey);
+    if (!selectedCoord) {
+      return;
+    }
+    const selectedCenterGlobal = boardRenderer.tileCenterGlobal({ q: selectedCoord.q, r: selectedCoord.r });
+    stagedActionUI.setPositionFromTopCenter(selectedCenterGlobal.x, selectedCenterGlobal.y + 8);
+  };
+
+  const renderWithLayout = (): void => {
+    layoutSelectedTilePopup();
+    render();
+  };
+
   layoutUi();
-  render();
+  renderWithLayout();
 
   app.renderer.on('resize', () => {
     layoutUi();
-    render();
+    renderWithLayout();
+  });
+
+  app.ticker.add(() => {
+    layoutSelectedTilePopup();
   });
 }

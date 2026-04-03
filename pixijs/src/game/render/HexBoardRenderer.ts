@@ -91,8 +91,8 @@ export class HexBoardRenderer {
           fontWeight: '700',
         },
       });
-      tileLabel.anchor.set(0.5, 0.6);
-      tileLabel.position.set(0, -4);
+      tileLabel.anchor.set(0.5, 0);
+      tileLabel.position.set(0, 0);
 
       container.addChild(shape, tileLabel);
 
@@ -200,5 +200,10 @@ export class HexBoardRenderer {
 
   tileKey(coord: AxialCoord): string {
     return axialKey(coord);
+  }
+
+  tileCenterGlobal(coord: AxialCoord): Point {
+    const local = axialToPixel(coord, this.size);
+    return this.root.toGlobal(new Point(local.x, local.y));
   }
 }

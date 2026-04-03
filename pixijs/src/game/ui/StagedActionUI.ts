@@ -19,6 +19,10 @@ export interface SelectedTileDetails {
 export class StagedActionUI {
   readonly root = new Container();
 
+  static readonly PANEL_WIDTH = 360;
+
+  static readonly PANEL_HEIGHT = 340;
+
   private selectedTile: SelectedTileDetails | null = null;
 
   private readonly cardsById: Map<string, CardDefinition>;
@@ -37,6 +41,12 @@ export class StagedActionUI {
 
   private inputDropHighlight = false;
 
+  private inputDropCompatible = true;
+
+  private popupDragHover: 'none' | 'compatible' | 'incompatible' = 'none';
+
+  private panelBounds: Rectangle | null = null;
+
   constructor(
     cardsById: Map<string, CardDefinition>,
     getCardByInstanceId: (instanceId: string) => CardDefinition | undefined,
@@ -50,11 +60,29 @@ export class StagedActionUI {
     this.render();
   }
 
-  setInputDropHighlight(active: boolean): void {
-    if (this.inputDropHighlight === active) {
+  setInputDropHighlight(active: boolean, compatible = true): void {
+    if (this.inputDropHighlight === active && this.inputDropCompatible === compatible) {
       return;
     }
     this.inputDropHighlight = active;
+    this.inputDropCompatible = compatible;
+    this.render();
+  }
+
+  setPopupDragHover(state: 'none' | 'compatible' | 'incompatible'): void {
+    if (this.popupDragHover === state) {
+      return;
+    }
+    this.popupDragHover = state;
+    this.render();
+  }
+
+  isPointInPanel(globalX: number, globalY: number): boolean {
+    return this.panelBounds?.contains(globalX, globalY) ?? false;
+  }
+
+  setPositionFromTopCenter(topCenterX: number, topY: number): void {
+    this.root.position.set(topCenterX - StagedActionUI.PANEL_WIDTH / 2, topY);
     this.render();
   }
 
@@ -80,6 +108,7 @@ export class StagedActionUI {
     this.startBounds = null;
     this.repeatBounds = null;
     this.inputDropBounds = null;
+    this.panelBounds = null;
     this.clearBounds = null;
     this.tokenAreas = [];
 
@@ -90,20 +119,31 @@ export class StagedActionUI {
     const { tile, tileType, availableVerbs, stagedAction } = this.selectedTile;
 
     const panel = new Graphics();
-    panel.roundRect(0, 0, 360, 340, 12).fill({ color: 0x0f1725, alpha: 0.92 }).stroke({
-      color: 0x35507e,
-      width: 2,
+    const panelStrokeColor =
+      this.popupDragHover === 'compatible' ? 0x80f5b4 : this.popupDragHover === 'incompatible' ? 0xe28a8a : 0x35507e;
+    const panelStrokeWidth = this.popupDragHover === 'none' ? 2 : 3;
+    panel.roundRect(0, 0, StagedActionUI.PANEL_WIDTH, StagedActionUI.PANEL_HEIGHT, 12).fill({
+      color: 0x0f1725,
+      alpha: 0.92,
+    }).stroke({
+      color: panelStrokeColor,
+      width: panelStrokeWidth,
     });
     this.root.addChild(panel);
+    this.panelBounds = new Rectangle(this.root.position.x, this.root.position.y, StagedActionUI.PANEL_WIDTH, StagedActionUI.PANEL_HEIGHT);
+
+    const tileName = tileType?.name ?? tile.tileType;
+    const stagedVerbTitle = stagedAction ? (this.getCardByInstanceId(stagedAction.verbCardInstanceId)?.name ?? stagedAction.verbCardInstanceId) : null;
+    const titleText = stagedVerbTitle ? `${stagedVerbTitle} (${tileName})` : 'Selected Tile Details';
 
     const title = new Text({
-      text: 'Selected Tile Details',
+      text: titleText,
       style: { fill: '#dce9ff', fontSize: 15, fontWeight: '700' },
     });
     title.position.set(12, 10);
     this.root.addChild(title);
 
-    const tileTypeName = tileType?.name ?? tile.tileType;
+    const tileTypeName = tileName;
     const tileTitle = new Text({
       text: `${tileTypeName} (${tile.q}, ${tile.r})`,
       style: { fill: '#f6e9c5', fontSize: 13, fontWeight: '700' },
@@ -176,7 +216,7 @@ export class StagedActionUI {
     const dropZoneY = 188;
     const dropZone = new Graphics();
     dropZone.roundRect(12, dropZoneY, 336, 104, 8).fill({ color: 0x192235, alpha: 1 }).stroke({
-      color: this.inputDropHighlight ? 0x80f5b4 : 0x49618b,
+      color: !this.inputDropHighlight ? 0x49618b : this.inputDropCompatible ? 0x80f5b4 : 0xe28a8a,
       width: this.inputDropHighlight ? 2 : 1,
     });
     this.root.addChild(dropZone);
