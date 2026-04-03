@@ -14,7 +14,7 @@
         ],
         "effects": [
           { "type": "tile", "id": "trees", "op": "le", "value": 7 },
-          { "type": "aspect", "id": "fatigue", "op": "ge", "value": 60 }
+          { "type": "aspect", "id": "time", "op": "ge", "value": 60 }
         ]
       },
       {
@@ -26,7 +26,7 @@
         ],
         "effects": [
           { "type": "tile", "id": "food", "op": "le", "value": 3 },
-          { "type": "aspect", "id": "fatigue", "op": "ge", "value": 60 }
+          { "type": "aspect", "id": "time", "op": "ge", "value": 60 }
         ]
       }
     ]
