@@ -12,6 +12,7 @@ import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
 import type { DragCardPayload } from '../ui/dragTypes';
 import { StagedActionUI } from '../ui/StagedActionUI';
+import { uiSoundEffects } from '../ui/soundEffects';
 import { generateMockWorld } from '../world/mockWorld';
 
 export async function startGameScene(container: HTMLElement): Promise<void> {
@@ -66,8 +67,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const queuedActions: QueuedAction[] = [];
 
   let draggingPayload: DragCardPayload | null = null;
+  let pendingDrag: { payload: DragCardPayload; startX: number; startY: number } | null = null;
   const dragGhost = new Container();
   dragPreviewLayer.addChild(dragGhost);
+  const DRAG_START_DISTANCE_PX = 6;
 
   const getCardByInstanceId = (instanceId: string): CardDefinition | undefined => cardDefinitionByInstanceId.get(instanceId);
 
@@ -154,6 +157,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
   };
 
+
+  const shouldPlayCardPickupSound = (payload: DragCardPayload): boolean => (
+    payload.card.group === 'actions'
+      || payload.card.group === 'attributes'
+      || payload.card.group === 'items'
+      || payload.card.group === 'memories'
+      || payload.card.group === 'people'
+  );
+
   const updateGhost = (x: number, y: number): void => {
     dragGhost.removeChildren();
     if (!draggingPayload) {
@@ -170,15 +182,23 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const beginDrag = (payload: DragCardPayload, x: number, y: number): void => {
+    if (draggingPayload) {
+      return;
+    }
+
     if ((cardStateByInstanceId.get(payload.instance.instanceId) ?? 'in_inventory') !== 'in_inventory') {
       return;
     }
 
     draggingPayload = payload;
     updateGhost(x, y);
+    if (shouldPlayCardPickupSound(payload)) {
+      uiSoundEffects.play('cardUp');
+    }
   };
 
   const clearDrag = (): void => {
+    pendingDrag = null;
     draggingPayload = null;
     boardRenderer.setDropHoverTile(null);
     stagedActionUI.setInputDropFeedback('none');
@@ -486,9 +506,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const payload = characterBoard.cardAtPoint(x, y);
-    if (payload) {
-      beginDrag(payload, x, y);
-    }
+    pendingDrag = payload ? { payload, startX: x, startY: y } : null;
   });
 
   app.stage.on('globalpointermove', (event) => {
@@ -497,6 +515,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const hoverCoord = boardRenderer.tileAtPixel(x, y);
     const hoverTileKey = axialKey(hoverCoord);
     boardRenderer.setPointerHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
+
+    if (!draggingPayload && pendingDrag) {
+      const dx = x - pendingDrag.startX;
+      const dy = y - pendingDrag.startY;
+      if (Math.hypot(dx, dy) >= DRAG_START_DISTANCE_PX) {
+        beginDrag(pendingDrag.payload, x, y);
+        pendingDrag = null;
+      }
+    }
 
     if (!draggingPayload) {
       render();
@@ -510,6 +537,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   app.stage.on('pointerup', (event) => {
     if (!draggingPayload) {
+      pendingDrag = null;
       return;
     }
 
@@ -519,6 +547,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     if (!stagedVerb && !stagedInput) {
       setDragRejection('Invalid drop target.');
+    }
+
+    if (stagedVerb || stagedInput) {
+      uiSoundEffects.play('cardDown');
     }
 
     clearDrag();
