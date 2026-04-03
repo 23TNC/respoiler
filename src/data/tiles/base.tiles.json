@@ -1,0 +1,67 @@
+[
+  {
+    "id": "campfire",
+    "name": "Campfire",
+    "style": {
+      "fillColor": "#d97b29",
+      "strokeColor": "#ffb067",
+      "labelColor": "#1f1308"
+    },
+    "defaultProperties": {
+      "moveCost": 1,
+      "blocksSight": false
+    }
+  },
+  {
+    "id": "plains",
+    "name": "Plains",
+    "style": {
+      "fillColor": "#85b567",
+      "strokeColor": "#a6d688",
+      "labelColor": "#15240f"
+    },
+    "defaultProperties": {
+      "moveCost": 1,
+      "blocksSight": false
+    }
+  },
+  {
+    "id": "forest",
+    "name": "Forest",
+    "style": {
+      "fillColor": "#4d7b4d",
+      "strokeColor": "#7fb377",
+      "labelColor": "#0b160b"
+    },
+    "defaultProperties": {
+      "moveCost": 2,
+      "blocksSight": true
+    }
+  },
+  {
+    "id": "water",
+    "name": "Water",
+    "style": {
+      "fillColor": "#3a6996",
+      "strokeColor": "#66a0d9",
+      "labelColor": "#061421"
+    },
+    "defaultProperties": {
+      "moveCost": 99,
+      "blocksSight": false
+    }
+  },
+  {
+    "id": "ruins",
+    "name": "Ruins",
+    "style": {
+      "fillColor": "#8a7d70",
+      "strokeColor": "#c8b8a6",
+      "labelColor": "#1c1814"
+    },
+    "defaultProperties": {
+      "moveCost": 2,
+      "blocksSight": false
+    }
+  }
+]
