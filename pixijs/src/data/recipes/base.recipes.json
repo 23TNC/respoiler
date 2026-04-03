@@ -1,0 +1,34 @@
+[
+  {
+    "inputs": {
+      "tile": "Forest",
+      "action": "Work",
+      "aspect": "Health"
+    },
+    "outputs": [
+      {
+        "id": "Log",
+        "amount": 3,
+        "conditions": [
+          { "type": "tile", "id": "trees", "op": "ge", "value": 10 }
+        ],
+        "effects": [
+          { "type": "tile", "id": "trees", "op": "le", "value": 7 },
+          { "type": "aspect", "id": "fatigue", "op": "ge", "value": 60 }
+        ]
+      },
+      {
+        "id": "Food",
+        "amount": 2,
+        "conditions": [
+          { "type": "tile", "id": "food", "op": "ge", "value": 5 },
+          { "type": "random", "op": "lt", "value": 0.4 }
+        ],
+        "effects": [
+          { "type": "tile", "id": "food", "op": "le", "value": 3 },
+          { "type": "aspect", "id": "fatigue", "op": "ge", "value": 60 }
+        ]
+      }
+    ]
+  }
+]
