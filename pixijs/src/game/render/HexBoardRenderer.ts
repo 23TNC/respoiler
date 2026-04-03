@@ -8,6 +8,7 @@ interface RenderContext {
 }
 
 export interface RenderedTileActionBadge {
+  verbId: string;
   verbLabel: string;
   tileLabel?: string;
   stagedCardNames: string[];
@@ -34,10 +35,6 @@ export class HexBoardRenderer {
 
   private dropHoverTileKey: string | null = null;
 
-  private readonly popupBoundsByTileKey = new Map<string, { x: number; y: number; width: number; height: number }>();
-
-  private readonly popupDropStateByTileKey = new Map<string, DropFeedbackState>();
-
   constructor(size = 42) {
     this.size = size;
 
@@ -57,36 +54,6 @@ export class HexBoardRenderer {
     this.hoverTileKey = tileKey;
   }
 
-  setPopupDropState(tileKey: string | null, state: DropFeedbackState): void {
-    if (!tileKey || state === 'none') {
-      if (tileKey) {
-        this.popupDropStateByTileKey.delete(tileKey);
-      }
-      return;
-    }
-
-    this.popupDropStateByTileKey.set(tileKey, state);
-  }
-
-  clearPopupDropStates(): void {
-    this.popupDropStateByTileKey.clear();
-  }
-
-  popupTileKeyAtGlobal(globalX: number, globalY: number): string | null {
-    for (const [tileKey, bounds] of this.popupBoundsByTileKey.entries()) {
-      if (
-        globalX >= bounds.x
-        && globalX <= bounds.x + bounds.width
-        && globalY >= bounds.y
-        && globalY <= bounds.y + bounds.height
-      ) {
-        return tileKey;
-      }
-    }
-
-    return null;
-  }
-
   renderTiles(
     tiles: Iterable<HexTile>,
     context: RenderContext,
@@ -96,7 +63,6 @@ export class HexBoardRenderer {
     this.worldHexLayer.removeChildren();
     this.worldOverlayLayer.removeChildren();
     this.stagedActionLayer.removeChildren();
-    this.popupBoundsByTileKey.clear();
 
     const tileByKey = new Map<string, HexTile>();
     const tileCenterByKey = new Map<string, { x: number; y: number }>();
@@ -121,36 +87,61 @@ export class HexBoardRenderer {
         width: 2,
       });
 
-      const tileLabel = new Text({
-        text: tileType.name,
-        style: {
-          fontSize: 12,
-          fill: tileType.style.labelColor,
-          fontWeight: '700',
-        },
-      });
-      tileLabel.anchor.set(0.5, 0);
-      tileLabel.position.set(0, 0);
+      const staged = stagedByTileId.get(tile.id);
+      const textBlock = new Container();
+      textBlock.position.set(0, 0);
 
-      container.addChild(shape, tileLabel);
+      const titleText = new Text(staged?.tileLabel ? `${staged.verbLabel} (${staged.tileLabel})` : tileType.name, {
+        fontSize: 12,
+        fill: staged ? this.colorForVerb(staged.verbId) : tileType.style.labelColor,
+        fontWeight: '700',
+      });
+      titleText.anchor.set(0.5, 0);
+      titleText.position.set(0, 0);
+      textBlock.addChild(titleText);
+
+      let lineY = titleText.height + 1;
+      if (staged) {
+        const metaText = new Text(`${staged.status === 'queued' ? 'Q' : 'S'} · ${staged.repeat ? 'R' : '-'}`, {
+          fontSize: 9,
+          fill: '#e7d2a0',
+          fontWeight: '700',
+        });
+        metaText.anchor.set(0.5, 0);
+        metaText.position.set(0, lineY);
+        textBlock.addChild(metaText);
+        lineY += metaText.height + 1;
+
+        const stagedCardsText = new Text(`Cards: ${staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None'}`, {
+          fontSize: 9,
+          fill: '#d4ddf0',
+          fontWeight: '600',
+        });
+        stagedCardsText.anchor.set(0.5, 0);
+        stagedCardsText.position.set(0, lineY);
+        textBlock.addChild(stagedCardsText);
+        lineY += stagedCardsText.height + 1;
+      }
 
       if (tile.hiddenPresenceCount > 0) {
-        const hiddenBadge = new Graphics();
-        hiddenBadge.roundRect(-21, 10, 42, 16, 8).fill({ color: 0x2d324a, alpha: 0.95 }).stroke({ color: 0xe3bd6a, width: 1 });
-
-        const hiddenText = new Text({
-          text: `? ${tile.hiddenPresenceCount}`,
-          style: {
-            fontSize: 9,
-            fill: '#ffd37e',
-            fontWeight: '700',
-          },
+        const hiddenText = new Text(`Hidden: ${tile.hiddenPresenceCount}`, {
+          fontSize: 9,
+          fill: '#ffd37e',
+          fontWeight: '600',
         });
-        hiddenText.anchor.set(0.5, 0.5);
-        hiddenText.position.set(0, 18);
-
-        container.addChild(hiddenBadge, hiddenText);
+        hiddenText.anchor.set(0.5, 0);
+        hiddenText.position.set(0, lineY);
+        textBlock.addChild(hiddenText);
       }
+
+      const blockHeight = Math.max(12, textBlock.height);
+      const hitProxy = new Graphics();
+      hitProxy.eventMode = 'static';
+      hitProxy.cursor = 'pointer';
+      hitProxy.hitArea = new Polygon([-58, -2, 58, -2, 58, blockHeight + 2, -58, blockHeight + 2]);
+      hitProxy.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
+
+      container.addChild(shape, textBlock, hitProxy);
 
       this.worldHexLayer.addChild(container);
 
@@ -158,60 +149,6 @@ export class HexBoardRenderer {
       tileByKey.set(tileKey, tile);
       tileCenterByKey.set(tileKey, px);
 
-      const staged = stagedByTileId.get(tile.id);
-      if (staged) {
-        const overlay = new Container();
-        overlay.position.set(px.x, px.y + 2);
-
-        const popupState = this.popupDropStateByTileKey.get(tileKey) ?? 'none';
-        const popupStroke = popupState === 'valid'
-          ? 0x80f5b4
-          : popupState === 'invalid'
-            ? 0xff7d7d
-            : staged.status === 'queued'
-              ? 0x71dc93
-              : 0xffcc66;
-        const popupFill = popupState === 'invalid' ? 0x332020 : 0x5f4b19;
-
-        const bg = new Graphics();
-        bg.roundRect(-48, 0, 96, 32, 8).fill({ color: popupFill, alpha: 0.95 }).stroke({
-          color: popupStroke,
-          width: 1,
-        });
-
-        const verbText = new Text({
-          text: staged.tileLabel ? `${staged.verbLabel} (${staged.tileLabel})` : staged.verbLabel,
-          style: {
-            fontSize: 10,
-            fill: '#f8e3b4',
-            fontWeight: '700',
-          },
-        });
-        verbText.anchor.set(0, 0.5);
-        verbText.position.set(-43, 10);
-
-        const metaText = new Text({
-          text: `${staged.status === 'queued' ? 'Q' : 'S'} · ${staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None'} · ${staged.repeat ? 'R' : '-'}`,
-          style: {
-            fontSize: 8,
-            fill: staged.status === 'queued' ? '#9af3b1' : '#ffd999',
-            fontWeight: '700',
-          },
-        });
-        metaText.anchor.set(0, 0.5);
-        metaText.position.set(-43, 23);
-
-        overlay.addChild(bg, verbText, metaText);
-        this.stagedActionLayer.addChild(overlay);
-
-        const bounds = bg.getBounds();
-        this.popupBoundsByTileKey.set(tileKey, {
-          x: bounds.x,
-          y: bounds.y,
-          width: bounds.width,
-          height: bounds.height,
-        });
-      }
     }
 
     this.drawHighlight(tileCenterByKey.get(this.hoverTileKey ?? ''), 0x8cc7ff, this.size + 2, 2);
@@ -256,5 +193,14 @@ export class HexBoardRenderer {
 
   tileKey(coord: AxialCoord): string {
     return axialKey(coord);
+  }
+
+  private colorForVerb(verbId: string): string {
+    const palette = ['#ffe59a', '#9af3b1', '#9dd6ff', '#f5a8ff', '#ffb783', '#b8f29f'];
+    let hash = 0;
+    for (let i = 0; i < verbId.length; i += 1) {
+      hash = (hash * 31 + verbId.charCodeAt(i)) >>> 0;
+    }
+    return palette[hash % palette.length];
   }
 }
