@@ -1,0 +1,25 @@
+[
+  { "id": "work", "name": "Work", "group": "actions" },
+  { "id": "study", "name": "Study", "group": "actions" },
+  { "id": "dream", "name": "Dream", "group": "actions" },
+  { "id": "move", "name": "Move", "group": "actions" },
+  { "id": "attack", "name": "Attack", "group": "actions" },
+  { "id": "defend", "name": "Defend", "group": "actions" },
+  { "id": "explore", "name": "Explore", "group": "actions" },
+
+  { "id": "health", "name": "Health", "group": "attributes" },
+  { "id": "passion", "name": "Passion", "group": "attributes" },
+  { "id": "reason", "name": "Reason", "group": "attributes" },
+
+  { "id": "axe", "name": "Axe", "group": "items" },
+  { "id": "logs", "name": "Logs", "group": "items" },
+  { "id": "food", "name": "Food", "group": "items" },
+  { "id": "torch", "name": "Torch", "group": "items" },
+
+  { "id": "dread", "name": "Dread", "group": "memories" },
+  { "id": "wound", "name": "Wound", "group": "memories" },
+  { "id": "known-forest", "name": "Known Forest", "group": "memories" },
+  { "id": "grudge", "name": "Grudge", "group": "memories" },
+
+  { "id": "follower", "name": "Follower", "group": "people" }
+]
