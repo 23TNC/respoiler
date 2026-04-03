@@ -1,0 +1,35 @@
+{
+  "id": "char-001",
+  "name": "Ari of the Camp",
+  "inventory": {
+    "actions": [
+      { "instanceId": "inst-work", "cardId": "work" },
+      { "instanceId": "inst-study", "cardId": "study" },
+      { "instanceId": "inst-dream", "cardId": "dream" },
+      { "instanceId": "inst-move", "cardId": "move" },
+      { "instanceId": "inst-attack", "cardId": "attack" },
+      { "instanceId": "inst-defend", "cardId": "defend" },
+      { "instanceId": "inst-explore", "cardId": "explore" }
+    ],
+    "attributes": [
+      { "instanceId": "inst-health", "cardId": "health" },
+      { "instanceId": "inst-passion", "cardId": "passion" },
+      { "instanceId": "inst-reason", "cardId": "reason" }
+    ],
+    "items": [
+      { "instanceId": "inst-axe", "cardId": "axe" },
+      { "instanceId": "inst-logs", "cardId": "logs" },
+      { "instanceId": "inst-food", "cardId": "food" },
+      { "instanceId": "inst-torch", "cardId": "torch" }
+    ],
+    "memories": [
+      { "instanceId": "inst-dread", "cardId": "dread" },
+      { "instanceId": "inst-wound", "cardId": "wound" },
+      { "instanceId": "inst-known-forest", "cardId": "known-forest" },
+      { "instanceId": "inst-grudge", "cardId": "grudge" }
+    ],
+    "people": [
+      { "instanceId": "inst-follower", "cardId": "follower" }
+    ]
+  }
+}
