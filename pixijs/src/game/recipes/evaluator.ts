@@ -108,11 +108,19 @@ function normalizeId(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function toNormalizedList(value: string | string[] | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  return (Array.isArray(value) ? value : [value]).map(normalizeId);
+}
+
 function inputMatches(recipe: RecipeDefinition, context: RecipeEvaluationContext): boolean {
+  const recipeAspects = [...toNormalizedList(recipe.inputs.aspect), ...toNormalizedList(recipe.inputs.aspects)];
   return (
     normalizeId(recipe.inputs.tile) === normalizeId(context.tile.id)
     && normalizeId(recipe.inputs.action) === normalizeId(context.action.id)
-    && normalizeId(recipe.inputs.aspect) === normalizeId(context.aspect.id)
+    && recipeAspects.includes(normalizeId(context.aspect.id))
   );
 }
 

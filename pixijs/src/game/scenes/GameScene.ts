@@ -3,10 +3,10 @@ import { loadStaticData } from '../../data/loader';
 import { loadCardDefinitions } from '../../data/cards/loader';
 import { loadSelectedCharacter } from '../../data/characters/loader';
 import { axialKey } from '../hex/coords';
-import { getCompatibilityHint, isCardCompatibleForVerb } from '../actions/compatibility';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
 import type { CardDefinition, CardInstanceState } from '../cards/types';
+import { canStageCard, getRecipeCardCategory, type NormalizedStagedCards } from '../recipes/stagingValidation';
 import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
@@ -190,8 +190,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     payload: DragCardPayload,
     targetTileKey: string | null,
   ): { state: DropFeedbackState; reason?: string } => {
-    if (payload.card.group === 'actions' || !targetTileKey) {
+    if (!targetTileKey) {
       return { state: 'invalid', reason: 'Invalid drop target.' };
+    }
+
+    const category = getRecipeCardCategory(payload.card);
+    if (category !== 'aspect' && category !== 'item') {
+      return { state: 'invalid', reason: 'Only recipe inputs can be staged here.' };
     }
 
     const staged = stagedByTileKey.get(targetTileKey);
@@ -199,20 +204,35 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return { state: 'invalid', reason: 'No staged action on target tile.' };
     }
 
-    const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
-    if (!verbCard || !isCardCompatibleForVerb(verbCard.id, payload.card)) {
-      return { state: 'invalid', reason: `Incompatible input. ${getCompatibilityHint(verbCard?.id ?? '')}` };
+    const tile = world.tiles.get(targetTileKey);
+    if (!tile) {
+      return { state: 'invalid', reason: 'Target tile no longer exists.' };
     }
 
     if (staged.inputCardInstanceIds.includes(payload.instance.instanceId)) {
       return { state: 'invalid', reason: 'Cannot stage duplicate card in one action.' };
     }
 
+    const stagedInputs = staged.inputCardInstanceIds
+      .map((instanceId) => getCardByInstanceId(instanceId))
+      .filter((card): card is CardDefinition => Boolean(card));
+    const stagedCards: NormalizedStagedCards = {
+      tile: tile.tileType,
+      action: getCardByInstanceId(staged.verbCardInstanceId)?.id ?? null,
+      aspects: stagedInputs.filter((card) => getRecipeCardCategory(card) === 'aspect').map((card) => card.id),
+      items: stagedInputs.filter((card) => getRecipeCardCategory(card) === 'item').map((card) => card.id),
+    };
+
+    if (!canStageCard(stagedCards, { category, id: payload.card.id }, staticData.recipes)) {
+      return { state: 'invalid', reason: 'Drop does not match any recipe.' };
+    }
+
     return { state: 'valid' };
   };
 
   const stageVerbOnTile = (payload: DragCardPayload, x: number, y: number): boolean => {
-    if (payload.card.group !== 'actions') {
+    const category = getRecipeCardCategory(payload.card);
+    if (category !== 'action') {
       return false;
     }
 
@@ -220,6 +240,20 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const tileKey = axialKey(coord);
     const tile = world.tiles.get(tileKey);
     if (!tile) {
+      return false;
+    }
+
+    const canDrop = canStageCard(
+      {
+        tile: tile.tileType,
+        action: null,
+        aspects: [],
+        items: [],
+      },
+      { category, id: payload.card.id },
+      staticData.recipes,
+    );
+    if (!canDrop) {
       return false;
     }
 
@@ -303,8 +337,22 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const hoverTileKey = axialKey(hoverCoord);
     const hasStagedAction = stagedByTileKey.has(hoverTileKey);
 
-    if (payload.card.group === 'actions') {
-      boardRenderer.setDropHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
+    if (getRecipeCardCategory(payload.card) === 'action') {
+      const hoverTile = world.tiles.get(hoverTileKey);
+      if (!hoverTile) {
+        return;
+      }
+      const canDrop = canStageCard(
+        {
+          tile: hoverTile.tileType,
+          action: null,
+          aspects: [],
+          items: [],
+        },
+        { category: 'action', id: payload.card.id },
+        staticData.recipes,
+      );
+      boardRenderer.setDropHoverTile(canDrop ? hoverTileKey : null);
       return;
     }
 

@@ -28,7 +28,10 @@ export interface RecipeOutput {
 export interface RecipeInputs {
   tile: string;
   action: string;
-  aspect: string;
+  aspect?: string | string[];
+  aspects?: string[];
+  item?: string | string[];
+  items?: string[];
 }
 
 export interface RecipeDefinition {

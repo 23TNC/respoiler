@@ -54,16 +54,55 @@ export function loadRecipes(): RecipeDefinition[] {
     const path = `recipes[${recipeIndex}]`;
     assert(isObject(recipe), `${path} must be object`);
     assert(isObject(recipe.inputs), `${path}.inputs must be object`);
-    assert(typeof recipe.inputs.tile === 'string', `${path}.inputs.tile must be string`);
-    assert(typeof recipe.inputs.action === 'string', `${path}.inputs.action must be string`);
-    assert(typeof recipe.inputs.aspect === 'string', `${path}.inputs.aspect must be string`);
+    const inputs = recipe.inputs as Record<string, unknown>;
+    assert(typeof inputs.tile === 'string', `${path}.inputs.tile must be string`);
+    assert(typeof inputs.action === 'string', `${path}.inputs.action must be string`);
+    const hasAspect = inputs.aspect !== undefined || inputs.aspects !== undefined;
+    assert(hasAspect, `${path}.inputs must include aspect or aspects`);
+    if (inputs.aspect !== undefined) {
+      assert(
+        typeof inputs.aspect === 'string' || Array.isArray(inputs.aspect),
+        `${path}.inputs.aspect must be string or string[]`,
+      );
+      if (Array.isArray(inputs.aspect)) {
+        inputs.aspect.forEach((aspect, aspectIndex) => {
+          assert(typeof aspect === 'string', `${path}.inputs.aspect[${aspectIndex}] must be string`);
+        });
+      }
+    }
+    if (inputs.aspects !== undefined) {
+      assert(Array.isArray(inputs.aspects), `${path}.inputs.aspects must be string[]`);
+      inputs.aspects.forEach((aspect, aspectIndex) => {
+        assert(typeof aspect === 'string', `${path}.inputs.aspects[${aspectIndex}] must be string`);
+      });
+    }
+    if (inputs.item !== undefined) {
+      assert(
+        typeof inputs.item === 'string' || Array.isArray(inputs.item),
+        `${path}.inputs.item must be string or string[]`,
+      );
+      if (Array.isArray(inputs.item)) {
+        inputs.item.forEach((item, itemIndex) => {
+          assert(typeof item === 'string', `${path}.inputs.item[${itemIndex}] must be string`);
+        });
+      }
+    }
+    if (inputs.items !== undefined) {
+      assert(Array.isArray(inputs.items), `${path}.inputs.items must be string[]`);
+      inputs.items.forEach((item, itemIndex) => {
+        assert(typeof item === 'string', `${path}.inputs.items[${itemIndex}] must be string`);
+      });
+    }
     assert(Array.isArray(recipe.outputs), `${path}.outputs must be array`);
 
     return {
       inputs: {
-        tile: recipe.inputs.tile,
-        action: recipe.inputs.action,
-        aspect: recipe.inputs.aspect,
+        tile: inputs.tile as string,
+        action: inputs.action as string,
+        aspect: inputs.aspect as string | string[] | undefined,
+        aspects: inputs.aspects as string[] | undefined,
+        item: inputs.item as string | string[] | undefined,
+        items: inputs.items as string[] | undefined,
       },
       outputs: recipe.outputs.map((output, outputIndex) => {
         const outputPath = `${path}.outputs[${outputIndex}]`;
