@@ -102,25 +102,17 @@ export class HexBoardRenderer {
 
       let lineY = titleText.height + 1;
       if (staged) {
-        const metaText = new Text(`${staged.status === 'queued' ? 'Q' : 'S'} · ${staged.repeat ? 'R' : '-'}`, {
+        const statusIndicator = staged.status === 'queued' ? 'Q' : 'S';
+        const stagedCardsLabel = staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None';
+        const metaText = new Text(`${statusIndicator}: ${stagedCardsLabel}`, {
           fontSize: 9,
-          fill: '#e7d2a0',
+          fill: staged.status === 'queued' ? '#9af3b1' : '#ffd999',
           fontWeight: '700',
         });
         metaText.anchor.set(0.5, 0);
         metaText.position.set(0, lineY);
         textBlock.addChild(metaText);
         lineY += metaText.height + 1;
-
-        const stagedCardsText = new Text(`Cards: ${staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None'}`, {
-          fontSize: 9,
-          fill: '#d4ddf0',
-          fontWeight: '600',
-        });
-        stagedCardsText.anchor.set(0.5, 0);
-        stagedCardsText.position.set(0, lineY);
-        textBlock.addChild(stagedCardsText);
-        lineY += stagedCardsText.height + 1;
       }
 
       if (tile.hiddenPresenceCount > 0) {
