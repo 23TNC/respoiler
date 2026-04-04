@@ -4,7 +4,7 @@ import type { StagedTileAction } from '../actions/types';
 import type { CardDefinition } from '../cards/types';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import type { HexTile, TileTypeDefinition, VerbDefinition } from '../world/types';
-import { renderOvalCard } from './cardVisual';
+import { readableTextColor, renderCardTag } from './cardVisual';
 
 interface TokenHitArea {
   index: number;
@@ -119,7 +119,7 @@ export class StagedActionUI {
 
     if (this.selectedCard) {
       const { card, instanceId } = this.selectedCard;
-      renderOvalCard(this.root, { x: 12, y: 42, card, width: 108, height: 46 });
+      renderCardTag(this.root, { x: 12, y: 42, card, width: 108, height: 30 });
 
       const cardTitle = new Text({ text: `${card.group.toUpperCase()}`, style: { fill: '#dce9ff', fontSize: 10, fontWeight: '700' } });
       cardTitle.position.set(130, 58);
@@ -197,7 +197,7 @@ export class StagedActionUI {
     const verbCard = this.getCardByInstanceId(stagedAction.verbCardInstanceId);
     const verbLabel = verbCard?.name ?? stagedAction.verbCardInstanceId;
 
-    renderOvalCard(this.root, {
+    renderCardTag(this.root, {
       x: 12,
       y: 114,
       card: verbCard ?? {
@@ -207,7 +207,7 @@ export class StagedActionUI {
         backgroundColor: 0xf6e9c5,
       },
       width: 108,
-      height: 42,
+      height: 28,
     });
     const verbText = new Text({ text: 'Verb', style: { fill: '#d5e5ff', fontSize: 11, fontWeight: '700' } });
     verbText.position.set(130, 126);
@@ -263,7 +263,10 @@ export class StagedActionUI {
     let chipY = dropZoneY + 32;
     for (let index = 0; index < stagedAction.inputCardInstanceIds.length; index += 1) {
       const instanceId = stagedAction.inputCardInstanceIds[index];
-      const cardName = this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(instanceId)?.name ?? instanceId;
+      const cardData = this.getCardByInstanceId(instanceId) ?? this.cardsById.get(instanceId);
+      const cardName = cardData?.name ?? instanceId;
+      const chipColor = cardData?.backgroundColor ?? 0x2a3e5f;
+      const chipTextColor = readableTextColor(chipColor);
       const chipTextWidth = Math.max(32, cardName.length * 6);
       const chipWidth = Math.min(132, chipTextWidth + 26);
       if (chipX + chipWidth > 342) {
@@ -272,14 +275,14 @@ export class StagedActionUI {
       }
 
       const chip = new Graphics();
-      chip.roundRect(chipX, chipY, chipWidth, 20, 10).fill({ color: 0x2a3e5f }).stroke({ color: 0x7ba9ef, width: 1 });
+      chip.roundRect(chipX, chipY, chipWidth, 20, 8).fill({ color: chipColor }).stroke({ color: 0x1b2537, width: 1 });
       this.root.addChild(chip);
 
-      const chipText = new Text({ text: cardName, style: { fill: '#e8f1ff', fontSize: 10, fontWeight: '700' } });
+      const chipText = new Text({ text: cardName, style: { fill: chipTextColor, fontSize: 10, fontWeight: '700' } });
       chipText.position.set(chipX + 7, chipY + 4);
       this.root.addChild(chipText);
 
-      const closeText = new Text({ text: '×', style: { fill: '#d6ebff', fontSize: 11, fontWeight: '700' } });
+      const closeText = new Text({ text: '×', style: { fill: chipTextColor, fontSize: 11, fontWeight: '700' } });
       closeText.position.set(chipX + chipWidth - 12, chipY + 3);
       this.root.addChild(closeText);
 
