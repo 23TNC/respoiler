@@ -13,7 +13,9 @@
 /build/
 bin/
 dist/
-/despoiler-spacetimedb/spacetimedb/target/
+/spacetime/server/spacetimedb/target/*
+/spacetime/keys/*
+/spacetime/data
 
 # spacetimedb data
 /spacetime-data/*
