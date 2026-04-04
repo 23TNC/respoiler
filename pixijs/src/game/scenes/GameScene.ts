@@ -11,6 +11,7 @@ import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
 import type { DragCardPayload } from '../ui/dragTypes';
+import { renderOvalCard } from '../ui/cardVisual';
 import { StagedActionUI } from '../ui/StagedActionUI';
 import { uiSoundEffects } from '../ui/soundEffects';
 import { generateMockWorld } from '../world/mockWorld';
@@ -172,6 +173,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
             verbId: getCardByInstanceId(staged.verbCardInstanceId)?.id ?? '',
             verbLabel,
             tileLabel: staticData.tileTypeById.get(world.tiles.get(staged.tileKey)?.tileType ?? '')?.name,
+            cardColor: getCardByInstanceId(staged.verbCardInstanceId)?.backgroundColor,
             stagedCardNames: staged.inputCardInstanceIds.map(
               (instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId,
             ),
@@ -231,13 +233,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return;
     }
 
-    const bg = new Graphics();
-    bg.roundRect(0, 0, 130, 28, 6).fill({ color: 0xffffff, alpha: 0.95 }).stroke({ color: 0x1b2537, width: 1 });
-    const label = new Text({ text: draggingPayload.card.name, style: { fill: '#111827', fontSize: 12, fontWeight: '700' } });
-    label.position.set(8, 6);
-
     dragGhost.position.set(x + 10, y + 10);
-    dragGhost.addChild(bg, label);
+    renderOvalCard(dragGhost, { x: 0, y: 0, card: draggingPayload.card, width: 90, height: 38 });
   };
 
   const beginDrag = (payload: DragCardPayload, x: number, y: number, ignoreInventoryState = false): void => {

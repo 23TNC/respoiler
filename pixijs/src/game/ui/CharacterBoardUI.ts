@@ -3,6 +3,7 @@ import type { CharacterModel } from '../characters/types';
 import { INVENTORY_GROUP_ORDER } from '../characters/types';
 import type { CardDefinition, CardGroup, CardInstanceState } from '../cards/types';
 import type { DragCardPayload } from './dragTypes';
+import { CARD_HEIGHT, CARD_WIDTH, pointInOval, renderOvalCard } from './cardVisual';
 
 const GROUP_LABEL: Record<CardGroup, string> = {
   actions: 'Actions',
@@ -15,6 +16,7 @@ const GROUP_LABEL: Record<CardGroup, string> = {
 interface InventoryCardVisual {
   bounds: Rectangle;
   payload: DragCardPayload;
+  group: CardGroup;
 }
 
 interface GroupPanelLayout {
@@ -31,6 +33,9 @@ const PANEL_HEIGHT = 126;
 const VIEWPORT_HEIGHT = PANEL_HEIGHT - HEADER_HEIGHT - 10;
 const PANEL_GAP = 10;
 const ROOT_PADDING = 10;
+const CARD_GAP_X = 8;
+const CARD_GAP_Y = 8;
+const SCROLLBAR_WIDTH = 5;
 
 export class CharacterBoardUI {
   readonly root = new Container();
@@ -123,7 +128,13 @@ export class CharacterBoardUI {
     content.mask = mask;
 
     const list = this.character.inventory[group];
-    let rowY = y + HEADER_HEIGHT + 4;
+    const innerX = x + 8;
+    const innerY = y + HEADER_HEIGHT + 4;
+    const contentWidth = width - 18;
+    const cardsPerRow = Math.max(1, Math.floor((contentWidth + CARD_GAP_X) / (CARD_WIDTH + CARD_GAP_X)));
+    const rowWidth = cardsPerRow * CARD_WIDTH + (cardsPerRow - 1) * CARD_GAP_X;
+    const startX = innerX + Math.max(0, (contentWidth - rowWidth) * 0.5);
+    let itemIndex = 0;
 
     for (const instance of list) {
       if (this.getCardState(instance.instanceId) !== 'in_inventory') {
@@ -135,33 +146,28 @@ export class CharacterBoardUI {
         continue;
       }
 
-      const bg = new Graphics();
-      bg.roundRect(x + 8, rowY, width - 16, 24, 6).fill({ color: this.colorForGroup(group), alpha: 0.95 }).stroke({
-        color: 0x1b2537,
-        width: 1,
-      });
-      content.addChild(bg);
-
-      const text = new Text({
-        text: card.name,
-        style: { fill: '#0a1118', fontSize: 12, fontWeight: '700' },
-      });
-      text.position.set(x + 14, rowY + 4);
-      content.addChild(text);
+      const col = itemIndex % cardsPerRow;
+      const row = Math.floor(itemIndex / cardsPerRow);
+      const cardX = startX + col * (CARD_WIDTH + CARD_GAP_X);
+      const cardY = innerY + row * (CARD_HEIGHT + CARD_GAP_Y);
+      const bounds = renderOvalCard(content, { x: cardX, y: cardY, card });
 
       this.cardVisuals.push({
-        bounds: new Rectangle(x + 8, rowY, width - 16, 24),
+        bounds,
         payload: { card, instance },
+        group,
       });
-
-      rowY += 28;
+      itemIndex += 1;
     }
 
-    this.contentHeightByGroup[group] = rowY - (y + HEADER_HEIGHT);
+    const rowCount = itemIndex === 0 ? 0 : Math.ceil(itemIndex / cardsPerRow);
+    this.contentHeightByGroup[group] = rowCount * CARD_HEIGHT + Math.max(0, rowCount - 1) * CARD_GAP_Y + 8;
     this.clampScroll(group);
 
     const scrollOffset = this.scrollOffsetByGroup[group];
     content.position.set(0, -scrollOffset);
+
+    this.renderScrollbar(layout);
   }
 
   handleWheel(globalX: number, globalY: number, deltaY: number): boolean {
@@ -182,20 +188,19 @@ export class CharacterBoardUI {
 
   cardAtPoint(globalX: number, globalY: number): DragCardPayload | null {
     for (const visual of this.cardVisuals) {
-      const group = visual.payload.card.group;
-      const layout = this.layouts.find((entry) => entry.group === group);
+      const layout = this.layouts.find((entry) => entry.group === visual.group);
       if (!layout) {
         continue;
       }
 
       const scrolledBounds = new Rectangle(
         this.root.position.x + visual.bounds.x,
-        this.root.position.y + visual.bounds.y - this.scrollOffsetByGroup[group],
+        this.root.position.y + visual.bounds.y - this.scrollOffsetByGroup[visual.group],
         visual.bounds.width,
         visual.bounds.height,
       );
       const viewportBounds = this.viewportBounds(layout);
-      if (scrolledBounds.contains(globalX, globalY) && viewportBounds.contains(globalX, globalY)) {
+      if (pointInOval(globalX, globalY, scrolledBounds) && viewportBounds.contains(globalX, globalY)) {
         return visual.payload;
       }
     }
@@ -216,7 +221,7 @@ export class CharacterBoardUI {
   }
 
   private clampScroll(group: CardGroup): void {
-    const maxScroll = Math.max(0, this.contentHeightByGroup[group] - VIEWPORT_HEIGHT + 8);
+    const maxScroll = Math.max(0, this.contentHeightByGroup[group] - VIEWPORT_HEIGHT);
     this.scrollOffsetByGroup[group] = Math.max(0, Math.min(maxScroll, this.scrollOffsetByGroup[group]));
   }
 
@@ -236,21 +241,27 @@ export class CharacterBoardUI {
       VIEWPORT_HEIGHT,
     );
   }
-
-  private colorForGroup(group: CardGroup): number {
-    switch (group) {
-      case 'actions':
-        return 0xffcf8c;
-      case 'attributes':
-        return 0x8ce5b0;
-      case 'items':
-        return 0x9ac6ff;
-      case 'memories':
-        return 0xc7abff;
-      case 'people':
-        return 0xffb5c3;
-      default:
-        return 0xffffff;
+  private renderScrollbar(layout: GroupPanelLayout): void {
+    const contentHeight = this.contentHeightByGroup[layout.group];
+    const viewportHeight = VIEWPORT_HEIGHT;
+    if (contentHeight <= viewportHeight) {
+      return;
     }
+
+    const trackX = layout.x + layout.width - 10;
+    const trackY = layout.y + HEADER_HEIGHT + 2;
+    const trackHeight = viewportHeight - 4;
+    const maxScroll = Math.max(1, contentHeight - viewportHeight);
+    const thumbHeight = Math.max(16, (viewportHeight / contentHeight) * trackHeight);
+    const thumbTravel = Math.max(0, trackHeight - thumbHeight);
+    const thumbY = trackY + (this.scrollOffsetByGroup[layout.group] / maxScroll) * thumbTravel;
+
+    const track = new Graphics();
+    track.roundRect(trackX, trackY, SCROLLBAR_WIDTH, trackHeight, 3).fill({ color: 0x20314f, alpha: 1 });
+    this.root.addChild(track);
+
+    const thumb = new Graphics();
+    thumb.roundRect(trackX, thumbY, SCROLLBAR_WIDTH, thumbHeight, 3).fill({ color: 0x8cb4ff, alpha: 0.95 });
+    this.root.addChild(thumb);
   }
 }
