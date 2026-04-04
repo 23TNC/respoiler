@@ -16,6 +16,8 @@ import { uiSoundEffects } from '../ui/soundEffects';
 import { generateMockWorld } from '../world/mockWorld';
 
 export async function startGameScene(container: HTMLElement): Promise<void> {
+  const DRAG_THRESHOLD_PX = 8;
+
   const app = new Application();
   await app.init({
     width: window.innerWidth,
@@ -67,6 +69,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const queuedActions: QueuedAction[] = [];
 
   let draggingPayload: DragCardPayload | null = null;
+  let draggingDetachedAction: StagedTileAction | null = null;
+  let pointerDown:
+    | {
+        x: number;
+        y: number;
+        cardPayload: DragCardPayload | null;
+        tileKey: string | null;
+      }
+    | null = null;
   const dragGhost = new Container();
   dragPreviewLayer.addChild(dragGhost);
 
@@ -76,6 +87,52 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     cardStateByInstanceId.set(action.verbCardInstanceId, 'in_inventory');
     for (const inputId of action.inputCardInstanceIds) {
       cardStateByInstanceId.set(inputId, 'in_inventory');
+    }
+  };
+
+  const revalidateStagedInputs = (action: StagedTileAction, tileKey: string): void => {
+    const tile = world.tiles.get(tileKey);
+    const verbCard = getCardByInstanceId(action.verbCardInstanceId);
+    if (!tile || !verbCard) {
+      returnCardsToInventory(action);
+      action.inputCardInstanceIds = [];
+      return;
+    }
+
+    const keptInputs: string[] = [];
+    const invalidInputs: string[] = [];
+    let stagedCards: NormalizedStagedCards = {
+      tile: tile.tileType,
+      action: verbCard.id,
+      aspects: [],
+      items: [],
+    };
+
+    for (const instanceId of action.inputCardInstanceIds) {
+      const card = getCardByInstanceId(instanceId);
+      const category = card ? getRecipeCardCategory(card) : null;
+      if (!card || (category !== 'aspect' && category !== 'item')) {
+        invalidInputs.push(instanceId);
+        continue;
+      }
+
+      const isValid = canStageCard(stagedCards, { category, id: card.id }, staticData.recipes);
+      if (!isValid) {
+        invalidInputs.push(instanceId);
+        continue;
+      }
+
+      keptInputs.push(instanceId);
+      if (category === 'aspect') {
+        stagedCards = { ...stagedCards, aspects: [...stagedCards.aspects, card.id] };
+      } else {
+        stagedCards = { ...stagedCards, items: [...stagedCards.items, card.id] };
+      }
+    }
+
+    action.inputCardInstanceIds = keptInputs;
+    for (const invalidId of invalidInputs) {
+      cardStateByInstanceId.set(invalidId, 'in_inventory');
     }
   };
 
@@ -121,15 +178,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       }),
     );
 
-    boardRenderer.renderTiles(
-      world.tiles.values(),
-      staticData,
-      (coord) => {
-        selectedTileKey = axialKey(coord);
-        render();
-      },
-      stagedByTileId,
-    );
+    boardRenderer.renderTiles(world.tiles.values(), staticData, stagedByTileId);
 
     const selectedTile = selectedTileKey ? world.tiles.get(selectedTileKey) ?? null : null;
     stagedActionUI.setSelectedTile(
@@ -179,8 +228,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     dragGhost.addChild(bg, label);
   };
 
-  const beginDrag = (payload: DragCardPayload, x: number, y: number): void => {
-    if ((cardStateByInstanceId.get(payload.instance.instanceId) ?? 'in_inventory') !== 'in_inventory') {
+  const beginDrag = (payload: DragCardPayload, x: number, y: number, ignoreInventoryState = false): void => {
+    if (!ignoreInventoryState && (cardStateByInstanceId.get(payload.instance.instanceId) ?? 'in_inventory') !== 'in_inventory') {
       return;
     }
 
@@ -191,8 +240,41 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
   };
 
+  const beginDragAttachedAction = (tileKey: string, x: number, y: number): boolean => {
+    const staged = stagedByTileKey.get(tileKey);
+    if (!staged || staged.status === 'queued') {
+      return false;
+    }
+
+    const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
+    if (!verbCard) {
+      return false;
+    }
+
+    stagedByTileKey.delete(tileKey);
+    removeQueuedActionForTile(staged.tileId);
+    staged.error = undefined;
+    staged.status = 'staged';
+    draggingDetachedAction = staged;
+
+    beginDrag(
+      {
+        card: verbCard,
+        instance: {
+          instanceId: staged.verbCardInstanceId,
+          cardId: verbCard.id,
+        },
+      },
+      x,
+      y,
+      true,
+    );
+    return true;
+  };
+
   const clearDrag = (): void => {
     draggingPayload = null;
+    draggingDetachedAction = null;
     boardRenderer.setDropHoverTile(null);
     stagedActionUI.setInputDropFeedback('none');
     dragGhost.removeChildren();
@@ -272,16 +354,28 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     removeStagedAction(tileKey);
 
-    const staged: StagedTileAction = {
-      stagedActionId: `staged-${tile.id}-${selectedCharacter.id}`,
-      characterId: selectedCharacter.id,
-      tileId: tile.id,
-      tileKey,
-      verbCardInstanceId: payload.instance.instanceId,
-      inputCardInstanceIds: [],
-      repeat: false,
-      status: 'staged',
-    };
+    const staged: StagedTileAction = draggingDetachedAction
+      ? {
+          ...draggingDetachedAction,
+          tileId: tile.id,
+          tileKey,
+          status: 'staged',
+          error: undefined,
+        }
+      : {
+          stagedActionId: `staged-${tile.id}-${selectedCharacter.id}`,
+          characterId: selectedCharacter.id,
+          tileId: tile.id,
+          tileKey,
+          verbCardInstanceId: payload.instance.instanceId,
+          inputCardInstanceIds: [],
+          repeat: false,
+          status: 'staged',
+        };
+
+    if (draggingDetachedAction) {
+      revalidateStagedInputs(staged, tileKey);
+    }
 
     stagedByTileKey.set(staged.tileKey, staged);
     cardStateByInstanceId.set(payload.instance.instanceId, 'staged');
@@ -478,6 +572,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   app.stage.on('pointerdown', (event) => {
     const { x, y } = event.global;
+    pointerDown = null;
 
     if (clickRemoveInputChip(x, y)) {
       return;
@@ -499,9 +594,16 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const payload = characterBoard.cardAtPoint(x, y);
-    if (payload) {
-      beginDrag(payload, x, y);
-    }
+    const tileCoord = boardRenderer.tileAtPixel(x, y);
+    const tileKey = axialKey(tileCoord);
+    const hasTile = world.tiles.has(tileKey);
+
+    pointerDown = {
+      x,
+      y,
+      cardPayload: payload,
+      tileKey: hasTile ? tileKey : null,
+    };
   });
 
   app.stage.on('globalpointermove', (event) => {
@@ -510,6 +612,19 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const hoverCoord = boardRenderer.tileAtPixel(x, y);
     const hoverTileKey = axialKey(hoverCoord);
     boardRenderer.setPointerHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
+
+    if (!draggingPayload && pointerDown) {
+      const dx = x - pointerDown.x;
+      const dy = y - pointerDown.y;
+      const movedEnough = (dx * dx + dy * dy) >= DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX;
+      if (movedEnough) {
+        if (pointerDown.cardPayload) {
+          beginDrag(pointerDown.cardPayload, x, y);
+        } else if (pointerDown.tileKey) {
+          beginDragAttachedAction(pointerDown.tileKey, x, y);
+        }
+      }
+    }
 
     if (!draggingPayload) {
       render();
@@ -522,15 +637,39 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   });
 
   app.stage.on('pointerup', (event) => {
+    const { x, y } = event.global;
+
     if (!draggingPayload) {
+      if (pointerDown) {
+        const dx = x - pointerDown.x;
+        const dy = y - pointerDown.y;
+        const movedEnough = (dx * dx + dy * dy) >= DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX;
+
+        if (!movedEnough) {
+          if (pointerDown.cardPayload) {
+            stagedActionUI.setSelectedCard({
+              card: pointerDown.cardPayload.card,
+              instanceId: pointerDown.cardPayload.instance.instanceId,
+            });
+            render();
+          } else if (pointerDown.tileKey && world.tiles.has(pointerDown.tileKey)) {
+            selectedTileKey = pointerDown.tileKey;
+            render();
+          }
+        }
+      }
+      pointerDown = null;
       return;
     }
 
-    const { x, y } = event.global;
     const stagedVerb = stageVerbOnTile(draggingPayload, x, y);
     const stagedInput = stageInputCard(draggingPayload, x, y);
 
-    if (!stagedVerb && !stagedInput) {
+    if (!stagedVerb && !stagedInput && draggingDetachedAction) {
+      returnCardsToInventory(draggingDetachedAction);
+    }
+
+    if (!stagedVerb && !stagedInput && !draggingDetachedAction) {
       setDragRejection('Invalid drop target.');
     }
 
@@ -539,9 +678,14 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     clearDrag();
+    pointerDown = null;
   });
 
   app.stage.on('pointerupoutside', () => {
+    if (draggingDetachedAction) {
+      returnCardsToInventory(draggingDetachedAction);
+    }
+    pointerDown = null;
     clearDrag();
   });
 

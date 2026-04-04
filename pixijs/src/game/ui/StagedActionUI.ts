@@ -17,10 +17,17 @@ export interface SelectedTileDetails {
   stagedAction: StagedTileAction | null;
 }
 
+export interface SelectedCardDetails {
+  card: CardDefinition;
+  instanceId: string;
+}
+
 export class StagedActionUI {
   readonly root = new Container();
 
   private selectedTile: SelectedTileDetails | null = null;
+
+  private selectedCard: SelectedCardDetails | null = null;
 
   private readonly cardsById: Map<string, CardDefinition>;
 
@@ -72,11 +79,18 @@ export class StagedActionUI {
 
   setSelectedTile(selectedTile: SelectedTileDetails | null): void {
     this.selectedTile = selectedTile;
+    this.selectedCard = null;
+    this.render();
+  }
+
+  setSelectedCard(selectedCard: SelectedCardDetails | null): void {
+    this.selectedCard = selectedCard;
+    this.selectedTile = null;
     this.render();
   }
 
   render(): void {
-    this.root.visible = this.selectedTile !== null;
+    this.root.visible = this.selectedTile !== null || this.selectedCard !== null;
     this.root.removeChildren();
     this.startBounds = null;
     this.repeatBounds = null;
@@ -84,11 +98,9 @@ export class StagedActionUI {
     this.clearBounds = null;
     this.tokenAreas = [];
 
-    if (!this.selectedTile) {
+    if (!this.selectedTile && !this.selectedCard) {
       return;
     }
-
-    const { tile, tileType, availableVerbs, stagedAction } = this.selectedTile;
 
     const panel = new Graphics();
     panel.roundRect(0, 0, 360, 340, 12).fill({ color: 0x0f1725, alpha: 0.92 }).stroke({
@@ -98,11 +110,51 @@ export class StagedActionUI {
     this.root.addChild(panel);
 
     const title = new Text({
-      text: 'Selected Tile Details',
+      text: 'Details Panel',
       style: { fill: '#dce9ff', fontSize: 15, fontWeight: '700' },
     });
     title.position.set(12, 10);
     this.root.addChild(title);
+
+    if (this.selectedCard) {
+      const { card, instanceId } = this.selectedCard;
+
+      const cardTitle = new Text({
+        text: `${card.name} (${card.group})`,
+        style: { fill: '#f6e9c5', fontSize: 13, fontWeight: '700' },
+      });
+      cardTitle.position.set(12, 42);
+      this.root.addChild(cardTitle);
+
+      const cardIdText = new Text({
+        text: `Card Id: ${card.id}`,
+        style: { fill: '#a9bfdc', fontSize: 11 },
+      });
+      cardIdText.position.set(12, 66);
+      this.root.addChild(cardIdText);
+
+      const instanceText = new Text({
+        text: `Instance: ${instanceId}`,
+        style: { fill: '#8fd9fc', fontSize: 11 },
+      });
+      instanceText.position.set(12, 84);
+      this.root.addChild(instanceText);
+
+      const hintText = new Text({
+        text: 'Drag this card to stage or attach it. Click tiles to inspect tile details.',
+        style: { fill: '#d5e5ff', fontSize: 12 },
+      });
+      hintText.position.set(12, 114);
+      this.root.addChild(hintText);
+      return;
+    }
+
+    const selectedTile = this.selectedTile;
+    if (!selectedTile) {
+      return;
+    }
+
+    const { tile, tileType, availableVerbs, stagedAction } = selectedTile;
 
     const tileTypeName = tileType?.name ?? tile.tileType;
     const tileTitle = new Text({
