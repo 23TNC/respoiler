@@ -1,65 +1,53 @@
-export type RecipeConditionType = 'tile' | 'action' | 'aspect' | 'character' | 'item' | 'random';
+export type RecipePrimitive = string | number;
 
-export type RecipeOp = 'eq' | 'ge' | 'le' | 'gt' | 'lt';
-
-export type RecipeValue = number | string | boolean;
-
-export interface RecipeCondition {
-  type: RecipeConditionType;
-  id?: string;
-  op: RecipeOp;
-  value: RecipeValue;
-}
-
-export interface RecipeEffect {
-  type: Exclude<RecipeConditionType, 'random' | 'item'>;
-  id?: string;
-  op: RecipeOp;
-  value: RecipeValue;
-}
-
-export interface RecipeOutput {
-  id: string;
-  amount: number;
-  conditions?: RecipeCondition[];
-  effects?: RecipeEffect[];
-}
-
-export interface RecipeInputs {
-  tile: string;
-  action: string;
-  aspect?: string | string[];
-  aspects?: string[];
-  item?: string | string[];
-  items?: string[];
-}
-
-export interface RecipeDefinition {
-  inputs: RecipeInputs;
-  outputs: RecipeOutput[];
-}
+export type RecipeValue = string | number | boolean;
 
 export type RecipeValueBag = Record<string, RecipeValue>;
 
-export interface RecipeEvaluationContext {
-  tile: {
-    id: string;
-    attributes?: RecipeValueBag;
-  };
-  action: {
-    id: string;
-    attributes?: RecipeValueBag;
-  };
-  aspect: {
-    id: string;
-    attributes?: RecipeValueBag;
-  };
-  character?: {
-    id: string;
-    attributes?: RecipeValueBag;
-  };
-  items?: RecipeValueBag;
+export type RecipeOp =
+  | 'eq' | 'ne' | 'lt' | 'le' | 'gt' | 'ge'
+  | 'add' | 'sub' | 'mul' | 'div'
+  | 'input_val' | 'input_ref' | 'output_ref'
+  | 'rand' | 'max' | 'hex_dist' | 'select_one'
+  | 'apply_eq' | 'apply_le' | 'apply_ge'
+  | 'apply_add' | 'apply_sub' | 'apply_mul' | 'apply_div';
+
+export type RecipeExpr =
+  | { value: RecipePrimitive }
+  | { lhs: RecipeExpr; op: RecipeOp; rhs?: RecipeExpr };
+
+export interface InputBinding {
+  id: string;
+  count?: RecipeExpr;
+  all?: RecipeExpr[];
+  any?: RecipeExpr[];
+}
+
+export interface OutputBinding {
+  id: string;
+  count?: RecipeExpr;
+  all?: RecipeExpr[];
+  any?: RecipeExpr[];
+  effects?: RecipeExpr[];
+}
+
+export interface RecipeDefinition {
+  id: string;
+  input: InputBinding[];
+  output: OutputBinding[];
+  effects?: RecipeExpr[];
+  time?: RecipeExpr;
+}
+
+export interface RecipeFile {
+  action: string;
   recipes: RecipeDefinition[];
+}
+
+export interface RecipeEvaluationContext {
+  action: string;
+  entities: Record<string, RecipeValueBag | undefined>;
+  recipes: RecipeFile[];
   random?: () => number;
 }
 
@@ -72,15 +60,14 @@ export interface ProducedOutput {
 
 export interface QueuedEffect {
   recipeIndex: number;
-  outputIndex: number;
+  outputIndex: number | null;
   effectIndex: number;
-  effect: RecipeEffect;
+  effect: RecipeExpr;
 }
 
 export interface AppliedEffect {
-  type: RecipeEffect['type'];
-  id?: string;
-  op: 'eq' | 'ge' | 'le';
+  ref: string;
+  op: Extract<RecipeOp, `apply_${string}`>;
   value: RecipeValue;
 }
 
@@ -101,11 +88,5 @@ export interface EvaluationResult {
   queuedEffects: QueuedEffect[];
   appliedEffects: AppliedEffect[];
   traces: RecipeEvaluationTrace[];
-  finalState: {
-    tile: RecipeValueBag;
-    action: RecipeValueBag;
-    aspect: RecipeValueBag;
-    character: RecipeValueBag;
-    items: RecipeValueBag;
-  };
+  finalState: Record<string, RecipeValueBag>;
 }

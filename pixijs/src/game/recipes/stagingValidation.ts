@@ -1,5 +1,5 @@
 import type { CardDefinition } from '../cards/types';
-import type { RecipeDefinition } from './types';
+import type { RecipeDefinition, RecipeFile } from './types';
 
 export interface NormalizedStagedCards {
   tile: string | null;
@@ -15,13 +15,6 @@ export interface StageCandidateCard {
   id: string;
 }
 
-interface NormalizedRecipeInputs {
-  tile: string;
-  action: string;
-  aspects: string[];
-  items: string[];
-}
-
 function normalizeId(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -30,46 +23,39 @@ function normalizeUnique(values: string[]): string[] {
   return Array.from(new Set(values.map(normalizeId)));
 }
 
-function toList(value: string | string[] | undefined): string[] {
-  if (!value) {
-    return [];
-  }
-  return Array.isArray(value) ? value : [value];
-}
+function recipeSupportsStagedInputs(staged: NormalizedStagedCards, recipe: RecipeDefinition): boolean {
+  const availableIds = new Set(recipe.input.map((binding) => normalizeId(binding.id)));
 
-function normalizeRecipeInputs(recipe: RecipeDefinition): NormalizedRecipeInputs {
-  return {
-    tile: normalizeId(recipe.inputs.tile),
-    action: normalizeId(recipe.inputs.action),
-    aspects: normalizeUnique([...toList(recipe.inputs.aspect), ...toList(recipe.inputs.aspects)]),
-    items: normalizeUnique([...toList(recipe.inputs.item), ...toList(recipe.inputs.items)]),
-  };
-}
-
-function isSubsetOfRecipe(staged: NormalizedStagedCards, recipe: NormalizedRecipeInputs): boolean {
-  if (staged.tile && normalizeId(staged.tile) !== recipe.tile) {
-    return false;
-  }
-
-  if (staged.action && normalizeId(staged.action) !== recipe.action) {
+  if (staged.tile && !availableIds.has(normalizeId(staged.tile))) {
     return false;
   }
 
   const stagedAspects = normalizeUnique(staged.aspects);
-  if (!stagedAspects.every((aspect) => recipe.aspects.includes(aspect))) {
+  if (!stagedAspects.every((aspect) => availableIds.has(aspect))) {
     return false;
   }
 
   const stagedItems = normalizeUnique(staged.items);
-  if (!stagedItems.every((item) => recipe.items.includes(item))) {
+  if (!stagedItems.every((item) => availableIds.has(item))) {
     return false;
   }
 
   return true;
 }
 
-export function getMatchingRecipes(staged: NormalizedStagedCards, recipes: RecipeDefinition[]): RecipeDefinition[] {
-  return recipes.filter((recipe) => isSubsetOfRecipe(staged, normalizeRecipeInputs(recipe)));
+function getActionRecipes(actionId: string | null, recipes: RecipeFile[]): RecipeDefinition[] {
+  if (!actionId) {
+    return [];
+  }
+  const action = normalizeId(actionId);
+  return recipes
+    .filter((file) => normalizeId(file.action) === action)
+    .flatMap((file) => file.recipes);
+}
+
+export function getMatchingRecipes(staged: NormalizedStagedCards, recipes: RecipeFile[]): RecipeDefinition[] {
+  const actionRecipes = getActionRecipes(staged.action, recipes);
+  return actionRecipes.filter((recipe) => recipeSupportsStagedInputs(staged, recipe));
 }
 
 function applyCandidate(staged: NormalizedStagedCards, candidate: StageCandidateCard): NormalizedStagedCards | null {
@@ -100,7 +86,7 @@ function applyCandidate(staged: NormalizedStagedCards, candidate: StageCandidate
 export function canStageCard(
   staged: NormalizedStagedCards,
   candidate: StageCandidateCard,
-  recipes: RecipeDefinition[],
+  recipes: RecipeFile[],
 ): boolean {
   const next = applyCandidate(staged, candidate);
   if (!next) {
