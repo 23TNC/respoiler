@@ -16,7 +16,11 @@ export interface StageCandidateCard {
 }
 
 function normalizeId(value: string): string {
-  return value.trim().toLowerCase();
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function normalizeUnique(values: string[]): string[] {

@@ -52,6 +52,8 @@ export class CharacterBoardUI {
 
   private readonly layouts: GroupPanelLayout[] = [];
 
+  private viewedSoulCardVisual: InventoryCardVisual | null = null;
+
   private returnToPlayerBounds: Rectangle | null = null;
 
   constructor(
@@ -67,6 +69,7 @@ export class CharacterBoardUI {
     this.cardVisuals.length = 0;
     this.layouts.length = 0;
     this.returnToPlayerBounds = null;
+    this.viewedSoulCardVisual = null;
 
     const board = new Graphics();
     board.roundRect(0, 0, this.boardWidth(), this.boardHeight(), 12).fill({ color: 0x0b1320, alpha: 0.85 }).stroke({
@@ -82,7 +85,19 @@ export class CharacterBoardUI {
       group: 'souls',
       backgroundColor: 0xa8e0e6,
     };
-    renderCardTag(this.root, { x: 12, y: 6, card: viewedSoulCard, width: 180, height: 24 });
+    const viewedSoulCardBounds = renderCardTag(this.root, { x: 12, y: 6, card: viewedSoulCard, width: 180, height: 24 });
+    this.viewedSoulCardVisual = {
+      bounds: viewedSoulCardBounds,
+      payload: {
+        card: viewedSoulCard,
+        instance: {
+          instanceId: `viewed-soul-${viewedSoul.soulId}`,
+          cardId: viewedSoul.soulId,
+          soulId: viewedSoul.soulId,
+        },
+      },
+      group: 'souls',
+    };
 
     const identityLabel = new Text({
       text: 'Viewed Soul',
@@ -213,6 +228,18 @@ export class CharacterBoardUI {
   }
 
   cardAtPoint(globalX: number, globalY: number): DragCardPayload | null {
+    if (this.viewedSoulCardVisual) {
+      const viewedSoulBounds = new Rectangle(
+        this.root.position.x + this.viewedSoulCardVisual.bounds.x,
+        this.root.position.y + this.viewedSoulCardVisual.bounds.y,
+        this.viewedSoulCardVisual.bounds.width,
+        this.viewedSoulCardVisual.bounds.height,
+      );
+      if (pointInRoundedRect(globalX, globalY, viewedSoulBounds)) {
+        return this.viewedSoulCardVisual.payload;
+      }
+    }
+
     for (const visual of this.cardVisuals) {
       const layout = this.layouts.find((entry) => entry.group === visual.group);
       if (!layout) {
