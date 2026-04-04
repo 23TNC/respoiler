@@ -1,6 +1,7 @@
 export interface StagedTileAction {
   stagedActionId: string;
   characterId: string;
+  soulId: string;
   tileId: string;
   tileKey: string;
   verbCardInstanceId: string;
@@ -13,6 +14,7 @@ export interface StagedTileAction {
 export interface QueuedAction {
   actionId: string;
   characterId: string;
+  soulId: string;
   tileId: string;
   verbCardInstanceId: string;
   inputCardInstanceIds: string[];
