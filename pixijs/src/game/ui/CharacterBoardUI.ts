@@ -3,7 +3,7 @@ import type { CharacterModel } from '../characters/types';
 import { INVENTORY_GROUP_ORDER } from '../characters/types';
 import type { CardDefinition, CardGroup, CardInstanceState } from '../cards/types';
 import type { DragCardPayload } from './dragTypes';
-import { CARD_HEIGHT, CARD_WIDTH, pointInOval, renderOvalCard } from './cardVisual';
+import { CARD_HEIGHT, CARD_WIDTH, pointInRoundedRect, renderCardTag } from './cardVisual';
 
 const GROUP_LABEL: Record<CardGroup, string> = {
   actions: 'Actions',
@@ -150,7 +150,7 @@ export class CharacterBoardUI {
       const row = Math.floor(itemIndex / cardsPerRow);
       const cardX = startX + col * (CARD_WIDTH + CARD_GAP_X);
       const cardY = innerY + row * (CARD_HEIGHT + CARD_GAP_Y);
-      const bounds = renderOvalCard(content, { x: cardX, y: cardY, card });
+      const bounds = renderCardTag(content, { x: cardX, y: cardY, card });
 
       this.cardVisuals.push({
         bounds,
@@ -200,7 +200,7 @@ export class CharacterBoardUI {
         visual.bounds.height,
       );
       const viewportBounds = this.viewportBounds(layout);
-      if (pointInOval(globalX, globalY, scrolledBounds) && viewportBounds.contains(globalX, globalY)) {
+      if (pointInRoundedRect(globalX, globalY, scrolledBounds) && viewportBounds.contains(globalX, globalY)) {
         return visual.payload;
       }
     }

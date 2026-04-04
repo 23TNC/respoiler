@@ -11,7 +11,7 @@ import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
 import type { DragCardPayload } from '../ui/dragTypes';
-import { renderOvalCard } from '../ui/cardVisual';
+import { renderCardTag } from '../ui/cardVisual';
 import { StagedActionUI } from '../ui/StagedActionUI';
 import { uiSoundEffects } from '../ui/soundEffects';
 import { generateMockWorld } from '../world/mockWorld';
@@ -234,7 +234,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     dragGhost.position.set(x + 10, y + 10);
-    renderOvalCard(dragGhost, { x: 0, y: 0, card: draggingPayload.card, width: 90, height: 38 });
+    renderCardTag(dragGhost, { x: 0, y: 0, card: draggingPayload.card, width: 90, height: 24 });
   };
 
   const beginDrag = (payload: DragCardPayload, x: number, y: number, ignoreInventoryState = false): void => {
