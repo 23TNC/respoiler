@@ -64,7 +64,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   let selectedTileKey: string | null = null;
   const stagedByTileKey = new Map<string, StagedTileAction>();
-  const queuedActions: ReturnType<typeof toQueuedAction>[] = [];
+  const queuedTechniques: ReturnType<typeof toQueuedAction>[] = [];
 
   let draggingPayload: DragCardPayload | null = null;
   const dragGhost = new Container();
@@ -158,7 +158,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const stageVerbOnTile = (payload: DragCardPayload, x: number, y: number): boolean => {
-    if (payload.card.group !== 'actions') {
+    if (payload.card.group !== 'techniques') {
       return false;
     }
 
@@ -189,7 +189,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const stageInputCard = (payload: DragCardPayload, x: number, y: number): boolean => {
-    if (payload.card.group === 'actions') {
+    if (payload.card.group === 'techniques') {
       return false;
     }
 
@@ -247,7 +247,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const queued = toQueuedAction(staged);
-    queuedActions.push(queued);
+    queuedTechniques.push(queued);
     staged.status = 'queued';
     staged.error = undefined;
 
@@ -348,13 +348,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   app.stage.on('globalpointermove', (event) => {
     const { x, y } = event.global;
 
-    if (draggingPayload?.card.group === 'actions') {
+    if (draggingPayload?.card.group === 'techniques') {
       const hoverCoord = boardRenderer.tileAtPixel(x, y);
       const hoverTileKey = axialKey(hoverCoord);
       boardRenderer.setDropHoverTile(world.tiles.has(hoverTileKey) ? hoverTileKey : null);
     }
 
-    if (draggingPayload && draggingPayload.card.group !== 'actions') {
+    if (draggingPayload && draggingPayload.card.group !== 'techniques') {
       stagedActionUI.setInputDropHighlight(stagedActionUI.isPointInInputDrop(x, y));
     }
 

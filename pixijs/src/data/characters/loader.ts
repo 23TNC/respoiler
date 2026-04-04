@@ -18,7 +18,7 @@ export function loadSelectedCharacter(): CharacterModel {
   }
 
   const inventory = data.inventory as Record<string, unknown>;
-  const groups = ['actions', 'attributes', 'items', 'memories', 'people'] as const;
+  const groups = ['techniques', 'essence', 'sundries', 'reveries', 'souls'] as const;
 
   for (const group of groups) {
     const list = inventory[group];
@@ -31,11 +31,11 @@ export function loadSelectedCharacter(): CharacterModel {
     id: data.id,
     name: data.name,
     inventory: {
-      actions: inventory.actions as CharacterModel['inventory']['actions'],
-      attributes: inventory.attributes as CharacterModel['inventory']['attributes'],
-      items: inventory.items as CharacterModel['inventory']['items'],
-      memories: inventory.memories as CharacterModel['inventory']['memories'],
-      people: inventory.people as CharacterModel['inventory']['people'],
+      techniques: inventory.techniques as CharacterModel['inventory']['techniques'],
+      essence: inventory.essence as CharacterModel['inventory']['essence'],
+      sundries: inventory.sundries as CharacterModel['inventory']['sundries'],
+      reveries: inventory.reveries as CharacterModel['inventory']['reveries'],
+      souls: inventory.souls as CharacterModel['inventory']['souls'],
     },
   };
 }

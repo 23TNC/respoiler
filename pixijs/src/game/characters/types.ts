@@ -1,11 +1,11 @@
 import type { CardGroup, CardInstance } from '../cards/types';
 
 export interface CharacterInventory {
-  actions: CardInstance[];
-  attributes: CardInstance[];
-  items: CardInstance[];
-  memories: CardInstance[];
-  people: CardInstance[];
+  techniques: CardInstance[];
+  essence: CardInstance[];
+  sundries: CardInstance[];
+  reveries: CardInstance[];
+  souls: CardInstance[];
 }
 
 export interface CharacterModel {
@@ -14,4 +14,4 @@ export interface CharacterModel {
   inventory: CharacterInventory;
 }
 
-export const INVENTORY_GROUP_ORDER: CardGroup[] = ['actions', 'attributes', 'items', 'memories', 'people'];
+export const INVENTORY_GROUP_ORDER: CardGroup[] = ['techniques', 'essence', 'sundries', 'reveries', 'souls'];

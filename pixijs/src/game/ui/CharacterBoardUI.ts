@@ -1,17 +1,9 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import type { CharacterModel } from '../characters/types';
 import { INVENTORY_GROUP_ORDER } from '../characters/types';
-import type { CardDefinition, CardGroup, CardInstanceState } from '../cards/types';
+import { CARD_GROUP_LABEL, type CardDefinition, type CardGroup, type CardInstanceState } from '../cards/types';
 import type { DragCardPayload } from './dragTypes';
 import { CARD_HEIGHT, CARD_WIDTH, pointInRoundedRect, renderCardTag } from './cardVisual';
-
-const GROUP_LABEL: Record<CardGroup, string> = {
-  actions: 'Actions',
-  attributes: 'Attributes',
-  items: 'Items',
-  memories: 'Memories',
-  people: 'People',
-};
 
 interface InventoryCardVisual {
   bounds: Rectangle;
@@ -43,19 +35,19 @@ export class CharacterBoardUI {
   private readonly cardVisuals: InventoryCardVisual[] = [];
 
   private readonly scrollOffsetByGroup: Record<CardGroup, number> = {
-    actions: 0,
-    attributes: 0,
-    items: 0,
-    memories: 0,
-    people: 0,
+    techniques: 0,
+    essence: 0,
+    sundries: 0,
+    reveries: 0,
+    souls: 0,
   };
 
   private readonly contentHeightByGroup: Record<CardGroup, number> = {
-    actions: 0,
-    attributes: 0,
-    items: 0,
-    memories: 0,
-    people: 0,
+    techniques: 0,
+    essence: 0,
+    sundries: 0,
+    reveries: 0,
+    souls: 0,
   };
 
   private readonly layouts: GroupPanelLayout[] = [];
@@ -78,12 +70,20 @@ export class CharacterBoardUI {
     });
     this.root.addChild(board);
 
-    const title = new Text({
-      text: `Character: ${this.character.name}`,
-      style: { fill: '#dce9ff', fontSize: 14, fontWeight: '700' },
+    const viewedCharacterCard: CardDefinition = {
+      id: this.character.id,
+      name: this.character.name,
+      group: 'souls',
+      backgroundColor: 0xa8e0e6,
+    };
+    renderCardTag(this.root, { x: 12, y: 6, card: viewedCharacterCard, width: 180, height: 24 });
+
+    const identityLabel = new Text({
+      text: 'Viewed Soul',
+      style: { fill: '#dce9ff', fontSize: 11, fontWeight: '700' },
     });
-    title.position.set(12, 8);
-    this.root.addChild(title);
+    identityLabel.position.set(198, 11);
+    this.root.addChild(identityLabel);
 
     const rowY = 32;
     for (let i = 0; i < INVENTORY_GROUP_ORDER.length; i += 1) {
@@ -113,7 +113,7 @@ export class CharacterBoardUI {
     this.root.addChild(panel);
 
     const label = new Text({
-      text: GROUP_LABEL[group],
+      text: CARD_GROUP_LABEL[group],
       style: { fill: '#8cb4ff', fontSize: 12, fontWeight: '700' },
     });
     label.position.set(x + 10, y + 7);

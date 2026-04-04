@@ -5,7 +5,7 @@ export interface NormalizedStagedCards {
   tile: string | null;
   action: string | null;
   aspects: string[];
-  items: string[];
+  sundries: string[];
 }
 
 export type RecipeCardCategory = 'action' | 'aspect' | 'item';
@@ -35,8 +35,8 @@ function recipeSupportsStagedInputs(staged: NormalizedStagedCards, recipe: Recip
     return false;
   }
 
-  const stagedItems = normalizeUnique(staged.items);
-  if (!stagedItems.every((item) => availableIds.has(item))) {
+  const stagedSundries = normalizeUnique(staged.sundries);
+  if (!stagedSundries.every((item) => availableIds.has(item))) {
     return false;
   }
 
@@ -76,11 +76,11 @@ function applyCandidate(staged: NormalizedStagedCards, candidate: StageCandidate
     return { ...staged, aspects: [...stagedAspects, candidateId] };
   }
 
-  const stagedItems = normalizeUnique(staged.items);
-  if (stagedItems.includes(candidateId)) {
+  const stagedSundries = normalizeUnique(staged.sundries);
+  if (stagedSundries.includes(candidateId)) {
     return null;
   }
-  return { ...staged, items: [...stagedItems, candidateId] };
+  return { ...staged, sundries: [...stagedSundries, candidateId] };
 }
 
 export function canStageCard(
@@ -96,13 +96,13 @@ export function canStageCard(
 }
 
 export function getRecipeCardCategory(card: CardDefinition): RecipeCardCategory | null {
-  if (card.group === 'actions') {
+  if (card.group === 'techniques') {
     return 'action';
   }
-  if (card.group === 'attributes') {
+  if (card.group === 'essence') {
     return 'aspect';
   }
-  if (card.group === 'items') {
+  if (card.group === 'sundries') {
     return 'item';
   }
   return null;

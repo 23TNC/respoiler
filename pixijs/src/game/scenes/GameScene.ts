@@ -71,7 +71,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     | { type: 'card'; payload: DragCardPayload }
     | null = null;
   const stagedByTileKey = new Map<string, StagedTileAction>();
-  const queuedActions: QueuedAction[] = [];
+  const queuedTechniques: QueuedAction[] = [];
 
   let draggingPayload: DragCardPayload | null = null;
   let draggingDetachedAction: StagedTileAction | null = null;
@@ -110,7 +110,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       tile: tile.tileType,
       action: verbCard.id,
       aspects: [],
-      items: [],
+      sundries: [],
     };
 
     for (const instanceId of action.inputCardInstanceIds) {
@@ -131,7 +131,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       if (category === 'aspect') {
         stagedCards = { ...stagedCards, aspects: [...stagedCards.aspects, card.id] };
       } else {
-        stagedCards = { ...stagedCards, items: [...stagedCards.items, card.id] };
+        stagedCards = { ...stagedCards, sundries: [...stagedCards.sundries, card.id] };
       }
     }
 
@@ -142,9 +142,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const removeQueuedActionForTile = (tileId: string): void => {
-    const index = queuedActions.findIndex((action) => action.tileId === tileId && action.characterId === selectedCharacter.id);
+    const index = queuedTechniques.findIndex((action) => action.tileId === tileId && action.characterId === selectedCharacter.id);
     if (index >= 0) {
-      queuedActions.splice(index, 1);
+      queuedTechniques.splice(index, 1);
     }
   };
 
@@ -220,11 +220,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
 
   const shouldPlayCardPickupSound = (payload: DragCardPayload): boolean => (
-    payload.card.group === 'actions'
-      || payload.card.group === 'attributes'
-      || payload.card.group === 'items'
-      || payload.card.group === 'memories'
-      || payload.card.group === 'people'
+    payload.card.group === 'techniques'
+      || payload.card.group === 'essence'
+      || payload.card.group === 'sundries'
+      || payload.card.group === 'reveries'
+      || payload.card.group === 'souls'
   );
 
   const updateGhost = (x: number, y: number): void => {
@@ -324,7 +324,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       tile: tile.tileType,
       action: getCardByInstanceId(staged.verbCardInstanceId)?.id ?? null,
       aspects: stagedInputs.filter((card) => getRecipeCardCategory(card) === 'aspect').map((card) => card.id),
-      items: stagedInputs.filter((card) => getRecipeCardCategory(card) === 'item').map((card) => card.id),
+      sundries: stagedInputs.filter((card) => getRecipeCardCategory(card) === 'item').map((card) => card.id),
     };
 
     if (!canStageCard(stagedCards, { category, id: payload.card.id }, staticData.recipes)) {
@@ -352,7 +352,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         tile: tile.tileType,
         action: null,
         aspects: [],
-        items: [],
+        sundries: [],
       },
       { category, id: payload.card.id },
       staticData.recipes,
@@ -408,7 +408,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const stageInputCard = (payload: DragCardPayload, x: number, y: number): boolean => {
-    if (payload.card.group === 'actions') {
+    if (payload.card.group === 'techniques') {
       return false;
     }
 
@@ -466,7 +466,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
           tile: hoverTile.tileType,
           action: null,
           aspects: [],
-          items: [],
+          sundries: [],
         },
         { category: 'action', id: payload.card.id },
         staticData.recipes,
@@ -512,7 +512,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const queued = toQueuedAction(staged);
-    queuedActions.push(queued);
+    queuedTechniques.push(queued);
     staged.status = 'queued';
     staged.error = undefined;
 

@@ -1,4 +1,4 @@
-export type CardGroup = 'actions' | 'attributes' | 'items' | 'memories' | 'people';
+export type CardGroup = 'techniques' | 'essence' | 'sundries' | 'reveries' | 'souls';
 
 export type CardInstanceState = 'in_inventory' | 'staged' | 'queued';
 

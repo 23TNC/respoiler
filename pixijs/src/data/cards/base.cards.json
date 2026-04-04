@@ -1,25 +1,25 @@
 [
-  { "id": "work", "name": "Work", "group": "actions", "backgroundColor": "#f8be6f" },
-  { "id": "study", "name": "Study", "group": "actions", "backgroundColor": "#f3d27f" },
-  { "id": "dream", "name": "Dream", "group": "actions", "backgroundColor": "#d9b6ff" },
-  { "id": "move", "name": "Move", "group": "actions", "backgroundColor": "#8fd7ff" },
-  { "id": "attack", "name": "Attack", "group": "actions", "backgroundColor": "#f79d8d" },
-  { "id": "defend", "name": "Defend", "group": "actions", "backgroundColor": "#9dd6a1" },
-  { "id": "explore", "name": "Explore", "group": "actions", "backgroundColor": "#8ed8c8" },
+  { "id": "work", "name": "Work", "group": "techniques", "backgroundColor": "#f8be6f" },
+  { "id": "study", "name": "Study", "group": "techniques", "backgroundColor": "#f3d27f" },
+  { "id": "dream", "name": "Dream", "group": "techniques", "backgroundColor": "#d9b6ff" },
+  { "id": "move", "name": "Move", "group": "techniques", "backgroundColor": "#8fd7ff" },
+  { "id": "attack", "name": "Attack", "group": "techniques", "backgroundColor": "#f79d8d" },
+  { "id": "defend", "name": "Defend", "group": "techniques", "backgroundColor": "#9dd6a1" },
+  { "id": "explore", "name": "Explore", "group": "techniques", "backgroundColor": "#8ed8c8" },
 
-  { "id": "health", "name": "Health", "group": "attributes", "backgroundColor": "#97e3a7" },
-  { "id": "passion", "name": "Passion", "group": "attributes", "backgroundColor": "#ffb8c4" },
-  { "id": "reason", "name": "Reason", "group": "attributes", "backgroundColor": "#b9c8ff" },
+  { "id": "health", "name": "Health", "group": "essence", "backgroundColor": "#97e3a7" },
+  { "id": "passion", "name": "Passion", "group": "essence", "backgroundColor": "#ffb8c4" },
+  { "id": "reason", "name": "Reason", "group": "essence", "backgroundColor": "#b9c8ff" },
 
-  { "id": "axe", "name": "Axe", "group": "items", "backgroundColor": "#ffcc97" },
-  { "id": "logs", "name": "Logs", "group": "items", "backgroundColor": "#cda27f" },
-  { "id": "food", "name": "Food", "group": "items", "backgroundColor": "#ffe08f" },
-  { "id": "torch", "name": "Torch", "group": "items", "backgroundColor": "#ffb578" },
+  { "id": "axe", "name": "Axe", "group": "sundries", "backgroundColor": "#ffcc97" },
+  { "id": "logs", "name": "Logs", "group": "sundries", "backgroundColor": "#cda27f" },
+  { "id": "food", "name": "Food", "group": "sundries", "backgroundColor": "#ffe08f" },
+  { "id": "torch", "name": "Torch", "group": "sundries", "backgroundColor": "#ffb578" },
 
-  { "id": "dread", "name": "Dread", "group": "memories", "backgroundColor": "#cf9cff" },
-  { "id": "wound", "name": "Wound", "group": "memories", "backgroundColor": "#f5a0a0" },
-  { "id": "known-forest", "name": "Known Forest", "group": "memories", "backgroundColor": "#a5d5a1" },
-  { "id": "grudge", "name": "Grudge", "group": "memories", "backgroundColor": "#d6a5b7" },
+  { "id": "dread", "name": "Dread", "group": "reveries", "backgroundColor": "#cf9cff" },
+  { "id": "wound", "name": "Wound", "group": "reveries", "backgroundColor": "#f5a0a0" },
+  { "id": "known-forest", "name": "Known Forest", "group": "reveries", "backgroundColor": "#a5d5a1" },
+  { "id": "grudge", "name": "Grudge", "group": "reveries", "backgroundColor": "#d6a5b7" },
 
-  { "id": "follower", "name": "Follower", "group": "people", "backgroundColor": "#a8e0e6" }
+  { "id": "follower", "name": "Follower", "group": "souls", "backgroundColor": "#a8e0e6" }
 ]
