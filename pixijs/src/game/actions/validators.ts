@@ -36,6 +36,7 @@ export function toQueuedAction(staged: StagedTileAction): QueuedAction {
   return {
     actionId: `queued-${Date.now()}`,
     characterId: staged.characterId,
+    soulId: staged.soulId,
     tileId: staged.tileId,
     verbCardInstanceId: staged.verbCardInstanceId,
     inputCardInstanceIds: [...staged.inputCardInstanceIds],

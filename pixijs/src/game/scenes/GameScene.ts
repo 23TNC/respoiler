@@ -81,7 +81,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     | { type: 'tile'; tileKey: string }
     | { type: 'card'; payload: DragCardPayload }
     | null = null;
-  const stagedByTileKey = new Map<string, StagedTileAction>();
+  const stagedBySoulId = new Map<string, Map<string, StagedTileAction>>();
   const queuedTechniques: QueuedAction[] = [];
 
   let draggingPayload: DragCardPayload | null = null;
@@ -98,6 +98,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   dragPreviewLayer.addChild(dragGhost);
 
   const getCardByInstanceId = (instanceId: string): CardDefinition | undefined => cardDefinitionByInstanceId.get(instanceId);
+  const getStagedForSoul = (soulId: string): Map<string, StagedTileAction> => {
+    let staged = stagedBySoulId.get(soulId);
+    if (!staged) {
+      staged = new Map<string, StagedTileAction>();
+      stagedBySoulId.set(soulId, staged);
+    }
+    return staged;
+  };
+  const getViewedStaged = (): Map<string, StagedTileAction> => getStagedForSoul(viewedSoulId);
 
   const returnCardsToInventory = (action: Pick<StagedTileAction, 'verbCardInstanceId' | 'inputCardInstanceIds'>): void => {
     cardStateByInstanceId.set(action.verbCardInstanceId, 'in_inventory');
@@ -152,22 +161,25 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
   };
 
-  const removeQueuedActionForTile = (tileId: string): void => {
-    const index = queuedTechniques.findIndex((action) => action.tileId === tileId && action.characterId === selectedCharacter.id);
+  const removeQueuedActionForTile = (tileId: string, soulId: string): void => {
+    const index = queuedTechniques.findIndex(
+      (action) => action.tileId === tileId && action.characterId === selectedCharacter.id && action.soulId === soulId,
+    );
     if (index >= 0) {
       queuedTechniques.splice(index, 1);
     }
   };
 
-  const removeStagedAction = (tileKey: string): void => {
-    const existing = stagedByTileKey.get(tileKey);
+  const removeStagedAction = (tileKey: string, soulId = viewedSoulId): void => {
+    const stagedForSoul = getStagedForSoul(soulId);
+    const existing = stagedForSoul.get(tileKey);
     if (!existing) {
       return;
     }
 
     returnCardsToInventory(existing);
-    removeQueuedActionForTile(existing.tileId);
-    stagedByTileKey.delete(tileKey);
+    removeQueuedActionForTile(existing.tileId, soulId);
+    stagedForSoul.delete(tileKey);
   };
 
   const render = (): void => {
@@ -175,8 +187,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       tile.selected = axialKey({ q: tile.q, r: tile.r }) === selectedTileKey;
     }
 
+    const viewedStaged = getViewedStaged();
     const stagedByTileId = new Map(
-      Array.from(stagedByTileKey.values()).map((staged) => {
+      Array.from(viewedStaged.values()).map((staged) => {
         const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name ?? staged.verbCardInstanceId;
         return [
           staged.tileId,
@@ -211,7 +224,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
               tile: selectedTile,
               tileType: staticData.tileTypeById.get(selectedTile.tileType),
               availableVerbs: selectedTile.activeVerbs.map((verbId) => staticData.verbById.get(verbId)).filter((verb): verb is NonNullable<typeof verb> => Boolean(verb)),
-              stagedAction: stagedByTileKey.get(inspectedTileKey ?? '') ?? null,
+              stagedAction: viewedStaged.get(inspectedTileKey ?? '') ?? null,
             }
           : null,
       );
@@ -223,7 +236,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (!selectedTileKey) {
       return;
     }
-    const staged = stagedByTileKey.get(selectedTileKey);
+    const staged = getViewedStaged().get(selectedTileKey);
     if (staged) {
       staged.error = message;
     }
@@ -249,6 +262,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const beginDrag = (payload: DragCardPayload, x: number, y: number, ignoreInventoryState = false): void => {
+    if (!ignoreInventoryState && payload.instance.soulId !== viewedSoulId) {
+      return;
+    }
     if (!ignoreInventoryState && (cardStateByInstanceId.get(payload.instance.instanceId) ?? 'in_inventory') !== 'in_inventory') {
       return;
     }
@@ -261,7 +277,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const beginDragAttachedAction = (tileKey: string, x: number, y: number): boolean => {
-    const staged = stagedByTileKey.get(tileKey);
+    const staged = getViewedStaged().get(tileKey);
     if (!staged || staged.status === 'queued') {
       return false;
     }
@@ -271,8 +287,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return false;
     }
 
-    stagedByTileKey.delete(tileKey);
-    removeQueuedActionForTile(staged.tileId);
+    getViewedStaged().delete(tileKey);
+    removeQueuedActionForTile(staged.tileId, viewedSoulId);
     staged.error = undefined;
     staged.status = 'staged';
     draggingDetachedAction = staged;
@@ -309,13 +325,16 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (!targetTileKey) {
       return { state: 'invalid', reason: 'Invalid drop target.' };
     }
+    if (payload.instance.soulId !== viewedSoulId) {
+      return { state: 'invalid', reason: 'Cannot stage cards from another soul.' };
+    }
 
     const category = getRecipeCardCategory(payload.card);
     if (category !== 'aspect' && category !== 'item') {
       return { state: 'invalid', reason: 'Only recipe inputs can be staged here.' };
     }
 
-    const staged = stagedByTileKey.get(targetTileKey);
+    const staged = getViewedStaged().get(targetTileKey);
     if (!staged) {
       return { state: 'invalid', reason: 'No staged action on target tile.' };
     }
@@ -384,8 +403,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
           error: undefined,
         }
       : {
-          stagedActionId: `staged-${tile.id}-${selectedCharacter.id}`,
+          stagedActionId: `staged-${tile.id}-${selectedCharacter.id}-${viewedSoulId}`,
           characterId: selectedCharacter.id,
+          soulId: viewedSoulId,
           tileId: tile.id,
           tileKey,
           verbCardInstanceId: payload.instance.instanceId,
@@ -398,7 +418,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       revalidateStagedInputs(staged, tileKey);
     }
 
-    stagedByTileKey.set(staged.tileKey, staged);
+    getViewedStaged().set(staged.tileKey, staged);
     cardStateByInstanceId.set(payload.instance.instanceId, 'staged');
     selectedTileKey = staged.tileKey;
     inspectedTarget = { type: 'tile', tileKey: staged.tileKey };
@@ -406,6 +426,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const tryAddInputCardToStaged = (payload: DragCardPayload, staged: StagedTileAction): boolean => {
+    if (payload.instance.soulId !== viewedSoulId) {
+      staged.error = 'Cannot stage cards from another soul.';
+      return false;
+    }
+
     const feedback = getInputDropFeedback(payload, staged.tileKey);
     if (feedback.state !== 'valid') {
       staged.error = feedback.reason;
@@ -423,6 +448,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (payload.card.group === 'techniques') {
       return false;
     }
+    if (payload.instance.soulId !== viewedSoulId) {
+      return false;
+    }
 
     let targetTileKey: string | null = null;
     if (selectedTileKey && stagedActionUI.isPointInInputDrop(x, y)) {
@@ -433,7 +461,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       const coord = boardRenderer.tileAtPixel(x, y);
       const hoveredTileKey = axialKey(coord);
       const tile = world.tiles.get(hoveredTileKey);
-      if (tile && stagedByTileKey.has(hoveredTileKey)) {
+      if (tile && getViewedStaged().has(hoveredTileKey)) {
         targetTileKey = hoveredTileKey;
       }
     }
@@ -442,7 +470,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return false;
     }
 
-    const staged = stagedByTileKey.get(targetTileKey);
+    const staged = getViewedStaged().get(targetTileKey);
     if (!staged) {
       return false;
     }
@@ -466,7 +494,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     const hoverCoord = boardRenderer.tileAtPixel(x, y);
     const hoverTileKey = axialKey(hoverCoord);
-    const hasStagedAction = stagedByTileKey.has(hoverTileKey);
+    const hasStagedAction = getViewedStaged().has(hoverTileKey);
 
     if (getRecipeCardCategory(payload.card) === 'action') {
       const hoverTile = world.tiles.get(hoverTileKey);
@@ -506,7 +534,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return;
     }
 
-    const staged = stagedByTileKey.get(selectedTileKey);
+    const staged = getViewedStaged().get(selectedTileKey);
     if (!staged || staged.status === 'queued') {
       return;
     }
@@ -541,7 +569,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return;
     }
 
-    const staged = stagedByTileKey.get(selectedTileKey);
+    const staged = getViewedStaged().get(selectedTileKey);
     if (!staged || staged.status === 'queued') {
       return;
     }
@@ -563,7 +591,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return false;
     }
 
-    const staged = stagedByTileKey.get(selectedTileKey);
+    const staged = getViewedStaged().get(selectedTileKey);
     if (!staged || staged.status === 'queued') {
       return false;
     }
@@ -619,6 +647,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     if (characterBoard.isPointInReturnToPlayer(x, y)) {
       viewedSoulId = selectedCharacter.playerSoulId;
+      selectedTileKey = null;
       inspectedTarget = null;
       render();
       return;
