@@ -1,35 +1,76 @@
 {
   "id": "char-001",
   "name": "Ari of the Camp",
-  "inventory": {
-    "techniques": [
-      { "instanceId": "inst-work", "cardId": "work" },
-      { "instanceId": "inst-study", "cardId": "study" },
-      { "instanceId": "inst-dream", "cardId": "dream" },
-      { "instanceId": "inst-move", "cardId": "move" },
-      { "instanceId": "inst-attack", "cardId": "attack" },
-      { "instanceId": "inst-defend", "cardId": "defend" },
-      { "instanceId": "inst-explore", "cardId": "explore" }
-    ],
-    "essence": [
-      { "instanceId": "inst-health", "cardId": "health" },
-      { "instanceId": "inst-passion", "cardId": "passion" },
-      { "instanceId": "inst-reason", "cardId": "reason" }
-    ],
-    "sundries": [
-      { "instanceId": "inst-axe", "cardId": "axe" },
-      { "instanceId": "inst-logs", "cardId": "logs" },
-      { "instanceId": "inst-food", "cardId": "food" },
-      { "instanceId": "inst-torch", "cardId": "torch" }
-    ],
-    "reveries": [
-      { "instanceId": "inst-dread", "cardId": "dread" },
-      { "instanceId": "inst-wound", "cardId": "wound" },
-      { "instanceId": "inst-known-forest", "cardId": "known-forest" },
-      { "instanceId": "inst-grudge", "cardId": "grudge" }
-    ],
-    "souls": [
-      { "instanceId": "inst-follower", "cardId": "follower" }
-    ]
+  "playerSoulId": "soul-player-ari",
+  "souls": [
+    {
+      "soulId": "soul-player-ari",
+      "name": "Ari of the Camp",
+      "playerId": "player-001"
+    },
+    {
+      "soulId": "soul-npc-scout",
+      "name": "Iven the Scout",
+      "ownerSoulId": "soul-player-ari",
+      "subordinateType": "Control"
+    }
+  ],
+  "inventoryBySoulId": {
+    "soul-player-ari": {
+      "techniques": [
+        { "instanceId": "inst-work", "cardId": "work", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-study", "cardId": "study", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-dream", "cardId": "dream", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-move", "cardId": "move", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-attack", "cardId": "attack", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-defend", "cardId": "defend", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-explore", "cardId": "explore", "soulId": "soul-player-ari" }
+      ],
+      "essence": [
+        { "instanceId": "inst-health", "cardId": "health", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-passion", "cardId": "passion", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-reason", "cardId": "reason", "soulId": "soul-player-ari" }
+      ],
+      "sundries": [
+        { "instanceId": "inst-axe", "cardId": "axe", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-logs", "cardId": "logs", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-food", "cardId": "food", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-torch", "cardId": "torch", "soulId": "soul-player-ari" }
+      ],
+      "reveries": [
+        { "instanceId": "inst-dread", "cardId": "dread", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-wound", "cardId": "wound", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-known-forest", "cardId": "known-forest", "soulId": "soul-player-ari" },
+        { "instanceId": "inst-grudge", "cardId": "grudge", "soulId": "soul-player-ari" }
+      ],
+      "souls": [
+        {
+          "instanceId": "inst-soul-iven",
+          "cardId": "follower",
+          "soulId": "soul-player-ari",
+          "linkedSoulId": "soul-npc-scout"
+        }
+      ]
+    },
+    "soul-npc-scout": {
+      "techniques": [
+        { "instanceId": "inst-iven-move", "cardId": "move", "soulId": "soul-npc-scout" },
+        { "instanceId": "inst-iven-explore", "cardId": "explore", "soulId": "soul-npc-scout" },
+        { "instanceId": "inst-iven-attack", "cardId": "attack", "soulId": "soul-npc-scout" }
+      ],
+      "essence": [
+        { "instanceId": "inst-iven-health", "cardId": "health", "soulId": "soul-npc-scout" },
+        { "instanceId": "inst-iven-reason", "cardId": "reason", "soulId": "soul-npc-scout" }
+      ],
+      "sundries": [
+        { "instanceId": "inst-iven-torch", "cardId": "torch", "soulId": "soul-npc-scout" },
+        { "instanceId": "inst-iven-food", "cardId": "food", "soulId": "soul-npc-scout" }
+      ],
+      "reveries": [
+        { "instanceId": "inst-iven-known-forest", "cardId": "known-forest", "soulId": "soul-npc-scout" },
+        { "instanceId": "inst-iven-grudge", "cardId": "grudge", "soulId": "soul-npc-scout" }
+      ],
+      "souls": []
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
-import type { CharacterModel } from '../characters/types';
+import type { CharacterInventory, SoulModel } from '../characters/types';
 import { INVENTORY_GROUP_ORDER } from '../characters/types';
 import { CARD_GROUP_LABEL, type CardDefinition, type CardGroup, type CardInstanceState } from '../cards/types';
 import type { DragCardPayload } from './dragTypes';
@@ -52,16 +52,21 @@ export class CharacterBoardUI {
 
   private readonly layouts: GroupPanelLayout[] = [];
 
+  private returnToPlayerBounds: Rectangle | null = null;
+
   constructor(
-    private readonly character: CharacterModel,
     private readonly cardsById: Map<string, CardDefinition>,
     private readonly getCardState: (instanceId: string) => CardInstanceState,
+    private readonly getViewedSoul: () => SoulModel,
+    private readonly getViewedInventory: () => CharacterInventory,
+    private readonly shouldShowReturnToPlayer: () => boolean,
   ) {}
 
   render(): void {
     this.root.removeChildren();
     this.cardVisuals.length = 0;
     this.layouts.length = 0;
+    this.returnToPlayerBounds = null;
 
     const board = new Graphics();
     board.roundRect(0, 0, this.boardWidth(), this.boardHeight(), 12).fill({ color: 0x0b1320, alpha: 0.85 }).stroke({
@@ -70,13 +75,14 @@ export class CharacterBoardUI {
     });
     this.root.addChild(board);
 
-    const viewedCharacterCard: CardDefinition = {
-      id: this.character.id,
-      name: this.character.name,
+    const viewedSoul = this.getViewedSoul();
+    const viewedSoulCard: CardDefinition = {
+      id: viewedSoul.soulId,
+      name: viewedSoul.name,
       group: 'souls',
       backgroundColor: 0xa8e0e6,
     };
-    renderCardTag(this.root, { x: 12, y: 6, card: viewedCharacterCard, width: 180, height: 24 });
+    renderCardTag(this.root, { x: 12, y: 6, card: viewedSoulCard, width: 180, height: 24 });
 
     const identityLabel = new Text({
       text: 'Viewed Soul',
@@ -84,6 +90,26 @@ export class CharacterBoardUI {
     });
     identityLabel.position.set(198, 11);
     this.root.addChild(identityLabel);
+
+    if (this.shouldShowReturnToPlayer()) {
+      this.returnToPlayerBounds = new Rectangle(290, 6, 140, 24);
+      const returnButton = new Graphics();
+      returnButton.roundRect(
+        this.returnToPlayerBounds.x,
+        this.returnToPlayerBounds.y,
+        this.returnToPlayerBounds.width,
+        this.returnToPlayerBounds.height,
+        6,
+      ).fill({ color: 0x345b92, alpha: 1 }).stroke({ color: 0x90b9ff, width: 1.5 });
+      this.root.addChild(returnButton);
+
+      const returnLabel = new Text({
+        text: 'Return to Player',
+        style: { fill: '#eaf2ff', fontSize: 11, fontWeight: '700' },
+      });
+      returnLabel.position.set(this.returnToPlayerBounds.x + 14, this.returnToPlayerBounds.y + 5);
+      this.root.addChild(returnLabel);
+    }
 
     const rowY = 32;
     for (let i = 0; i < INVENTORY_GROUP_ORDER.length; i += 1) {
@@ -127,7 +153,7 @@ export class CharacterBoardUI {
     this.root.addChild(mask);
     content.mask = mask;
 
-    const list = this.character.inventory[group];
+    const list = this.getViewedInventory()[group];
     const innerX = x + 8;
     const innerY = y + HEADER_HEIGHT + 4;
     const contentWidth = width - 18;
@@ -207,6 +233,20 @@ export class CharacterBoardUI {
     return null;
   }
 
+  isPointInReturnToPlayer(globalX: number, globalY: number): boolean {
+    if (!this.returnToPlayerBounds) {
+      return false;
+    }
+
+    const bounds = new Rectangle(
+      this.root.position.x + this.returnToPlayerBounds.x,
+      this.root.position.y + this.returnToPlayerBounds.y,
+      this.returnToPlayerBounds.width,
+      this.returnToPlayerBounds.height,
+    );
+    return pointInRoundedRect(globalX, globalY, bounds);
+  }
+
   setPosition(x: number, y: number): void {
     this.root.position.set(x, y);
     this.render();
@@ -241,6 +281,7 @@ export class CharacterBoardUI {
       VIEWPORT_HEIGHT,
     );
   }
+
   private renderScrollbar(layout: GroupPanelLayout): void {
     const contentHeight = this.contentHeightByGroup[layout.group];
     const viewportHeight = VIEWPORT_HEIGHT;
@@ -261,7 +302,7 @@ export class CharacterBoardUI {
     this.root.addChild(track);
 
     const thumb = new Graphics();
-    thumb.roundRect(trackX, thumbY, SCROLLBAR_WIDTH, thumbHeight, 3).fill({ color: 0x8cb4ff, alpha: 0.95 });
+    thumb.roundRect(trackX, thumbY, SCROLLBAR_WIDTH, thumbHeight, 3).fill({ color: 0x7aa7ec, alpha: 0.9 });
     this.root.addChild(thumb);
   }
 }
