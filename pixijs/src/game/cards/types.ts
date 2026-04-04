@@ -12,6 +12,8 @@ export interface CardDefinition {
 export interface CardInstance {
   instanceId: string;
   cardId: string;
+  soulId: string;
+  linkedSoulId?: string;
 }
 
 export const CARD_GROUP_LABEL: Record<CardGroup, string> = {

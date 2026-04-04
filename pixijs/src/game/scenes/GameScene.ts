@@ -35,7 +35,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const selectedCharacter = loadSelectedCharacter();
   const world = generateMockWorld(staticData.tileTypes, staticData.verbs, 2);
 
-  const allInstances = Object.values(selectedCharacter.inventory).flat();
+  let viewedSoulId = selectedCharacter.playerSoulId;
+  const soulById = new Map(selectedCharacter.souls.map((soul) => [soul.soulId, soul]));
+  const allInstances = Object.values(selectedCharacter.inventoryBySoulId).flatMap((inventory) => Object.values(inventory).flat());
   const cardDefinitionByInstanceId = new Map(allInstances.map((instance) => [instance.instanceId, cardData.cardsById.get(instance.cardId)]));
   const cardStateByInstanceId = new Map(allInstances.map((instance) => [instance.instanceId, 'in_inventory' as CardInstanceState]));
 
@@ -59,13 +61,22 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   boardRenderer.centerOn(app.screen.width, app.screen.height);
   worldHexLayer.addChild(boardRenderer.root);
 
-  const characterBoard = new CharacterBoardUI(selectedCharacter, cardData.cardsById, (instanceId) => cardStateByInstanceId.get(instanceId) ?? 'in_inventory');
+  const getViewedInventory = () => selectedCharacter.inventoryBySoulId[viewedSoulId] ?? selectedCharacter.inventoryBySoulId[selectedCharacter.playerSoulId];
+  const getViewedSoul = () => soulById.get(viewedSoulId) ?? soulById.get(selectedCharacter.playerSoulId) ?? selectedCharacter.souls[0];
+  const characterBoard = new CharacterBoardUI(
+    cardData.cardsById,
+    (instanceId) => cardStateByInstanceId.get(instanceId) ?? 'in_inventory',
+    getViewedSoul,
+    getViewedInventory,
+    () => viewedSoulId !== selectedCharacter.playerSoulId,
+  );
   fixedUiLayer.addChild(characterBoard.root);
 
   const stagedActionUI = new StagedActionUI(cardData.cardsById, (instanceId) => cardDefinitionByInstanceId.get(instanceId));
   fixedUiLayer.addChild(stagedActionUI.root);
 
   let selectedTileKey: string | null = null;
+  let lastCardClick: { instanceId: string; atMs: number } | null = null;
   let inspectedTarget:
     | { type: 'tile'; tileKey: string }
     | { type: 'card'; payload: DragCardPayload }
@@ -272,6 +283,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         instance: {
           instanceId: staged.verbCardInstanceId,
           cardId: verbCard.id,
+          soulId: viewedSoulId,
         },
       },
       x,
@@ -605,6 +617,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return;
     }
 
+    if (characterBoard.isPointInReturnToPlayer(x, y)) {
+      viewedSoulId = selectedCharacter.playerSoulId;
+      inspectedTarget = null;
+      render();
+      return;
+    }
+
     const payload = characterBoard.cardAtPoint(x, y);
     const tileCoord = boardRenderer.tileAtPixel(x, y);
     const tileKey = axialKey(tileCoord);
@@ -659,7 +678,24 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
         if (!movedEnough) {
           if (pointerDown.cardPayload) {
+            const now = performance.now();
             inspectedTarget = { type: 'card', payload: pointerDown.cardPayload };
+            if (
+              pointerDown.cardPayload.card.group === 'souls'
+              && pointerDown.cardPayload.instance.linkedSoulId
+              && lastCardClick
+              && lastCardClick.instanceId === pointerDown.cardPayload.instance.instanceId
+              && (now - lastCardClick.atMs) <= 350
+            ) {
+              viewedSoulId = pointerDown.cardPayload.instance.linkedSoulId;
+              selectedTileKey = null;
+              inspectedTarget = null;
+              lastCardClick = null;
+              render();
+              pointerDown = null;
+              return;
+            }
+            lastCardClick = { instanceId: pointerDown.cardPayload.instance.instanceId, atMs: now };
             render();
           } else if (pointerDown.tileKey && world.tiles.has(pointerDown.tileKey)) {
             selectedTileKey = pointerDown.tileKey;
