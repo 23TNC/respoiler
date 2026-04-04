@@ -29,6 +29,7 @@ function parseTileTypes(input: unknown): TileTypeDefinition[] {
     assert(isObject(item), `tile[${index}] must be object`);
     assert(typeof item.id === 'string', `tile[${index}].id must be string`);
     assert(typeof item.name === 'string', `tile[${index}].name must be string`);
+    assert(item.hostKind === 'world' || item.hostKind === 'soul', `tile[${index}].hostKind must be world|soul`);
     assert(isObject(item.style), `tile[${index}].style must be object`);
     assert(typeof item.style.fillColor === 'string', `tile[${index}].style.fillColor must be string`);
     assert(typeof item.style.strokeColor === 'string', `tile[${index}].style.strokeColor must be string`);
@@ -43,6 +44,7 @@ function parseTileTypes(input: unknown): TileTypeDefinition[] {
     return {
       id: item.id,
       name: item.name,
+      hostKind: item.hostKind,
       style: {
         fillColor: item.style.fillColor,
         strokeColor: item.style.strokeColor,

@@ -31,7 +31,9 @@ export function generateMockWorld(
   verbDefs: VerbDefinition[],
   radius = 2,
 ): HexWorldBoard {
-  const randomTileIds = tileDefs.filter((tile) => tile.id !== 'campfire').map((tile) => tile.id);
+  const randomTileIds = tileDefs
+    .filter((tile) => tile.hostKind === 'world' && tile.id !== 'campfire')
+    .map((tile) => tile.id);
   const verbIds = verbDefs.map((verb) => verb.id);
 
   const tiles = new Map<string, HexTile>();
@@ -57,5 +59,5 @@ export function generateMockWorld(
     tiles.set(axialKey(coord), tile);
   }
 
-  return { tiles };
+  return { worldTiles: tiles };
 }
