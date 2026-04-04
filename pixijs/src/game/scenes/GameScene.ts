@@ -100,7 +100,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const stagedActionUI = new StagedActionUI(cardData.cardsById, (instanceId) => cardDefinitionByInstanceId.get(instanceId));
   fixedUiLayer.addChild(stagedActionUI.root);
   const hostedTilesUI = new SoulHostedTilesUI(
-    getViewedSoul,
     getViewedHostedTiles,
     staticData.tileTypeById,
     (tileId) => getViewedStaged().get(tileId),
@@ -410,22 +409,23 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const selectedTile = selectedTileInstanceId ? getTileByInstanceId(selectedTileInstanceId) : null;
-    const detailPanelHostedDropTargetId = (
+    const detailPanelDropTargetId = (
       selectedTileInstanceId
       && selectedTile
-      && !isHexTile(selectedTile)
       && stagedActionUI.isPointInPanel(x, y)
     )
       ? selectedTileInstanceId
       : null;
-    const hostedTileId = detailPanelHostedDropTargetId ?? hostedTilesUI.tileAtPoint(x, y);
-    let tile: BoardTile | null = hostedTileId ? getViewedHostedTiles().find((entry) => entry.id === hostedTileId) ?? null : null;
-    if (!tile) {
-      const coord = boardRenderer.tileAtPixel(x, y);
-      const worldTile = world.worldTiles.get(axialKey(coord));
-      tile = worldTile ?? null;
-    }
-    if (!tile) {
+
+    const hostedTileId = hostedTilesUI.tileAtPoint(x, y);
+    const hoveredHostedTile = hostedTileId ? getViewedHostedTiles().find((entry) => entry.id === hostedTileId) ?? null : null;
+    const coord = boardRenderer.tileAtPixel(x, y);
+    const hoveredWorldTile = world.worldTiles.get(axialKey(coord)) ?? null;
+    const tile: BoardTile | null = detailPanelDropTargetId
+      ? getTileByInstanceId(detailPanelDropTargetId)
+      : (hoveredHostedTile ?? hoveredWorldTile);
+
+    if (!tile || (payload.instance.soulId !== viewedSoulId)) {
       return false;
     }
 
@@ -443,7 +443,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return false;
     }
 
-    removeStagedAction(tile.id);
+    removeStagedAction(tile.id, viewedSoulId);
 
     const staged: StagedTileAction = draggingDetachedAction
       ? {
@@ -552,7 +552,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const hasStagedAction = hoverTileInstanceId ? getViewedStaged().has(hoverTileInstanceId) : false;
 
     if (getRecipeCardCategory(payload.card) === 'action') {
-      const hoverTile = hoverTileInstanceId ? getTileByInstanceId(hoverTileInstanceId) : null;
+      const detailPanelTargetTile = (
+        selectedTileInstanceId
+        && stagedActionUI.isPointInPanel(x, y)
+      )
+        ? getTileByInstanceId(selectedTileInstanceId)
+        : null;
+      const hoverTile = detailPanelTargetTile ?? (hoverTileInstanceId ? getTileByInstanceId(hoverTileInstanceId) : null);
       if (!hoverTile) {
         return;
       }
@@ -566,7 +572,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         { category: 'action', id: payload.card.id },
         staticData.recipes,
       );
-      boardRenderer.setDropHoverTile(canDrop && hoverWorldTile ? axialKey({ q: hoverWorldTile.q, r: hoverWorldTile.r }) : null);
+      boardRenderer.setDropHoverTile(
+        canDrop && isHexTile(hoverTile)
+          ? axialKey({ q: hoverTile.q, r: hoverTile.r })
+          : null,
+      );
       return;
     }
 

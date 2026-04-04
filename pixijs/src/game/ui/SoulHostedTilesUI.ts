@@ -1,6 +1,6 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import type { StagedTileAction } from '../actions/types';
-import type { SoulHostedTileModel, SoulModel } from '../characters/types';
+import type { SoulHostedTileModel } from '../characters/types';
 import type { TileTypeDefinition } from '../world/types';
 
 interface HostedTileVisual {
@@ -14,7 +14,6 @@ export class SoulHostedTilesUI {
   private readonly tileVisuals: HostedTileVisual[] = [];
 
   constructor(
-    private readonly getViewedSoul: () => SoulModel,
     private readonly getViewedHostedTiles: () => SoulHostedTileModel[],
     private readonly tileTypeById: Map<string, TileTypeDefinition>,
     private readonly getStagedForTile: (tileId: string) => StagedTileAction | undefined,
@@ -42,10 +41,16 @@ export class SoulHostedTilesUI {
   }
 
   size(): { width: number; height: number } {
-    const rows = Math.max(1, this.getViewedHostedTiles().length);
+    const rows = this.getViewedHostedTiles().length;
+    if (rows === 0) {
+      return {
+        width: 0,
+        height: 0,
+      };
+    }
     return {
       width: 360,
-      height: 50 + rows * 38,
+      height: 14 + rows * 38,
     };
   }
 
@@ -53,9 +58,15 @@ export class SoulHostedTilesUI {
     this.root.removeChildren();
     this.tileVisuals.length = 0;
 
-    const soul = this.getViewedSoul();
     const hostedTiles = this.getViewedHostedTiles();
     const { width, height } = this.size();
+
+    if (hostedTiles.length === 0) {
+      this.root.visible = false;
+      return;
+    }
+
+    this.root.visible = true;
 
     const panel = new Graphics();
     panel.roundRect(0, 0, width, height, 10).fill({ color: 0x0b1320, alpha: 0.9 }).stroke({
@@ -64,51 +75,38 @@ export class SoulHostedTilesUI {
     });
     this.root.addChild(panel);
 
-    if (hostedTiles.length === 0) {
-      const empty = new Text({ text: 'No hosted tiles for this soul.', style: { fill: '#8ca5c9', fontSize: 11 } });
-      empty.position.set(10, 12);
-      this.root.addChild(empty);
-    } else {
-      const listBottom = height - 18;
-      hostedTiles.forEach((tile, index) => {
-        const tileType = this.tileTypeById.get(tile.tileType);
-        const staged = this.getStagedForTile(tile.id);
-        const y = listBottom - (index + 1) * 38;
-        const selected = this.isSelectedTile(tile.id);
+    const listBottom = height - 6;
+    hostedTiles.forEach((tile, index) => {
+      const tileType = this.tileTypeById.get(tile.tileType);
+      const staged = this.getStagedForTile(tile.id);
+      const y = listBottom - (index + 1) * 38;
+      const selected = this.isSelectedTile(tile.id);
 
-        const entry = new Graphics();
-        entry.roundRect(8, y, width - 16, 32, 8).fill({ color: selected ? 0x2f4768 : 0x16253d, alpha: 1 }).stroke({
-          color: selected ? 0xfff6a0 : 0x4a6693,
-          width: selected ? 2 : 1,
-        });
-        this.root.addChild(entry);
-
-        const name = new Text({
-          text: tile.eventLabel,
-          style: { fill: tileType?.style.labelColor ?? '#f6ebff', fontSize: 11, fontWeight: '700' },
-        });
-        name.position.set(14, y + 7);
-        this.root.addChild(name);
-
-        const status = new Text({
-          text: staged ? `${staged.status.toUpperCase()} • ${staged.inputCardInstanceIds.length} inputs` : 'Ready',
-          style: { fill: staged?.status === 'queued' ? '#95f2a8' : '#9ac4ff', fontSize: 10 },
-        });
-        status.position.set(width - 120, y + 9);
-        this.root.addChild(status);
-
-        this.tileVisuals.push({
-          tileId: tile.id,
-          bounds: new Rectangle(8, y, width - 16, 32),
-        });
+      const entry = new Graphics();
+      entry.roundRect(8, y, width - 16, 32, 8).fill({ color: selected ? 0x2f4768 : 0x16253d, alpha: 1 }).stroke({
+        color: selected ? 0xfff6a0 : 0x4a6693,
+        width: selected ? 2 : 1,
       });
-    }
+      this.root.addChild(entry);
 
-    const title = new Text({
-      text: `${soul.name} Events`,
-      style: { fill: '#dce9ff', fontSize: 12, fontWeight: '700' },
+      const name = new Text({
+        text: tile.eventLabel,
+        style: { fill: tileType?.style.labelColor ?? '#f6ebff', fontSize: 11, fontWeight: '700' },
+      });
+      name.position.set(14, y + 7);
+      this.root.addChild(name);
+
+      const status = new Text({
+        text: staged ? `${staged.status.toUpperCase()} • ${staged.inputCardInstanceIds.length} inputs` : 'Ready',
+        style: { fill: staged?.status === 'queued' ? '#95f2a8' : '#9ac4ff', fontSize: 10 },
+      });
+      status.position.set(width - 120, y + 9);
+      this.root.addChild(status);
+
+      this.tileVisuals.push({
+        tileId: tile.id,
+        bounds: new Rectangle(8, y, width - 16, 32),
+      });
     });
-    title.position.set(10, height - 16);
-    this.root.addChild(title);
   }
 }
