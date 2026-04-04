@@ -3,6 +3,7 @@ export type HexSide = 'N' | 'NE' | 'SE' | 'S' | 'SW' | 'NW';
 export interface TileTypeDefinition {
   id: string;
   name: string;
+  hostKind: 'world' | 'soul';
   style: {
     fillColor: string;
     strokeColor: string;
@@ -33,6 +34,22 @@ export interface HexTile {
   discovered: boolean;
 }
 
+export interface SoulHostedTile {
+  id: string;
+  tileType: string;
+  soulId: string;
+  eventLabel: string;
+  activeVerbs: string[];
+  selected: boolean;
+  discovered: boolean;
+}
+
+export type BoardTile = HexTile | SoulHostedTile;
+
+export function isHexTile(tile: BoardTile): tile is HexTile {
+  return 'q' in tile && 'r' in tile;
+}
+
 export interface HexWorldBoard {
-  tiles: Map<string, HexTile>;
+  worldTiles: Map<string, HexTile>;
 }

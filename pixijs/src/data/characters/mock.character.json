@@ -72,5 +72,23 @@
       ],
       "souls": []
     }
+  },
+  "hostedTilesBySoulId": {
+    "soul-player-ari": [
+      {
+        "id": "soul-player-ari-despair-check",
+        "tileType": "despair-check",
+        "eventLabel": "Midnight Despair Check",
+        "activeVerbs": ["study", "dream"]
+      }
+    ],
+    "soul-npc-scout": [
+      {
+        "id": "soul-scout-reflection",
+        "tileType": "scout-reflection",
+        "eventLabel": "Scout Reflection: Trail Doubt",
+        "activeVerbs": ["explore", "study"]
+      }
+    ]
   }
 }

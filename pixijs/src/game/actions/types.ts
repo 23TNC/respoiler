@@ -3,7 +3,7 @@ export interface StagedTileAction {
   characterId: string;
   soulId: string;
   tileId: string;
-  tileKey: string;
+  tileInstanceId: string;
   verbCardInstanceId: string;
   inputCardInstanceIds: string[];
   repeat: boolean;

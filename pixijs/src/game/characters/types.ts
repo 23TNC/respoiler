@@ -24,6 +24,14 @@ export interface CharacterModel {
   playerSoulId: string;
   souls: SoulModel[];
   inventoryBySoulId: Record<string, CharacterInventory>;
+  hostedTilesBySoulId: Record<string, SoulHostedTileModel[]>;
+}
+
+export interface SoulHostedTileModel {
+  id: string;
+  tileType: string;
+  eventLabel: string;
+  activeVerbs: string[];
 }
 
 export const INVENTORY_GROUP_ORDER: CardGroup[] = ['techniques', 'essence', 'sundries', 'reveries', 'souls'];

@@ -2,6 +2,7 @@
   {
     "id": "campfire",
     "name": "Campfire",
+    "hostKind": "world",
     "style": {
       "fillColor": "#d97b29",
       "strokeColor": "#ffb067",
@@ -15,6 +16,7 @@
   {
     "id": "plains",
     "name": "Plains",
+    "hostKind": "world",
     "style": {
       "fillColor": "#85b567",
       "strokeColor": "#a6d688",
@@ -28,6 +30,7 @@
   {
     "id": "forest",
     "name": "Forest",
+    "hostKind": "world",
     "style": {
       "fillColor": "#4d7b4d",
       "strokeColor": "#7fb377",
@@ -41,6 +44,7 @@
   {
     "id": "water",
     "name": "Water",
+    "hostKind": "world",
     "style": {
       "fillColor": "#3a6996",
       "strokeColor": "#66a0d9",
@@ -54,6 +58,7 @@
   {
     "id": "ruins",
     "name": "Ruins",
+    "hostKind": "world",
     "style": {
       "fillColor": "#8a7d70",
       "strokeColor": "#c8b8a6",
@@ -61,6 +66,34 @@
     },
     "defaultProperties": {
       "moveCost": 2,
+      "blocksSight": false
+    }
+  },
+  {
+    "id": "despair-check",
+    "name": "Despair Check",
+    "hostKind": "soul",
+    "style": {
+      "fillColor": "#603d7a",
+      "strokeColor": "#c39af2",
+      "labelColor": "#f6ebff"
+    },
+    "defaultProperties": {
+      "moveCost": 0,
+      "blocksSight": false
+    }
+  },
+  {
+    "id": "scout-reflection",
+    "name": "Scout Reflection",
+    "hostKind": "soul",
+    "style": {
+      "fillColor": "#305c64",
+      "strokeColor": "#7fc8cf",
+      "labelColor": "#e7f8fa"
+    },
+    "defaultProperties": {
+      "moveCost": 0,
       "blocksSight": false
     }
   }

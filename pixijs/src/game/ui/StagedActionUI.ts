@@ -3,7 +3,8 @@ import { getCompatibilityHint } from '../actions/compatibility';
 import type { StagedTileAction } from '../actions/types';
 import { CARD_GROUP_LABEL, type CardDefinition } from '../cards/types';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
-import type { HexTile, TileTypeDefinition, VerbDefinition } from '../world/types';
+import type { BoardTile, TileTypeDefinition, VerbDefinition } from '../world/types';
+import { isHexTile } from '../world/types';
 import { readableTextColor, renderCardTag } from './cardVisual';
 
 interface TokenHitArea {
@@ -12,7 +13,7 @@ interface TokenHitArea {
 }
 
 export interface SelectedTileDetails {
-  tile: HexTile;
+  tile: BoardTile;
   tileType?: TileTypeDefinition;
   availableVerbs: VerbDefinition[];
   stagedAction: StagedTileAction | null;
@@ -156,8 +157,9 @@ export class StagedActionUI {
     const { tile, tileType, availableVerbs, stagedAction } = selectedTile;
 
     const tileTypeName = tileType?.name ?? tile.tileType;
+    const tileContextLabel = isHexTile(tile) ? `(${tile.q}, ${tile.r})` : `Soul Event • ${tile.soulId}`;
     const tileTitle = new Text({
-      text: `${tileTypeName} (${tile.q}, ${tile.r})`,
+      text: `${tileTypeName} ${tileContextLabel}`,
       style: { fill: '#f6e9c5', fontSize: 13, fontWeight: '700' },
     });
     tileTitle.position.set(12, 38);
@@ -171,7 +173,7 @@ export class StagedActionUI {
     this.root.addChild(attributesText);
 
     const hiddenEssenceText = new Text({
-      text: `Hidden: Presence ${tile.hiddenPresenceCount}`,
+      text: isHexTile(tile) ? `Hidden: Presence ${tile.hiddenPresenceCount}` : `Hosted Event: ${tile.eventLabel}`,
       style: { fill: '#e4c67e', fontSize: 11, fontWeight: '700' },
     });
     hiddenEssenceText.position.set(12, 74);

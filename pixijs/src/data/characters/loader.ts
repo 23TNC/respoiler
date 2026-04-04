@@ -61,6 +61,21 @@ function isInventory(value: unknown): value is CharacterInventory {
   return true;
 }
 
+function isHostedTile(value: unknown): value is { id: string; tileType: string; eventLabel: string; activeVerbs: string[] } {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const tile = value as Record<string, unknown>;
+  return (
+    typeof tile.id === 'string'
+    && typeof tile.tileType === 'string'
+    && typeof tile.eventLabel === 'string'
+    && Array.isArray(tile.activeVerbs)
+    && tile.activeVerbs.every((verbId) => typeof verbId === 'string')
+  );
+}
+
 export function loadSelectedCharacter(): CharacterModel {
   const data = rawCharacter as Record<string, unknown>;
 
@@ -75,11 +90,19 @@ export function loadSelectedCharacter(): CharacterModel {
   if (typeof data.inventoryBySoulId !== 'object' || data.inventoryBySoulId === null) {
     throw new Error('Invalid inventoryBySoulId');
   }
+  if (typeof data.hostedTilesBySoulId !== 'object' || data.hostedTilesBySoulId === null) {
+    throw new Error('Invalid hostedTilesBySoulId');
+  }
 
   const inventoryBySoulId = data.inventoryBySoulId as Record<string, unknown>;
+  const hostedTilesBySoulId = data.hostedTilesBySoulId as Record<string, unknown>;
   for (const soul of data.souls) {
     if (!isInventory(inventoryBySoulId[soul.soulId])) {
       throw new Error(`Invalid character inventory for soul: ${soul.soulId}`);
+    }
+    const hostedTiles = hostedTilesBySoulId[soul.soulId];
+    if (!Array.isArray(hostedTiles) || !hostedTiles.every(isHostedTile)) {
+      throw new Error(`Invalid hosted tiles for soul: ${soul.soulId}`);
     }
   }
 
@@ -89,5 +112,6 @@ export function loadSelectedCharacter(): CharacterModel {
     playerSoulId: data.playerSoulId,
     souls: data.souls,
     inventoryBySoulId: inventoryBySoulId as CharacterModel['inventoryBySoulId'],
+    hostedTilesBySoulId: hostedTilesBySoulId as CharacterModel['hostedTilesBySoulId'],
   };
 }

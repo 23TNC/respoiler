@@ -1,99 +1,105 @@
-{
-  "action": "Work",
-  "recipes": [
-    {
-      "id": "work-forest-health",
-      "input": [
-        {
-          "id": "Forest",
-          "count": { "value": 1 }
-        },
-        {
-          "id": "Health",
-          "count": { "value": 1 }
-        }
-      ],
-      "output": [
-        {
-          "id": "Log",
-          "count": { "value": 3 },
-          "all": [
-            {
-              "lhs": {
-                "lhs": { "value": "Forest" },
-                "op": "input_val",
-                "rhs": { "value": "Trees" }
+[
+  {
+    "action": "Work",
+    "recipes": [
+      {
+        "id": "work-forest-health",
+        "input": [
+          {
+            "id": "Forest",
+            "count": { "value": 1 }
+          },
+          {
+            "id": "Health",
+            "count": { "value": 1 }
+          }
+        ],
+        "output": [
+          {
+            "id": "Log",
+            "count": { "value": 3 },
+            "all": [
+              {
+                "lhs": {
+                  "lhs": { "value": "Forest" },
+                  "op": "input_val",
+                  "rhs": { "value": "Trees" }
+                },
+                "op": "ge",
+                "rhs": { "value": 10 }
+              }
+            ],
+            "effects": [
+              {
+                "lhs": {
+                  "lhs": { "value": "Forest" },
+                  "op": "input_ref",
+                  "rhs": { "value": "Trees" }
+                },
+                "op": "apply_le",
+                "rhs": { "value": 7 }
               },
-              "op": "ge",
-              "rhs": { "value": 10 }
-            }
-          ],
-          "effects": [
-            {
-              "lhs": {
-                "lhs": { "value": "Forest" },
-                "op": "input_ref",
-                "rhs": { "value": "Trees" }
-              },
-              "op": "apply_le",
-              "rhs": { "value": 7 }
-            },
-            {
-              "lhs": {
-                "lhs": { "value": "Health" },
-                "op": "input_ref",
-                "rhs": { "value": "Time" }
-              },
-              "op": "apply_ge",
-              "rhs": { "value": 60 }
-            }
-          ]
-        },
-        {
-          "id": "Food",
-          "count": { "value": 2 },
-          "all": [
-            {
-              "lhs": {
-                "lhs": { "value": "Forest" },
-                "op": "input_val",
-                "rhs": { "value": "Food" }
-              },
-              "op": "ge",
-              "rhs": { "value": 5 }
-            },
-            {
-              "lhs": {
-                "lhs": { "value": 0 },
-                "op": "rand",
-                "rhs": { "value": 1 }
-              },
-              "op": "lt",
-              "rhs": { "value": 0.4 }
-            }
-          ],
-          "effects": [
-            {
-              "lhs": {
-                "lhs": { "value": "Forest" },
-                "op": "input_ref",
-                "rhs": { "value": "Food" }
-              },
-              "op": "apply_le",
-              "rhs": { "value": 3 }
-            },
-            {
-              "lhs": {
-                "lhs": { "value": "Health" },
-                "op": "input_ref",
-                "rhs": { "value": "Time" }
-              },
-              "op": "apply_ge",
-              "rhs": { "value": 60 }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
+              {
+                "lhs": {
+                  "lhs": { "value": "Health" },
+                  "op": "input_ref",
+                  "rhs": { "value": "Time" }
+                },
+                "op": "apply_ge",
+                "rhs": { "value": 60 }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "action": "Study",
+    "recipes": [
+      {
+        "id": "despair-check-reason",
+        "input": [
+          {
+            "id": "Despair Check",
+            "count": { "value": 1 }
+          },
+          {
+            "id": "Reason",
+            "count": { "value": 1 }
+          }
+        ],
+        "output": [
+          {
+            "id": "Passion",
+            "count": { "value": 1 }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "action": "Explore",
+    "recipes": [
+      {
+        "id": "scout-reflection-known-forest",
+        "input": [
+          {
+            "id": "Scout Reflection",
+            "count": { "value": 1 }
+          },
+          {
+            "id": "Known Forest",
+            "count": { "value": 1 }
+          }
+        ],
+        "output": [
+          {
+            "id": "Food",
+            "count": { "value": 1 }
+          }
+        ]
+      }
+    ]
+  }
+]
