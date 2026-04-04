@@ -45,7 +45,7 @@ export class SoulHostedTilesUI {
     const rows = Math.max(1, this.getViewedHostedTiles().length);
     return {
       width: 360,
-      height: 44 + rows * 40,
+      height: 50 + rows * 38,
     };
   }
 
@@ -64,51 +64,51 @@ export class SoulHostedTilesUI {
     });
     this.root.addChild(panel);
 
-    const title = new Text({
-      text: `${soul.name} Event Tiles`,
-      style: { fill: '#dce9ff', fontSize: 12, fontWeight: '700' },
-    });
-    title.position.set(10, 8);
-    this.root.addChild(title);
-
     if (hostedTiles.length === 0) {
       const empty = new Text({ text: 'No hosted tiles for this soul.', style: { fill: '#8ca5c9', fontSize: 11 } });
-      empty.position.set(10, 24);
+      empty.position.set(10, 12);
       this.root.addChild(empty);
-      return;
+    } else {
+      const listBottom = height - 18;
+      hostedTiles.forEach((tile, index) => {
+        const tileType = this.tileTypeById.get(tile.tileType);
+        const staged = this.getStagedForTile(tile.id);
+        const y = listBottom - (index + 1) * 38;
+        const selected = this.isSelectedTile(tile.id);
+
+        const entry = new Graphics();
+        entry.roundRect(8, y, width - 16, 32, 8).fill({ color: selected ? 0x2f4768 : 0x16253d, alpha: 1 }).stroke({
+          color: selected ? 0xfff6a0 : 0x4a6693,
+          width: selected ? 2 : 1,
+        });
+        this.root.addChild(entry);
+
+        const name = new Text({
+          text: tile.eventLabel,
+          style: { fill: tileType?.style.labelColor ?? '#f6ebff', fontSize: 11, fontWeight: '700' },
+        });
+        name.position.set(14, y + 7);
+        this.root.addChild(name);
+
+        const status = new Text({
+          text: staged ? `${staged.status.toUpperCase()} • ${staged.inputCardInstanceIds.length} inputs` : 'Ready',
+          style: { fill: staged?.status === 'queued' ? '#95f2a8' : '#9ac4ff', fontSize: 10 },
+        });
+        status.position.set(width - 120, y + 9);
+        this.root.addChild(status);
+
+        this.tileVisuals.push({
+          tileId: tile.id,
+          bounds: new Rectangle(8, y, width - 16, 32),
+        });
+      });
     }
 
-    hostedTiles.forEach((tile, index) => {
-      const tileType = this.tileTypeById.get(tile.tileType);
-      const staged = this.getStagedForTile(tile.id);
-      const y = 26 + index * 38;
-      const selected = this.isSelectedTile(tile.id);
-
-      const entry = new Graphics();
-      entry.roundRect(8, y, width - 16, 32, 8).fill({ color: selected ? 0x2f4768 : 0x16253d, alpha: 1 }).stroke({
-        color: selected ? 0xfff6a0 : 0x4a6693,
-        width: selected ? 2 : 1,
-      });
-      this.root.addChild(entry);
-
-      const name = new Text({
-        text: tile.eventLabel,
-        style: { fill: tileType?.style.labelColor ?? '#f6ebff', fontSize: 11, fontWeight: '700' },
-      });
-      name.position.set(14, y + 7);
-      this.root.addChild(name);
-
-      const status = new Text({
-        text: staged ? `${staged.status.toUpperCase()} • ${staged.inputCardInstanceIds.length} inputs` : 'Ready',
-        style: { fill: staged?.status === 'queued' ? '#95f2a8' : '#9ac4ff', fontSize: 10 },
-      });
-      status.position.set(width - 120, y + 9);
-      this.root.addChild(status);
-
-      this.tileVisuals.push({
-        tileId: tile.id,
-        bounds: new Rectangle(8, y, width - 16, 32),
-      });
+    const title = new Text({
+      text: `${soul.name} Events`,
+      style: { fill: '#dce9ff', fontSize: 12, fontWeight: '700' },
     });
+    title.position.set(10, height - 16);
+    this.root.addChild(title);
   }
 }

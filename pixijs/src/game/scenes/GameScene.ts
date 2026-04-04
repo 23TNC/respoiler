@@ -16,7 +16,7 @@ import { renderCardTag } from '../ui/cardVisual';
 import { StagedActionUI } from '../ui/StagedActionUI';
 import { uiSoundEffects } from '../ui/soundEffects';
 import { generateMockWorld } from '../world/mockWorld';
-import type { BoardTile, SoulHostedTile } from '../world/types';
+import { isHexTile, type BoardTile, type SoulHostedTile } from '../world/types';
 
 export async function startGameScene(container: HTMLElement): Promise<void> {
   const DRAG_THRESHOLD_PX = 8;
@@ -409,7 +409,16 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return false;
     }
 
-    const hostedTileId = hostedTilesUI.tileAtPoint(x, y);
+    const selectedTile = selectedTileInstanceId ? getTileByInstanceId(selectedTileInstanceId) : null;
+    const detailPanelHostedDropTargetId = (
+      selectedTileInstanceId
+      && selectedTile
+      && !isHexTile(selectedTile)
+      && stagedActionUI.isPointInPanel(x, y)
+    )
+      ? selectedTileInstanceId
+      : null;
+    const hostedTileId = detailPanelHostedDropTargetId ?? hostedTilesUI.tileAtPoint(x, y);
     let tile: BoardTile | null = hostedTileId ? getViewedHostedTiles().find((entry) => entry.id === hostedTileId) ?? null : null;
     if (!tile) {
       const coord = boardRenderer.tileAtPixel(x, y);
@@ -818,7 +827,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const characterBoardY = app.screen.height - boardSize.height - 16;
     characterBoard.setPosition(characterBoardX, characterBoardY);
     const hostedPanelSize = hostedTilesUI.size();
-    hostedTilesUI.setPosition(16, Math.max(16, characterBoardY - hostedPanelSize.height - 12));
+    hostedTilesUI.setPosition(16, app.screen.height - hostedPanelSize.height - 16);
 
     stagedActionUI.setPosition(app.screen.width - 376, app.screen.height - 356);
     const boardViewportHeight = Math.max(220, characterBoardY - 40);

@@ -43,6 +43,8 @@ export class StagedActionUI {
 
   private clearBounds: Rectangle | null = null;
 
+  private panelBounds: Rectangle | null = null;
+
   private tokenAreas: TokenHitArea[] = [];
 
   private inputDropFeedback: DropFeedbackState = 'none';
@@ -98,6 +100,7 @@ export class StagedActionUI {
     this.repeatBounds = null;
     this.inputDropBounds = null;
     this.clearBounds = null;
+    this.panelBounds = null;
     this.tokenAreas = [];
 
     if (!this.selectedTile && !this.selectedCard) {
@@ -110,6 +113,7 @@ export class StagedActionUI {
       width: 2,
     });
     this.root.addChild(panel);
+    this.panelBounds = new Rectangle(this.root.position.x, this.root.position.y, 360, 340);
 
     const title = new Text({
       text: 'Details Panel',
@@ -353,5 +357,9 @@ export class StagedActionUI {
 
   isPointInInputDrop(globalX: number, globalY: number): boolean {
     return this.inputDropBounds?.contains(globalX, globalY) ?? false;
+  }
+
+  isPointInPanel(globalX: number, globalY: number): boolean {
+    return this.panelBounds?.contains(globalX, globalY) ?? false;
   }
 }
