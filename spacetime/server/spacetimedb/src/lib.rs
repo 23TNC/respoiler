@@ -62,7 +62,7 @@ pub struct EventTile {
     pub event_tile_id: u64,
     pub soul_id: u64,
     pub name: String,
-    pub display_order: i32,
+    pub display_order: u32,
 }
 
 #[spacetimedb::table(accessor = tile_technique_attachment, public)]
@@ -85,16 +85,35 @@ pub struct TileStageEntry {
     pub host_type: TileHostType,
     pub host_id: u64,
     pub card_id: u64,
-    pub order_index: i32,
+    pub order_index: u32,
+}
+
+fn require_card(ctx: &ReducerContext, card_id: u64) -> Result<Card, String> {
+    ctx.db
+        .card()
+        .card_id()
+        .find(card_id)
+        .ok_or_else(|| format!("Card {} not found", card_id))
+}
+
+fn require_world_tile(ctx: &ReducerContext, tile_id: u64) -> Result<WorldTile, String> {
+    ctx.db
+        .world_tile()
+        .tile_id()
+        .find(tile_id)
+        .ok_or_else(|| format!("World tile {} not found", tile_id))
+}
+
+fn require_event_tile(ctx: &ReducerContext, event_tile_id: u64) -> Result<EventTile, String> {
+    ctx.db
+        .event_tile()
+        .event_tile_id()
+        .find(event_tile_id)
+        .ok_or_else(|| format!("Event tile {} not found", event_tile_id))
 }
 
 fn validate_technique_card(ctx: &ReducerContext, technique_card_id: u64) -> Result<Card, String> {
-    let card = ctx
-        .db
-        .card()
-        .card_id()
-        .find(technique_card_id)
-        .ok_or_else(|| format!("Technique card {} not found", technique_card_id))?;
+    let card = require_card(ctx, technique_card_id)?;
 
     if card.kind != CardKind::Technique {
         return Err(format!(
@@ -113,6 +132,25 @@ fn replace_attachment_for_host(
     host_id: u64,
     technique_card_id: u64,
 ) {
+    delete_attachment_for_host(ctx, soul_id, host_type.clone(), host_id);
+
+    ctx.db
+        .tile_technique_attachment()
+        .insert(TileTechniqueAttachment {
+            attachment_id: 0,
+            soul_id,
+            host_type,
+            host_id,
+            technique_card_id,
+        });
+}
+
+fn delete_attachment_for_host(
+    ctx: &ReducerContext,
+    soul_id: u64,
+    host_type: TileHostType,
+    host_id: u64,
+) {
     let existing_ids: Vec<u64> = ctx
         .db
         .tile_technique_attachment()
@@ -129,16 +167,22 @@ fn replace_attachment_for_host(
             .attachment_id()
             .delete(&attachment_id);
     }
+}
 
-    ctx.db
-        .tile_technique_attachment()
-        .insert(TileTechniqueAttachment {
-            attachment_id: 0,
-            soul_id,
-            host_type,
-            host_id,
-            technique_card_id,
-        });
+fn require_host(
+    ctx: &ReducerContext,
+    host_type: &TileHostType,
+    host_id: u64,
+) -> Result<(), String> {
+    match host_type {
+        TileHostType::WorldTile => {
+            let _ = require_world_tile(ctx, host_id)?;
+        }
+        TileHostType::EventTile => {
+            let _ = require_event_tile(ctx, host_id)?;
+        }
+    }
+    Ok(())
 }
 
 #[spacetimedb::reducer]
@@ -266,9 +310,7 @@ pub fn attach_technique_to_world_tile(
         ));
     }
 
-    if ctx.db.world_tile().tile_id().find(tile_id).is_none() {
-        return Err(format!("World tile {} not found", tile_id));
-    }
+    let _ = require_world_tile(ctx, tile_id)?;
 
     replace_attachment_for_host(
         ctx,
@@ -295,15 +337,7 @@ pub fn attach_technique_to_event_tile(
         ));
     }
 
-    if ctx
-        .db
-        .event_tile()
-        .event_tile_id()
-        .find(event_tile_id)
-        .is_none()
-    {
-        return Err(format!("Event tile {} not found", event_tile_id));
-    }
+    let _ = require_event_tile(ctx, event_tile_id)?;
 
     replace_attachment_for_host(
         ctx,
@@ -322,22 +356,7 @@ pub fn detach_technique_from_host(
     host_type: TileHostType,
     host_id: u64,
 ) {
-    let existing_ids: Vec<u64> = ctx
-        .db
-        .tile_technique_attachment()
-        .iter()
-        .filter(|row| {
-            row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id
-        })
-        .map(|row| row.attachment_id)
-        .collect();
-
-    for attachment_id in existing_ids {
-        ctx.db
-            .tile_technique_attachment()
-            .attachment_id()
-            .delete(&attachment_id);
-    }
+    delete_attachment_for_host(ctx, soul_id, host_type, host_id);
 }
 
 #[spacetimedb::reducer]
@@ -348,12 +367,7 @@ pub fn stage_card_on_host(
     host_id: u64,
     card_id: u64,
 ) -> Result<(), String> {
-    let card = ctx
-        .db
-        .card()
-        .card_id()
-        .find(card_id)
-        .ok_or_else(|| format!("Card {} not found", card_id))?;
+    let card = require_card(ctx, card_id)?;
 
     if card.soul_id != soul_id {
         return Err(format!(
@@ -361,6 +375,8 @@ pub fn stage_card_on_host(
             card_id, card.soul_id, soul_id
         ));
     }
+
+    require_host(ctx, &host_type, host_id)?;
 
     let next_order = ctx
         .db
