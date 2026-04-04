@@ -2,7 +2,7 @@ import rawCards from './base.cards.json';
 import type { CardDefinition, CardGroup } from '../../game/cards/types';
 
 function isCardGroup(value: unknown): value is CardGroup {
-  return value === 'actions' || value === 'attributes' || value === 'items' || value === 'memories' || value === 'people';
+  return value === 'techniques' || value === 'essence' || value === 'sundries' || value === 'reveries' || value === 'souls';
 }
 
 export function loadCardDefinitions(): { cards: CardDefinition[]; cardsById: Map<string, CardDefinition> } {

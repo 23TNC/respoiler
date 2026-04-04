@@ -12,7 +12,7 @@ export function validateStagedAction(args: ValidateArgs): ValidationResult {
   const { staged, tileExists, getCardDefinitionByInstanceId } = args;
 
   const verbCard = getCardDefinitionByInstanceId(staged.verbCardInstanceId);
-  if (!verbCard || verbCard.group !== 'actions') {
+  if (!verbCard || verbCard.group !== 'techniques') {
     return { ok: false, error: 'Unknown or invalid verb card.' };
   }
 

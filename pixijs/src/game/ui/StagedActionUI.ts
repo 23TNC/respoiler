@@ -1,7 +1,7 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { getCompatibilityHint } from '../actions/compatibility';
 import type { StagedTileAction } from '../actions/types';
-import type { CardDefinition } from '../cards/types';
+import { CARD_GROUP_LABEL, type CardDefinition } from '../cards/types';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import type { HexTile, TileTypeDefinition, VerbDefinition } from '../world/types';
 import { readableTextColor, renderCardTag } from './cardVisual';
@@ -121,7 +121,7 @@ export class StagedActionUI {
       const { card, instanceId } = this.selectedCard;
       renderCardTag(this.root, { x: 12, y: 42, card, width: 108, height: 30 });
 
-      const cardTitle = new Text({ text: `${card.group.toUpperCase()}`, style: { fill: '#dce9ff', fontSize: 10, fontWeight: '700' } });
+      const cardTitle = new Text({ text: CARD_GROUP_LABEL[card.group].toUpperCase(), style: { fill: '#dce9ff', fontSize: 10, fontWeight: '700' } });
       cardTitle.position.set(130, 58);
       this.root.addChild(cardTitle);
 
@@ -170,12 +170,12 @@ export class StagedActionUI {
     attributesText.position.set(12, 58);
     this.root.addChild(attributesText);
 
-    const hiddenAttributesText = new Text({
+    const hiddenEssenceText = new Text({
       text: `Hidden: Presence ${tile.hiddenPresenceCount}`,
       style: { fill: '#e4c67e', fontSize: 11, fontWeight: '700' },
     });
-    hiddenAttributesText.position.set(12, 74);
-    this.root.addChild(hiddenAttributesText);
+    hiddenEssenceText.position.set(12, 74);
+    this.root.addChild(hiddenEssenceText);
 
     const attachedVerbsText = new Text({
       text: `Tile Verbs: ${availableVerbs.length > 0 ? availableVerbs.map((verb) => verb.name).join(', ') : 'None'}`,
@@ -186,7 +186,7 @@ export class StagedActionUI {
 
     if (!stagedAction) {
       const empty = new Text({
-        text: 'No staged action on this tile. Drop an Action card on the tile to begin.',
+        text: 'No staged action on this tile. Drop a Technique card on the tile to begin.',
         style: { fill: '#a9bfdc', fontSize: 12 },
       });
       empty.position.set(12, 118);
@@ -203,7 +203,7 @@ export class StagedActionUI {
       card: verbCard ?? {
         id: stagedAction.verbCardInstanceId,
         name: verbLabel,
-        group: 'actions',
+        group: 'techniques',
         backgroundColor: 0xf6e9c5,
       },
       width: 108,

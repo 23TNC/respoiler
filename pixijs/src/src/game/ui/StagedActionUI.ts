@@ -78,7 +78,7 @@ export class StagedActionUI {
     this.root.addChild(title);
 
     if (!this.staged) {
-      const empty = new Text({ text: 'Drop an Action card on a hex tile first.', style: { fill: '#a9bfdc', fontSize: 12 } });
+      const empty = new Text({ text: 'Drop an Technique card on a hex tile first.', style: { fill: '#a9bfdc', fontSize: 12 } });
       empty.position.set(12, 42);
       this.root.addChild(empty);
       return;

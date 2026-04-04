@@ -5,11 +5,11 @@ import type { CardDefinition, CardGroup, CardInstanceState } from '../cards/type
 import type { DragCardPayload } from './dragTypes';
 
 const GROUP_LABEL: Record<CardGroup, string> = {
-  actions: 'Actions',
-  attributes: 'Attributes',
-  items: 'Items',
-  memories: 'Memories',
-  people: 'People',
+  techniques: 'Techniques',
+  essence: 'Essence',
+  sundries: 'Sundries',
+  reveries: 'Reveries',
+  souls: 'Souls',
 };
 
 interface InventoryCardVisual {
@@ -158,15 +158,15 @@ export class CharacterBoardUI {
 
   private colorForGroup(group: CardGroup): number {
     switch (group) {
-      case 'actions':
+      case 'techniques':
         return 0xffcf8c;
-      case 'attributes':
+      case 'essence':
         return 0x8ce5b0;
-      case 'items':
+      case 'sundries':
         return 0x9ac6ff;
-      case 'memories':
+      case 'reveries':
         return 0xc7abff;
-      case 'people':
+      case 'souls':
         return 0xffb5c3;
       default:
         return 0xffffff;

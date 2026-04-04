@@ -1,25 +1,25 @@
 [
-  { "id": "work", "name": "Work", "group": "actions" },
-  { "id": "study", "name": "Study", "group": "actions" },
-  { "id": "dream", "name": "Dream", "group": "actions" },
-  { "id": "move", "name": "Move", "group": "actions" },
-  { "id": "attack", "name": "Attack", "group": "actions" },
-  { "id": "defend", "name": "Defend", "group": "actions" },
-  { "id": "explore", "name": "Explore", "group": "actions" },
+  { "id": "work", "name": "Work", "group": "techniques" },
+  { "id": "study", "name": "Study", "group": "techniques" },
+  { "id": "dream", "name": "Dream", "group": "techniques" },
+  { "id": "move", "name": "Move", "group": "techniques" },
+  { "id": "attack", "name": "Attack", "group": "techniques" },
+  { "id": "defend", "name": "Defend", "group": "techniques" },
+  { "id": "explore", "name": "Explore", "group": "techniques" },
 
-  { "id": "health", "name": "Health", "group": "attributes" },
-  { "id": "passion", "name": "Passion", "group": "attributes" },
-  { "id": "reason", "name": "Reason", "group": "attributes" },
+  { "id": "health", "name": "Health", "group": "essence" },
+  { "id": "passion", "name": "Passion", "group": "essence" },
+  { "id": "reason", "name": "Reason", "group": "essence" },
 
-  { "id": "axe", "name": "Axe", "group": "items" },
-  { "id": "logs", "name": "Logs", "group": "items" },
-  { "id": "food", "name": "Food", "group": "items" },
-  { "id": "torch", "name": "Torch", "group": "items" },
+  { "id": "axe", "name": "Axe", "group": "sundries" },
+  { "id": "logs", "name": "Logs", "group": "sundries" },
+  { "id": "food", "name": "Food", "group": "sundries" },
+  { "id": "torch", "name": "Torch", "group": "sundries" },
 
-  { "id": "dread", "name": "Dread", "group": "memories" },
-  { "id": "wound", "name": "Wound", "group": "memories" },
-  { "id": "known-forest", "name": "Known Forest", "group": "memories" },
-  { "id": "grudge", "name": "Grudge", "group": "memories" },
+  { "id": "dread", "name": "Dread", "group": "reveries" },
+  { "id": "wound", "name": "Wound", "group": "reveries" },
+  { "id": "known-forest", "name": "Known Forest", "group": "reveries" },
+  { "id": "grudge", "name": "Grudge", "group": "reveries" },
 
-  { "id": "follower", "name": "Follower", "group": "people" }
+  { "id": "follower", "name": "Follower", "group": "souls" }
 ]

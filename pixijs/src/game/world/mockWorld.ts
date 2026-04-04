@@ -4,13 +4,13 @@ import type { HexTile, HexWorldBoard, TileTypeDefinition, VerbDefinition, HexSid
 
 const SIDES: HexSide[] = ['N', 'NE', 'SE', 'S', 'SW', 'NW'];
 
-function randomFrom<T>(items: readonly T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
+function randomFrom<T>(sundries: readonly T[]): T {
+  return sundries[Math.floor(Math.random() * sundries.length)];
 }
 
-function randomSubset<T>(items: readonly T[], maxCount: number): T[] {
+function randomSubset<T>(sundries: readonly T[], maxCount: number): T[] {
   const count = Math.floor(Math.random() * (maxCount + 1));
-  const shuffled = [...items].sort(() => Math.random() - 0.5);
+  const shuffled = [...sundries].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
 }
 

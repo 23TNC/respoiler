@@ -1,4 +1,4 @@
-export type CardGroup = 'actions' | 'attributes' | 'items' | 'memories' | 'people';
+export type CardGroup = 'techniques' | 'essence' | 'sundries' | 'reveries' | 'souls';
 
 export type CardInstanceState = 'in_inventory' | 'staged' | 'queued';
 
@@ -13,3 +13,11 @@ export interface CardInstance {
   instanceId: string;
   cardId: string;
 }
+
+export const CARD_GROUP_LABEL: Record<CardGroup, string> = {
+  techniques: 'Techniques',
+  essence: 'Essence',
+  sundries: 'Sundries',
+  reveries: 'Reveries',
+  souls: 'Souls',
+};

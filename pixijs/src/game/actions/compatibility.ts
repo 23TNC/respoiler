@@ -8,25 +8,25 @@ interface VerbCompatibilityRule {
 
 const RULES: Record<string, VerbCompatibilityRule> = {
   work: {
-    allowedGroups: ['attributes'],
+    allowedGroups: ['essence'],
     allowedCardIds: ['axe', 'skill-woodcutting'],
     minInputs: 1,
   },
   study: {
-    allowedGroups: ['attributes', 'memories'],
+    allowedGroups: ['essence', 'reveries'],
     allowedCardIds: [],
     minInputs: 1,
   },
   attack: {
-    allowedGroups: ['attributes', 'items'],
+    allowedGroups: ['essence', 'sundries'],
     minInputs: 1,
   },
   defend: {
-    allowedGroups: ['attributes', 'items'],
+    allowedGroups: ['essence', 'sundries'],
     minInputs: 1,
   },
   explore: {
-    allowedGroups: ['attributes', 'memories'],
+    allowedGroups: ['essence', 'reveries'],
     allowedCardIds: ['torch'],
     minInputs: 1,
   },
@@ -61,15 +61,15 @@ export function isCardCompatibleForVerb(verbId: string, card: CardDefinition): b
   }
 
   if (verbId === 'study') {
-    return card.group === 'memories' || card.id === 'passion' || card.id === 'reason';
+    return card.group === 'reveries' || card.id === 'passion' || card.id === 'reason';
   }
 
   if (verbId === 'defend') {
-    return card.id === 'health' || card.id === 'reason' || card.group === 'items';
+    return card.id === 'health' || card.id === 'reason' || card.group === 'sundries';
   }
 
   if (verbId === 'explore') {
-    return card.id === 'passion' || card.id === 'reason' || card.group === 'memories' || allowedById;
+    return card.id === 'passion' || card.id === 'reason' || card.group === 'reveries' || allowedById;
   }
 
   return allowedByGroup || allowedById;
