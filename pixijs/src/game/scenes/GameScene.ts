@@ -904,8 +904,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   });
 
   await spacetimeClient.connect({
-    uri: 'http://127.0.0.1:3000',
-    databaseName: 'respoiler',
+    uri: 'ws://127.0.0.1:3000',
+    databaseName: 'despoiler-dev',
   });
 
   spacetimeClient.subscribe((rows) => {
