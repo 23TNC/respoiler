@@ -57,7 +57,6 @@ export class HexBoardRenderer {
   renderTiles(
     tiles: Iterable<HexTile>,
     context: RenderContext,
-    onTileSelected: (coord: AxialCoord) => void,
     stagedByTileId: Map<string, RenderedTileActionBadge> = new Map(),
   ): void {
     this.worldHexLayer.removeChildren();
@@ -81,7 +80,6 @@ export class HexBoardRenderer {
       shape.eventMode = 'static';
       shape.cursor = 'pointer';
       shape.hitArea = new Polygon(this.hexPoints(this.size));
-      shape.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
       shape.poly(this.hexPoints(this.size), true).fill(tileType.style.fillColor).stroke({
         color: tileType.style.strokeColor,
         width: 2,
@@ -131,7 +129,6 @@ export class HexBoardRenderer {
       hitProxy.eventMode = 'static';
       hitProxy.cursor = 'pointer';
       hitProxy.hitArea = new Polygon([-58, -2, 58, -2, 58, blockHeight + 2, -58, blockHeight + 2]);
-      hitProxy.on('pointerdown', () => onTileSelected({ q: tile.q, r: tile.r }));
 
       container.addChild(shape, textBlock, hitProxy);
 
