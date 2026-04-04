@@ -4,6 +4,7 @@ import type { StagedTileAction } from '../actions/types';
 import type { CardDefinition } from '../cards/types';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import type { HexTile, TileTypeDefinition, VerbDefinition } from '../world/types';
+import { renderOvalCard } from './cardVisual';
 
 interface TokenHitArea {
   index: number;
@@ -118,33 +119,31 @@ export class StagedActionUI {
 
     if (this.selectedCard) {
       const { card, instanceId } = this.selectedCard;
+      renderOvalCard(this.root, { x: 12, y: 42, card, width: 108, height: 46 });
 
-      const cardTitle = new Text({
-        text: `${card.name} (${card.group})`,
-        style: { fill: '#f6e9c5', fontSize: 13, fontWeight: '700' },
-      });
-      cardTitle.position.set(12, 42);
+      const cardTitle = new Text({ text: `${card.group.toUpperCase()}`, style: { fill: '#dce9ff', fontSize: 10, fontWeight: '700' } });
+      cardTitle.position.set(130, 58);
       this.root.addChild(cardTitle);
 
       const cardIdText = new Text({
         text: `Card Id: ${card.id}`,
         style: { fill: '#a9bfdc', fontSize: 11 },
       });
-      cardIdText.position.set(12, 66);
+      cardIdText.position.set(12, 96);
       this.root.addChild(cardIdText);
 
       const instanceText = new Text({
         text: `Instance: ${instanceId}`,
         style: { fill: '#8fd9fc', fontSize: 11 },
       });
-      instanceText.position.set(12, 84);
+      instanceText.position.set(12, 114);
       this.root.addChild(instanceText);
 
       const hintText = new Text({
         text: 'Drag this card to stage or attach it. Click tiles to inspect tile details.',
         style: { fill: '#d5e5ff', fontSize: 12 },
       });
-      hintText.position.set(12, 114);
+      hintText.position.set(12, 146);
       this.root.addChild(hintText);
       return;
     }
@@ -198,15 +197,27 @@ export class StagedActionUI {
     const verbCard = this.getCardByInstanceId(stagedAction.verbCardInstanceId);
     const verbLabel = verbCard?.name ?? stagedAction.verbCardInstanceId;
 
-    const verbText = new Text({ text: `Verb: ${verbLabel}`, style: { fill: '#ffe2ad', fontSize: 13, fontWeight: '700' } });
-    verbText.position.set(12, 118);
+    renderOvalCard(this.root, {
+      x: 12,
+      y: 114,
+      card: verbCard ?? {
+        id: stagedAction.verbCardInstanceId,
+        name: verbLabel,
+        group: 'actions',
+        backgroundColor: 0xf6e9c5,
+      },
+      width: 108,
+      height: 42,
+    });
+    const verbText = new Text({ text: 'Verb', style: { fill: '#d5e5ff', fontSize: 11, fontWeight: '700' } });
+    verbText.position.set(130, 126);
     this.root.addChild(verbText);
 
     const hintText = new Text({
       text: getCompatibilityHint(verbCard?.id ?? ''),
       style: { fill: '#8fd9fc', fontSize: 10 },
     });
-    hintText.position.set(12, 138);
+    hintText.position.set(12, 160);
     this.root.addChild(hintText);
 
     const stagedTitles = stagedAction.inputCardInstanceIds
@@ -216,17 +227,17 @@ export class StagedActionUI {
       text: `Staged: ${stagedTitles.length > 0 ? stagedTitles : 'None'}`,
       style: { fill: '#d5e5ff', fontSize: 11, fontWeight: '700' },
     });
-    stagedText.position.set(12, 152);
+    stagedText.position.set(12, 174);
     this.root.addChild(stagedText);
 
     const statusText = new Text({
       text: `Status: ${stagedAction.status}${stagedAction.error ? ` (${stagedAction.error})` : ''}`,
       style: { fill: stagedAction.status === 'queued' ? '#95f2a8' : '#a9bfdc', fontSize: 11 },
     });
-    statusText.position.set(12, 168);
+    statusText.position.set(12, 190);
     this.root.addChild(statusText);
 
-    const dropZoneY = 188;
+    const dropZoneY = 196;
     const dropZone = new Graphics();
     const dropOutlineColor = this.inputDropFeedback === 'valid'
       ? 0x80f5b4

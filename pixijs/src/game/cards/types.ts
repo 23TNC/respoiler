@@ -6,6 +6,7 @@ export interface CardDefinition {
   id: string;
   name: string;
   group: CardGroup;
+  backgroundColor: number;
 }
 
 export interface CardInstance {

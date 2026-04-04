@@ -11,6 +11,7 @@ export interface RenderedTileActionBadge {
   verbId: string;
   verbLabel: string;
   tileLabel?: string;
+  cardColor?: number;
   stagedCardNames: string[];
   repeat: boolean;
   status: 'staged' | 'queued';
@@ -91,7 +92,7 @@ export class HexBoardRenderer {
 
       const titleText = new Text(staged?.tileLabel ? `${staged.verbLabel} (${staged.tileLabel})` : tileType.name, {
         fontSize: 12,
-        fill: staged ? this.colorForVerb(staged.verbId) : tileType.style.labelColor,
+        fill: staged?.cardColor ?? tileType.style.labelColor,
         fontWeight: '700',
       });
       titleText.anchor.set(0.5, 0);
@@ -182,14 +183,5 @@ export class HexBoardRenderer {
 
   tileKey(coord: AxialCoord): string {
     return axialKey(coord);
-  }
-
-  private colorForVerb(verbId: string): string {
-    const palette = ['#ffe59a', '#9af3b1', '#9dd6ff', '#f5a8ff', '#ffb783', '#b8f29f'];
-    let hash = 0;
-    for (let i = 0; i < verbId.length; i += 1) {
-      hash = (hash * 31 + verbId.charCodeAt(i)) >>> 0;
-    }
-    return palette[hash % palette.length];
   }
 }
