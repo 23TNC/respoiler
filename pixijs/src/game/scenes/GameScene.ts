@@ -1,7 +1,8 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { loadStaticData } from '../../data/loader';
 import { loadCardDefinitions } from '../../data/cards/loader';
-import { loadSelectedCharacter } from '../../data/characters/loader';
+import { createSpacetimeClient } from '../../spacetime/client';
+import { deriveRuntimeState } from '../../spacetime/deriveRuntimeState';
 import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
@@ -15,11 +16,11 @@ import type { DragCardPayload } from '../ui/dragTypes';
 import { renderCardTag } from '../ui/cardVisual';
 import { StagedActionUI } from '../ui/StagedActionUI';
 import { uiSoundEffects } from '../ui/soundEffects';
-import { generateMockWorld } from '../world/mockWorld';
-import { isHexTile, type BoardTile, type SoulHostedTile } from '../world/types';
+import { isHexTile, type BoardTile, type HexTile, type SoulHostedTile } from '../world/types';
 
 export async function startGameScene(container: HTMLElement): Promise<void> {
   const DRAG_THRESHOLD_PX = 8;
+  const CHARACTER_ID = 'spacetime-client';
 
   const app = new Application();
   await app.init({
@@ -33,29 +34,24 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   container.appendChild(app.canvas);
 
   const staticData = loadStaticData();
-  const cardData = loadCardDefinitions();
-  const selectedCharacter = loadSelectedCharacter();
-  const world = generateMockWorld(staticData.tileTypes, staticData.verbs, 2);
-  const hostedTilesBySoulId = new Map<string, SoulHostedTile[]>(
-    Object.entries(selectedCharacter.hostedTilesBySoulId).map(([soulId, tiles]) => [
-      soulId,
-      tiles.map((tile) => ({
-        id: tile.id,
-        tileType: tile.tileType,
-        soulId,
-        eventLabel: tile.eventLabel,
-        activeVerbs: [...tile.activeVerbs],
-        selected: false,
-        discovered: true,
-      })),
-    ]),
-  );
+  const staticCardData = loadCardDefinitions();
+  const spacetimeClient = createSpacetimeClient();
 
-  let viewedSoulId = selectedCharacter.playerSoulId;
-  const soulById = new Map(selectedCharacter.souls.map((soul) => [soul.soulId, soul]));
-  const allInstances = Object.values(selectedCharacter.inventoryBySoulId).flatMap((inventory) => Object.values(inventory).flat());
-  const cardDefinitionByInstanceId = new Map(allInstances.map((instance) => [instance.instanceId, cardData.cardsById.get(instance.cardId)]));
-  const cardStateByInstanceId = new Map(allInstances.map((instance) => [instance.instanceId, 'in_inventory' as CardInstanceState]));
+  let runtimeState = deriveRuntimeState({
+    souls: [],
+    cards: [],
+    worldTiles: [],
+    eventTiles: [],
+    attachments: [],
+    stageEntries: [],
+  });
+
+  let playerSoulId = '';
+  let viewedSoulId = '';
+  const worldTiles = new Map<string, HexTile>();
+  const hostedTilesBySoulId = new Map<string, SoulHostedTile[]>();
+  const cardDefinitionByInstanceId = new Map<string, CardDefinition>();
+  const cardStateByInstanceId = new Map<string, CardInstanceState>();
 
   const worldBaseLayer = new Container();
   const worldHexLayer = new Container();
@@ -77,11 +73,41 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   boardRenderer.centerOn(app.screen.width, app.screen.height);
   worldHexLayer.addChild(boardRenderer.root);
 
-  const getViewedInventory = () => selectedCharacter.inventoryBySoulId[viewedSoulId] ?? selectedCharacter.inventoryBySoulId[selectedCharacter.playerSoulId];
-  const getViewedSoul = () => soulById.get(viewedSoulId) ?? soulById.get(selectedCharacter.playerSoulId) ?? selectedCharacter.souls[0];
+  const updateRuntimeCollections = (): void => {
+    worldTiles.clear();
+    runtimeState.worldTilesByAxialKey.forEach((tile, key) => {
+      worldTiles.set(key, { ...tile });
+    });
+
+    hostedTilesBySoulId.clear();
+    Object.entries(runtimeState.hostedTilesBySoulId).forEach(([soulId, tiles]) => {
+      hostedTilesBySoulId.set(
+        soulId,
+        tiles.map((tile) => ({
+          id: tile.id,
+          tileType: tile.tileType,
+          soulId,
+          eventLabel: tile.eventLabel,
+          activeVerbs: [...tile.activeVerbs],
+          selected: false,
+          discovered: true,
+        })),
+      );
+    });
+
+    cardDefinitionByInstanceId.clear();
+    cardStateByInstanceId.clear();
+    runtimeState.cardDefinitionsByInstanceId.forEach((card, instanceId) => {
+      cardDefinitionByInstanceId.set(instanceId, card);
+      cardStateByInstanceId.set(instanceId, 'in_inventory');
+    });
+  };
+
+  const getViewedInventory = () => runtimeState.inventoryBySoulId[viewedSoulId] ?? runtimeState.inventoryBySoulId[playerSoulId];
+  const getViewedSoul = () => runtimeState.soulById.get(viewedSoulId) ?? runtimeState.soulById.get(playerSoulId) ?? runtimeState.souls[0];
   const getViewedHostedTiles = (): SoulHostedTile[] => hostedTilesBySoulId.get(viewedSoulId) ?? [];
   const getTileByInstanceId = (tileInstanceId: string): BoardTile | null => {
-    for (const tile of world.worldTiles.values()) {
+    for (const tile of worldTiles.values()) {
       if (tile.id === tileInstanceId) {
         return tile;
       }
@@ -89,15 +115,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return getViewedHostedTiles().find((tile) => tile.id === tileInstanceId) ?? null;
   };
   const characterBoard = new CharacterBoardUI(
-    cardData.cardsById,
+    staticCardData.cardsById,
     (instanceId) => cardStateByInstanceId.get(instanceId) ?? 'in_inventory',
     getViewedSoul,
     getViewedInventory,
-    () => viewedSoulId !== selectedCharacter.playerSoulId,
+    () => viewedSoulId !== playerSoulId,
   );
   fixedUiLayer.addChild(characterBoard.root);
 
-  const stagedActionUI = new StagedActionUI(cardData.cardsById, (instanceId) => cardDefinitionByInstanceId.get(instanceId));
+  const stagedActionUI = new StagedActionUI(staticCardData.cardsById, (instanceId) => cardDefinitionByInstanceId.get(instanceId));
   fixedUiLayer.addChild(stagedActionUI.root);
   const hostedTilesUI = new SoulHostedTilesUI(
     getViewedHostedTiles,
@@ -195,7 +221,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   const removeQueuedActionForTile = (tileId: string, soulId: string): void => {
     const index = queuedTechniques.findIndex(
-      (action) => action.tileId === tileId && action.characterId === selectedCharacter.id && action.soulId === soulId,
+      (action) => action.tileId === tileId && action.characterId === CHARACTER_ID && action.soulId === soulId,
     );
     if (index >= 0) {
       queuedTechniques.splice(index, 1);
@@ -215,7 +241,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const render = (): void => {
-    for (const tile of world.worldTiles.values()) {
+    for (const tile of worldTiles.values()) {
       tile.selected = tile.id === selectedTileInstanceId;
     }
     for (const tile of getViewedHostedTiles()) {
@@ -223,7 +249,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const viewedStaged = getViewedStaged();
-    const stagedByTileId = new Map(
+    const stagedByTileId = new Map<string, {
+      verbId: string;
+      verbLabel: string;
+      tileLabel?: string;
+      cardColor?: number;
+      stagedCardNames: string[];
+      repeat: boolean;
+      status: 'staged' | 'queued';
+    }>(
       Array.from(viewedStaged.values()).map((staged) => {
         const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name ?? staged.verbCardInstanceId;
         const stagedTile = getTileByInstanceId(staged.tileInstanceId);
@@ -244,7 +278,20 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       }),
     );
 
-    boardRenderer.renderTiles(world.worldTiles.values(), staticData, stagedByTileId);
+    for (const [tileId, details] of runtimeState.runtimeStageDetailsByTileId.entries()) {
+      if (stagedByTileId.has(tileId)) {
+        continue;
+      }
+      stagedByTileId.set(tileId, {
+        verbId: details.attachmentName ?? '',
+        verbLabel: details.attachmentName ?? 'Attached Technique',
+        stagedCardNames: details.cardNames,
+        repeat: false,
+        status: 'staged',
+      });
+    }
+
+    boardRenderer.renderTiles(worldTiles.values(), staticData, stagedByTileId);
     hostedTilesUI.render();
 
     if (inspectedTarget?.type === 'card') {
@@ -420,7 +467,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const hostedTileId = hostedTilesUI.tileAtPoint(x, y);
     const hoveredHostedTile = hostedTileId ? getViewedHostedTiles().find((entry) => entry.id === hostedTileId) ?? null : null;
     const coord = boardRenderer.tileAtPixel(x, y);
-    const hoveredWorldTile = world.worldTiles.get(axialKey(coord)) ?? null;
+    const hoveredWorldTile = worldTiles.get(axialKey(coord)) ?? null;
     const tile: BoardTile | null = detailPanelDropTargetId
       ? getTileByInstanceId(detailPanelDropTargetId)
       : (hoveredHostedTile ?? hoveredWorldTile);
@@ -454,8 +501,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
           error: undefined,
         }
       : {
-          stagedActionId: `staged-${tile.id}-${selectedCharacter.id}-${viewedSoulId}`,
-          characterId: selectedCharacter.id,
+          stagedActionId: `staged-${tile.id}-${CHARACTER_ID}-${viewedSoulId}`,
+          characterId: CHARACTER_ID,
           soulId: viewedSoulId,
           tileId: tile.id,
           tileInstanceId: tile.id,
@@ -510,7 +557,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     if (!targetTileInstanceId) {
       const coord = boardRenderer.tileAtPixel(x, y);
-      const hoveredTile = world.worldTiles.get(axialKey(coord));
+      const hoveredTile = worldTiles.get(axialKey(coord));
       const hoveredHostedId = hostedTilesUI.tileAtPoint(x, y);
       if (hoveredTile && getViewedStaged().has(hoveredTile.id)) {
         targetTileInstanceId = hoveredTile.id;
@@ -546,7 +593,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     stagedActionUI.setInputDropFeedback('none');
 
     const hoverCoord = boardRenderer.tileAtPixel(x, y);
-    const hoverWorldTile = world.worldTiles.get(axialKey(hoverCoord));
+    const hoverWorldTile = worldTiles.get(axialKey(hoverCoord));
     const hoverHostedTileId = hostedTilesUI.tileAtPoint(x, y);
     const hoverTileInstanceId = hoverHostedTileId ?? hoverWorldTile?.id ?? null;
     const hasStagedAction = hoverTileInstanceId ? getViewedStaged().has(hoverTileInstanceId) : false;
@@ -711,7 +758,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     if (characterBoard.isPointInReturnToPlayer(x, y)) {
-      viewedSoulId = selectedCharacter.playerSoulId;
+      viewedSoulId = playerSoulId;
       selectedTileInstanceId = null;
       inspectedTarget = null;
       render();
@@ -721,7 +768,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const payload = characterBoard.cardAtPoint(x, y);
     const tileCoord = boardRenderer.tileAtPixel(x, y);
     const tileKey = axialKey(tileCoord);
-    const worldTile = world.worldTiles.get(tileKey);
+    const worldTile = worldTiles.get(tileKey);
     const hostedTileId = hostedTilesUI.tileAtPoint(x, y);
 
     pointerDown = {
@@ -737,7 +784,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     const hoverCoord = boardRenderer.tileAtPixel(x, y);
     const hoverTileInstanceId = axialKey(hoverCoord);
-    boardRenderer.setPointerHoverTile(world.worldTiles.has(hoverTileInstanceId) ? hoverTileInstanceId : null);
+    boardRenderer.setPointerHoverTile(worldTiles.has(hoverTileInstanceId) ? hoverTileInstanceId : null);
 
     if (!draggingPayload && pointerDown) {
       const dx = x - pointerDown.x;
@@ -830,7 +877,49 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     clearDrag();
   });
 
-  const layoutUi = (): void => {
+  const seedButton = document.createElement('button');
+  seedButton.textContent = 'Seed SpaceTimeDB test data';
+  seedButton.style.position = 'absolute';
+  seedButton.style.top = '12px';
+  seedButton.style.left = '12px';
+  seedButton.style.zIndex = '2';
+  seedButton.style.padding = '6px 10px';
+  seedButton.style.borderRadius = '8px';
+  seedButton.style.border = '1px solid #90b9ff';
+  seedButton.style.background = '#203a5e';
+  seedButton.style.color = '#eaf2ff';
+  seedButton.style.fontWeight = '700';
+  container.appendChild(seedButton);
+
+  seedButton.addEventListener('click', () => {
+    const seedGuard = sessionStorage.getItem('spacetime-seeded') === '1';
+    if (seedGuard) {
+      return;
+    }
+    void spacetimeClient.seedTestData().then(() => {
+      sessionStorage.setItem('spacetime-seeded', '1');
+      seedButton.textContent = 'Seeded';
+      seedButton.disabled = true;
+    });
+  });
+
+  await spacetimeClient.connect({
+    uri: 'http://127.0.0.1:3000',
+    databaseName: 'respoiler',
+  });
+
+  spacetimeClient.subscribe((rows) => {
+    runtimeState = deriveRuntimeState(rows);
+    playerSoulId = runtimeState.playerSoulId ?? '';
+    if (!viewedSoulId || !runtimeState.soulById.has(viewedSoulId)) {
+      viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';
+    }
+    updateRuntimeCollections();
+    layoutUi();
+    render();
+  });
+
+  function layoutUi(): void {
     app.stage.hitArea = app.screen;
     const boardSize = characterBoard.size();
     const characterBoardX = Math.max(16, (app.screen.width - boardSize.width) * 0.5);
@@ -842,7 +931,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     stagedActionUI.setPosition(app.screen.width - 376, app.screen.height - 356);
     const boardViewportHeight = Math.max(220, characterBoardY - 40);
     boardRenderer.centerOn(app.screen.width, boardViewportHeight);
-  };
+  }
 
   layoutUi();
   render();
