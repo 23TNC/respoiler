@@ -65,6 +65,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   fixedUiLayer.addChild(stagedActionUI.root);
 
   let selectedTileKey: string | null = null;
+  let inspectedTarget:
+    | { type: 'tile'; tileKey: string }
+    | { type: 'card'; payload: DragCardPayload }
+    | null = null;
   const stagedByTileKey = new Map<string, StagedTileAction>();
   const queuedActions: QueuedAction[] = [];
 
@@ -180,17 +184,25 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     boardRenderer.renderTiles(world.tiles.values(), staticData, stagedByTileId);
 
-    const selectedTile = selectedTileKey ? world.tiles.get(selectedTileKey) ?? null : null;
-    stagedActionUI.setSelectedTile(
-      selectedTile
-        ? {
-            tile: selectedTile,
-            tileType: staticData.tileTypeById.get(selectedTile.tileType),
-            availableVerbs: selectedTile.activeVerbs.map((verbId) => staticData.verbById.get(verbId)).filter((verb): verb is NonNullable<typeof verb> => Boolean(verb)),
-            stagedAction: stagedByTileKey.get(selectedTileKey ?? '') ?? null,
-          }
-        : null,
-    );
+    if (inspectedTarget?.type === 'card') {
+      stagedActionUI.setSelectedCard({
+        card: inspectedTarget.payload.card,
+        instanceId: inspectedTarget.payload.instance.instanceId,
+      });
+    } else {
+      const inspectedTileKey = inspectedTarget?.type === 'tile' ? inspectedTarget.tileKey : selectedTileKey;
+      const selectedTile = inspectedTileKey ? world.tiles.get(inspectedTileKey) ?? null : null;
+      stagedActionUI.setSelectedTile(
+        selectedTile
+          ? {
+              tile: selectedTile,
+              tileType: staticData.tileTypeById.get(selectedTile.tileType),
+              availableVerbs: selectedTile.activeVerbs.map((verbId) => staticData.verbById.get(verbId)).filter((verb): verb is NonNullable<typeof verb> => Boolean(verb)),
+              stagedAction: stagedByTileKey.get(inspectedTileKey ?? '') ?? null,
+            }
+          : null,
+      );
+    }
     characterBoard.render();
   };
 
@@ -380,6 +392,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     stagedByTileKey.set(staged.tileKey, staged);
     cardStateByInstanceId.set(payload.instance.instanceId, 'staged');
     selectedTileKey = staged.tileKey;
+    inspectedTarget = { type: 'tile', tileKey: staged.tileKey };
     return true;
   };
 
@@ -429,10 +442,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (feedback.state !== 'valid') {
       staged.error = feedback.reason;
       selectedTileKey = targetTileKey;
+      inspectedTarget = { type: 'tile', tileKey: targetTileKey };
       return false;
     }
 
     selectedTileKey = targetTileKey;
+    inspectedTarget = { type: 'tile', tileKey: targetTileKey };
     return tryAddInputCardToStaged(payload, staged);
   };
 
@@ -647,13 +662,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
         if (!movedEnough) {
           if (pointerDown.cardPayload) {
-            stagedActionUI.setSelectedCard({
-              card: pointerDown.cardPayload.card,
-              instanceId: pointerDown.cardPayload.instance.instanceId,
-            });
+            inspectedTarget = { type: 'card', payload: pointerDown.cardPayload };
             render();
           } else if (pointerDown.tileKey && world.tiles.has(pointerDown.tileKey)) {
             selectedTileKey = pointerDown.tileKey;
+            inspectedTarget = { type: 'tile', tileKey: pointerDown.tileKey };
             render();
           }
         }
