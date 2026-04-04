@@ -22,5 +22,5 @@ export default __t.row({
   },
   hostId: __t.u64().name("host_id"),
   cardId: __t.u64().name("card_id"),
-  orderIndex: __t.i32().name("order_index"),
+  orderIndex: __t.u32().name("order_index"),
 });

@@ -36,7 +36,7 @@ export const EventTile = __t.object("EventTile", {
   eventTileId: __t.u64(),
   soulId: __t.u64(),
   name: __t.string(),
-  displayOrder: __t.i32(),
+  displayOrder: __t.u32(),
 });
 export type EventTile = __Infer<typeof EventTile>;
 
@@ -74,7 +74,7 @@ export const TileStageEntry = __t.object("TileStageEntry", {
   },
   hostId: __t.u64(),
   cardId: __t.u64(),
-  orderIndex: __t.i32(),
+  orderIndex: __t.u32(),
 });
 export type TileStageEntry = __Infer<typeof TileStageEntry>;
 
