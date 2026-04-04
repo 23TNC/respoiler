@@ -59,8 +59,8 @@ export class CharacterBoardUI {
   constructor(
     private readonly cardsById: Map<string, CardDefinition>,
     private readonly getCardState: (instanceId: string) => CardInstanceState,
-    private readonly getViewedSoul: () => SoulModel,
-    private readonly getViewedInventory: () => CharacterInventory,
+    private readonly getViewedSoul: () => SoulModel | undefined,
+    private readonly getViewedInventory: () => CharacterInventory | undefined,
     private readonly shouldShowReturnToPlayer: () => boolean,
   ) {}
 
@@ -71,6 +71,13 @@ export class CharacterBoardUI {
     this.returnToPlayerBounds = null;
     this.viewedSoulCardVisual = null;
 
+    const viewedSoul = this.getViewedSoul();
+    if (!viewedSoul) {
+      this.root.visible = false;
+      return;
+    }
+    this.root.visible = true;
+
     const board = new Graphics();
     board.roundRect(0, 0, this.boardWidth(), this.boardHeight(), 12).fill({ color: 0x0b1320, alpha: 0.85 }).stroke({
       color: 0x2d4772,
@@ -78,7 +85,6 @@ export class CharacterBoardUI {
     });
     this.root.addChild(board);
 
-    const viewedSoul = this.getViewedSoul();
     const viewedSoulCard: CardDefinition = {
       id: viewedSoul.soulId,
       name: viewedSoul.name,
@@ -168,7 +174,7 @@ export class CharacterBoardUI {
     this.root.addChild(mask);
     content.mask = mask;
 
-    const list = this.getViewedInventory()[group];
+    const list = this.getViewedInventory()?.[group] ?? [];
     const innerX = x + 8;
     const innerY = y + HEADER_HEIGHT + 4;
     const contentWidth = width - 18;
