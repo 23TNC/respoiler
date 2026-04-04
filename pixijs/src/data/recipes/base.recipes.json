@@ -1,34 +1,99 @@
-[
-  {
-    "inputs": {
-      "tile": "Forest",
-      "action": "Work",
-      "aspect": "Health"
-    },
-    "outputs": [
-      {
-        "id": "Log",
-        "amount": 3,
-        "conditions": [
-          { "type": "tile", "id": "trees", "op": "ge", "value": 10 }
-        ],
-        "effects": [
-          { "type": "tile", "id": "trees", "op": "le", "value": 7 },
-          { "type": "aspect", "id": "time", "op": "ge", "value": 60 }
-        ]
-      },
-      {
-        "id": "Food",
-        "amount": 2,
-        "conditions": [
-          { "type": "tile", "id": "food", "op": "ge", "value": 5 },
-          { "type": "random", "op": "lt", "value": 0.4 }
-        ],
-        "effects": [
-          { "type": "tile", "id": "food", "op": "le", "value": 3 },
-          { "type": "aspect", "id": "time", "op": "ge", "value": 60 }
-        ]
-      }
-    ]
-  }
-]
+{
+  "action": "Work",
+  "recipes": [
+    {
+      "id": "work-forest-health",
+      "input": [
+        {
+          "id": "Forest",
+          "count": { "value": 1 }
+        },
+        {
+          "id": "Health",
+          "count": { "value": 1 }
+        }
+      ],
+      "output": [
+        {
+          "id": "Log",
+          "count": { "value": 3 },
+          "all": [
+            {
+              "lhs": {
+                "lhs": { "value": "Forest" },
+                "op": "input_val",
+                "rhs": { "value": "Trees" }
+              },
+              "op": "ge",
+              "rhs": { "value": 10 }
+            }
+          ],
+          "effects": [
+            {
+              "lhs": {
+                "lhs": { "value": "Forest" },
+                "op": "input_ref",
+                "rhs": { "value": "Trees" }
+              },
+              "op": "apply_le",
+              "rhs": { "value": 7 }
+            },
+            {
+              "lhs": {
+                "lhs": { "value": "Health" },
+                "op": "input_ref",
+                "rhs": { "value": "Time" }
+              },
+              "op": "apply_ge",
+              "rhs": { "value": 60 }
+            }
+          ]
+        },
+        {
+          "id": "Food",
+          "count": { "value": 2 },
+          "all": [
+            {
+              "lhs": {
+                "lhs": { "value": "Forest" },
+                "op": "input_val",
+                "rhs": { "value": "Food" }
+              },
+              "op": "ge",
+              "rhs": { "value": 5 }
+            },
+            {
+              "lhs": {
+                "lhs": { "value": 0 },
+                "op": "rand",
+                "rhs": { "value": 1 }
+              },
+              "op": "lt",
+              "rhs": { "value": 0.4 }
+            }
+          ],
+          "effects": [
+            {
+              "lhs": {
+                "lhs": { "value": "Forest" },
+                "op": "input_ref",
+                "rhs": { "value": "Food" }
+              },
+              "op": "apply_le",
+              "rhs": { "value": 3 }
+            },
+            {
+              "lhs": {
+                "lhs": { "value": "Health" },
+                "op": "input_ref",
+                "rhs": { "value": "Time" }
+              },
+              "op": "apply_ge",
+              "rhs": { "value": 60 }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

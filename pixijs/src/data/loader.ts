@@ -2,14 +2,14 @@ import rawTileDefs from './tiles/base.tiles.json';
 import rawVerbDefs from './verbs/base.verbs.json';
 import type { TileTypeDefinition, VerbDefinition } from '../game/world/types';
 import { loadRecipes } from './recipes/loader';
-import type { RecipeDefinition } from '../game/recipes/types';
+import type { RecipeFile } from '../game/recipes/types';
 
 interface StaticData {
   tileTypes: TileTypeDefinition[];
   verbs: VerbDefinition[];
   tileTypeById: Map<string, TileTypeDefinition>;
   verbById: Map<string, VerbDefinition>;
-  recipes: RecipeDefinition[];
+  recipes: RecipeFile[];
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
