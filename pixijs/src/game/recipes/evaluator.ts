@@ -219,7 +219,7 @@ function applyBuffer(snapshot: Record<string, RecipeValueBag>, outputState: Reco
 
 function findActionFile(action: string, recipes: RecipeFile[]): RecipeFile | undefined {
   const target = normalizeId(action);
-  return recipes.find((recipeFile) => normalizeId(recipeFile.action) === target);
+  return recipes.find((recipeFile) => normalizeId(recipeFile.actionKey) === target);
 }
 
 export function evaluateRecipes(context: RecipeEvaluationContext): EvaluationResult {
@@ -284,8 +284,8 @@ export function evaluateRecipes(context: RecipeEvaluationContext): EvaluationRes
       if (!matched) continue;
 
       const amount = toNumber(output.count ? asValue(evaluateExpr(output.count, env), env) : 1);
-      outputState[normalizeId(output.id)] = {
-        ...(outputState[normalizeId(output.id)] ?? {}),
+      outputState[normalizeId(String(output.id))] = {
+        ...(outputState[normalizeId(String(output.id))] ?? {}),
         count: amount,
       };
 
@@ -295,7 +295,7 @@ export function evaluateRecipes(context: RecipeEvaluationContext): EvaluationRes
         queuedEffects.push({ recipeIndex, outputIndex, effectIndex, effect });
         const result = evaluateExpr(effect, env);
         const value = asValue(result, env);
-        appliedEffectFromResult(effect, value, env, output.id);
+        appliedEffectFromResult(effect, value, env, String(output.id));
       }
     }
 
@@ -303,7 +303,7 @@ export function evaluateRecipes(context: RecipeEvaluationContext): EvaluationRes
       queuedEffects.push({ recipeIndex, outputIndex: null, effectIndex, effect });
       const result = evaluateExpr(effect, env);
       const value = asValue(result, env);
-      appliedEffectFromResult(effect, value, env, recipe.id);
+      appliedEffectFromResult(effect, value, env, String(recipe.id));
     }
 
     traces.push({ recipeIndex, inputMatched: true, outputResults });

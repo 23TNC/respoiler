@@ -16,3 +16,6 @@ Static content and loaders for tiles, cards, verbs, recipes, and character mock 
 ## Constraints
 - Avoid duplicating normalization rules in each loader; reuse shared patterns when practical.
 - Changes here should be coordinated with staging/classification logic in `src/game/**` if semantics change.
+
+- Definition records must include stable numeric `id` plus descriptive `key`; runtime/network references should use numeric IDs while UI/debugging can use keys.
+- When updating cards/tiles/recipes here, copy the same JSON into `spacetime/server/spacetimedb/static/**` in the same change.

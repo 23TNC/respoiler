@@ -3,7 +3,8 @@ export type CardGroup = 'techniques' | 'essence' | 'sundries' | 'reveries' | 'so
 export type CardInstanceState = 'in_inventory' | 'staged' | 'queued';
 
 export interface CardDefinition {
-  id: string;
+  id: number;
+  key: string;
   name: string;
   group: CardGroup;
   backgroundColor: number;
@@ -11,7 +12,7 @@ export interface CardDefinition {
 
 export interface CardInstance {
   instanceId: string;
-  cardId: string;
+  cardId: number;
   soulId: string;
   linkedSoulId?: string;
 }

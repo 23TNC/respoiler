@@ -31,7 +31,7 @@ export class StagedActionUI {
 
   private selectedCard: SelectedCardDetails | null = null;
 
-  private readonly cardsById: Map<string, CardDefinition>;
+  private readonly cardsById: Map<number, CardDefinition>;
 
   private readonly getCardByInstanceId: (instanceId: string) => CardDefinition | undefined;
 
@@ -50,7 +50,7 @@ export class StagedActionUI {
   private inputDropFeedback: DropFeedbackState = 'none';
 
   constructor(
-    cardsById: Map<string, CardDefinition>,
+    cardsById: Map<number, CardDefinition>,
     getCardByInstanceId: (instanceId: string) => CardDefinition | undefined,
   ) {
     this.cardsById = cardsById;
@@ -207,7 +207,8 @@ export class StagedActionUI {
       x: 12,
       y: 114,
       card: verbCard ?? {
-        id: stagedAction.verbCardInstanceId,
+        id: -1,
+        key: stagedAction.verbCardInstanceId,
         name: verbLabel,
         group: 'techniques',
         backgroundColor: 0xf6e9c5,
@@ -220,14 +221,14 @@ export class StagedActionUI {
     this.root.addChild(verbText);
 
     const hintText = new Text({
-      text: getCompatibilityHint(verbCard?.id ?? ''),
+      text: getCompatibilityHint(verbCard?.key ?? ''),
       style: { fill: '#8fd9fc', fontSize: 10 },
     });
     hintText.position.set(12, 160);
     this.root.addChild(hintText);
 
     const stagedTitles = stagedAction.inputCardInstanceIds
-      .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(instanceId)?.name ?? instanceId)
+      .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(Number(instanceId))?.name ?? instanceId)
       .join(', ');
     const stagedText = new Text({
       text: `Staged: ${stagedTitles.length > 0 ? stagedTitles : 'None'}`,
@@ -269,7 +270,7 @@ export class StagedActionUI {
     let chipY = dropZoneY + 32;
     for (let index = 0; index < stagedAction.inputCardInstanceIds.length; index += 1) {
       const instanceId = stagedAction.inputCardInstanceIds[index];
-      const cardData = this.getCardByInstanceId(instanceId) ?? this.cardsById.get(instanceId);
+      const cardData = this.getCardByInstanceId(instanceId) ?? this.cardsById.get(Number(instanceId));
       const cardName = cardData?.name ?? instanceId;
       const chipColor = cardData?.backgroundColor ?? 0x2a3e5f;
       const chipTextColor = readableTextColor(chipColor);

@@ -122,10 +122,12 @@ function parseBindings<T extends InputBinding | OutputBinding>(
   return input.map((binding, bindingIndex) => {
     const bindingPath = `${path}[${bindingIndex}]`;
     assert(isObject(binding), `${bindingPath} must be object`);
-    assert(typeof binding.id === 'string', `${bindingPath}.id must be string`);
+    assert(typeof binding.id === 'number', `${bindingPath}.id must be number`)
+    assert(typeof binding.key === 'string', `${bindingPath}.key must be string`);
 
     const parsed: InputBinding = {
       id: binding.id,
+      key: binding.key,
       count: binding.count === undefined ? undefined : parseExpr(binding.count, `${bindingPath}.count`),
       all: Array.isArray(binding.all) ? binding.all.map((expr, idx) => parseExpr(expr, `${bindingPath}.all[${idx}]`)) : undefined,
       any: Array.isArray(binding.any) ? binding.any.map((expr, idx) => parseExpr(expr, `${bindingPath}.any[${idx}]`)) : undefined,
@@ -140,10 +142,12 @@ function parseBindings<T extends InputBinding | OutputBinding>(
 
 function parseRecipe(recipe: unknown, path: string): RecipeDefinition {
   assert(isObject(recipe), `${path} must be object`);
-  assert(typeof recipe.id === 'string', `${path}.id must be string`);
+  assert(typeof recipe.id === 'number', `${path}.id must be number`);
+  assert(typeof recipe.key === 'string', `${path}.key must be string`);
 
   const parsed: RecipeDefinition = {
     id: recipe.id,
+    key: recipe.key,
     input: parseBindings<InputBinding>(recipe.input, `${path}.input`, () => ({})),
     output: parseBindings<OutputBinding>(recipe.output, `${path}.output`, (output, outputPath) => ({
       effects: Array.isArray(output.effects)
@@ -164,11 +168,13 @@ export function loadRecipes(): RecipeFile[] {
   return files.map((recipeFile, fileIndex) => {
     const path = `recipeFiles[${fileIndex}]`;
     assert(isObject(recipeFile), `${path} must be object`);
-    assert(typeof recipeFile.action === 'string', `${path}.action must be string`);
+    assert(typeof recipeFile.actionCardId === 'number', `${path}.actionCardId must be number`);
+    assert(typeof recipeFile.actionKey === 'string', `${path}.actionKey must be string`);
     assert(Array.isArray(recipeFile.recipes), `${path}.recipes must be array`);
 
     return {
-      action: recipeFile.action,
+      actionCardId: recipeFile.actionCardId,
+      actionKey: recipeFile.actionKey,
       recipes: recipeFile.recipes.map((recipe, recipeIndex) => parseRecipe(recipe, `${path}.recipes[${recipeIndex}]`)),
     };
   });

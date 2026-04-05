@@ -32,3 +32,6 @@
 ## Current drift / watchouts
 - There is a duplicated `pixijs/src/src/**` tree alongside `pixijs/src/**`; prefer editing `pixijs/src/**` unless explicitly migrating/removing duplicates.
 - Some world tile names seeded by server do not map 1:1 to static tile IDs; client currently normalizes/falls back in runtime derivation.
+
+- Canonical static definitions live in `pixijs/src/data/{cards,tiles,recipes}` and are mirrored into `spacetime/server/spacetimedb/static/{cards,tiles,recipes}`; keep those JSON files byte-for-byte aligned when changing definitions.
+- Runtime tables should store numeric definition IDs for static cards/tiles/recipes; clients resolve display/classification metadata from local JSON maps by ID.

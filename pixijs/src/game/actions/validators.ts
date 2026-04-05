@@ -20,7 +20,7 @@ export function validateStagedAction(args: ValidateArgs): ValidationResult {
     return { ok: false, error: 'Tile no longer exists.' };
   }
 
-  if (staged.inputCardInstanceIds.length < getMinInputsForVerb(verbCard.id)) {
+  if (staged.inputCardInstanceIds.length < getMinInputsForVerb(verbCard.key)) {
     return { ok: false, error: 'At least one compatible input is required.' };
   }
 

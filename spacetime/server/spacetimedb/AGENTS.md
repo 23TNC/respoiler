@@ -22,3 +22,7 @@ Rust SpacetimeDB module (`src/lib.rs`) with table schema and reducers.
 
 ## Current drift / watchouts
 - Seed/bootstrap card/tile names are not guaranteed to match static client definition IDs; avoid assuming display name equality is a stable cross-layer key.
+
+## Static definition sync
+- Keep `static/cards/base.cards.json`, `static/tiles/base.tiles.json`, and `static/recipes/base.recipes.json` synchronized with `pixijs/src/data/**` in the same commit.
+- Table rows should prefer numeric `*_definition_id` style fields for static references; avoid transmitting duplicated static metadata (group/kind/description) in runtime rows.

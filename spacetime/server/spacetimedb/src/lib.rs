@@ -1,20 +1,20 @@
 use log::info;
 use spacetimedb::{Identity, ReducerContext, SpacetimeType, Table};
 
+const CARD_WORK: u32 = 1;
+const CARD_STUDY: u32 = 2;
+const CARD_HEALTH: u32 = 8;
+const CARD_FOLLOWER: u32 = 19;
+
+const TILE_FOREST: u32 = 3;
+const TILE_DESPAIR_CHECK: u32 = 6;
+const TILE_SCOUT_REFLECTION: u32 = 7;
+
 #[derive(Debug, Clone, PartialEq, Eq, SpacetimeType)]
 pub enum SubordinateType {
     Control,
     Influence,
     Observe,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, SpacetimeType)]
-pub enum CardKind {
-    Technique,
-    Essence,
-    Sundries,
-    Reveries,
-    Soul,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, SpacetimeType)]
@@ -40,9 +40,7 @@ pub struct Card {
     #[auto_inc]
     pub card_id: u64,
     pub soul_id: u64,
-    pub kind: CardKind,
-    pub name: String,
-    pub bg_color: Option<String>,
+    pub definition_id: u32,
     pub linked_soul_id: Option<u64>,
 }
 
@@ -51,7 +49,7 @@ pub struct WorldTile {
     #[primary_key]
     #[auto_inc]
     pub tile_id: u64,
-    pub name: String,
+    pub definition_id: u32,
     pub q: i32,
     pub r: i32,
 }
@@ -62,7 +60,8 @@ pub struct EventTile {
     #[auto_inc]
     pub event_tile_id: u64,
     pub soul_id: u64,
-    pub name: String,
+    pub definition_id: u32,
+    pub label: String,
     pub display_order: u32,
 }
 
@@ -87,6 +86,10 @@ pub struct TileStageEntry {
     pub host_id: u64,
     pub card_id: u64,
     pub order_index: u32,
+}
+
+fn is_technique_definition(definition_id: u32) -> bool {
+    matches!(definition_id, CARD_WORK | CARD_STUDY)
 }
 
 fn require_card(ctx: &ReducerContext, card_id: u64) -> Result<Card, String> {
@@ -116,10 +119,10 @@ fn require_event_tile(ctx: &ReducerContext, event_tile_id: u64) -> Result<EventT
 fn validate_technique_card(ctx: &ReducerContext, technique_card_id: u64) -> Result<Card, String> {
     let card = require_card(ctx, technique_card_id)?;
 
-    if card.kind != CardKind::Technique {
+    if !is_technique_definition(card.definition_id) {
         return Err(format!(
-            "Card {} is not Technique (found {:?})",
-            technique_card_id, card.kind
+            "Card {} is not a technique definition (found id {})",
+            technique_card_id, card.definition_id
         ));
     }
 
@@ -156,9 +159,7 @@ fn delete_attachment_for_host(
         .db
         .tile_technique_attachment()
         .iter()
-        .filter(|row| {
-            row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id
-        })
+        .filter(|row| row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id)
         .map(|row| row.attachment_id)
         .collect();
 
@@ -170,11 +171,7 @@ fn delete_attachment_for_host(
     }
 }
 
-fn require_host(
-    ctx: &ReducerContext,
-    host_type: &TileHostType,
-    host_id: u64,
-) -> Result<(), String> {
+fn require_host(ctx: &ReducerContext, host_type: &TileHostType, host_id: u64) -> Result<(), String> {
     match host_type {
         TileHostType::WorldTile => {
             let _ = require_world_tile(ctx, host_id)?;
@@ -193,17 +190,14 @@ fn find_soul_by_name(ctx: &ReducerContext, name: &str) -> Option<Soul> {
 fn ensure_card_for_soul(
     ctx: &ReducerContext,
     soul_id: u64,
-    kind: CardKind,
-    name: &str,
-    bg_color: &str,
+    definition_id: u32,
     linked_soul_id: Option<u64>,
 ) -> bool {
-    let exists = ctx.db.card().iter().any(|card| {
-        card.soul_id == soul_id
-            && card.kind == kind
-            && card.name == name
-            && card.linked_soul_id == linked_soul_id
-    });
+    let exists = ctx
+        .db
+        .card()
+        .iter()
+        .any(|card| card.soul_id == soul_id && card.definition_id == definition_id && card.linked_soul_id == linked_soul_id);
     if exists {
         return false;
     }
@@ -211,123 +205,11 @@ fn ensure_card_for_soul(
     let _ = ctx.db.card().insert(Card {
         card_id: 0,
         soul_id,
-        kind,
-        name: name.to_string(),
-        bg_color: Some(bg_color.to_string()),
+        definition_id,
         linked_soul_id,
     });
 
     true
-}
-
-#[spacetimedb::reducer]
-pub fn seed_test_data(ctx: &ReducerContext) {
-    let player_identity = ctx.sender();
-
-    let player_soul = ctx.db.soul().insert(Soul {
-        soul_id: 0,
-        name: "Ariadne Prime".to_string(),
-        player_id: Some(player_identity),
-        owner_soul_id: None,
-        subordinate_type: None,
-    });
-
-    let follower_soul = ctx.db.soul().insert(Soul {
-        soul_id: 0,
-        name: "Glassbound Echo".to_string(),
-        player_id: None,
-        owner_soul_id: Some(player_soul.soul_id),
-        subordinate_type: Some(SubordinateType::Control),
-    });
-
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: player_soul.soul_id,
-        kind: CardKind::Technique,
-        name: "Lattice Pin".to_string(),
-        bg_color: Some("#2E6F95".to_string()),
-        linked_soul_id: None,
-    });
-
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: player_soul.soul_id,
-        kind: CardKind::Essence,
-        name: "Distilled Dawn".to_string(),
-        bg_color: Some("#F4D35E".to_string()),
-        linked_soul_id: None,
-    });
-
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: player_soul.soul_id,
-        kind: CardKind::Sundries,
-        name: "Traveler's Charter".to_string(),
-        bg_color: Some("#6D597A".to_string()),
-        linked_soul_id: None,
-    });
-
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: player_soul.soul_id,
-        kind: CardKind::Soul,
-        name: "Bond: Glassbound Echo".to_string(),
-        bg_color: Some("#457B9D".to_string()),
-        linked_soul_id: Some(follower_soul.soul_id),
-    });
-
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: follower_soul.soul_id,
-        kind: CardKind::Technique,
-        name: "Needle Rain".to_string(),
-        bg_color: Some("#264653".to_string()),
-        linked_soul_id: None,
-    });
-
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: follower_soul.soul_id,
-        kind: CardKind::Reveries,
-        name: "Borrowed Horizon".to_string(),
-        bg_color: Some("#8AB17D".to_string()),
-        linked_soul_id: None,
-    });
-
-    let _ = ctx.db.world_tile().insert(WorldTile {
-        tile_id: 0,
-        name: "Sunken Gate".to_string(),
-        q: 0,
-        r: 0,
-    });
-
-    let _ = ctx.db.world_tile().insert(WorldTile {
-        tile_id: 0,
-        name: "Ash Meridian".to_string(),
-        q: 1,
-        r: 0,
-    });
-
-    let _ = ctx.db.world_tile().insert(WorldTile {
-        tile_id: 0,
-        name: "Rime Verge".to_string(),
-        q: 0,
-        r: 1,
-    });
-
-    let _ = ctx.db.event_tile().insert(EventTile {
-        event_tile_id: 0,
-        soul_id: player_soul.soul_id,
-        name: "Ariadne's Watch".to_string(),
-        display_order: 0,
-    });
-
-    let _ = ctx.db.event_tile().insert(EventTile {
-        event_tile_id: 0,
-        soul_id: follower_soul.soul_id,
-        name: "Echo's Perch".to_string(),
-        display_order: 0,
-    });
 }
 
 #[spacetimedb::reducer]
@@ -355,11 +237,6 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
             "[bootstrap_minimal_world] created player soul '{}' ({})",
             PLAYER_SOUL_NAME, player_soul.soul_id
         );
-    } else {
-        info!(
-            "[bootstrap_minimal_world] verified player soul '{}' ({})",
-            PLAYER_SOUL_NAME, player_soul.soul_id
-        );
     }
 
     let (subordinate_soul, subordinate_was_created) =
@@ -382,93 +259,46 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
             "[bootstrap_minimal_world] created subordinate soul '{}' ({})",
             SUBORDINATE_SOUL_NAME, subordinate_soul.soul_id
         );
-    } else {
-        info!(
-            "[bootstrap_minimal_world] verified subordinate soul '{}' ({})",
-            SUBORDINATE_SOUL_NAME, subordinate_soul.soul_id
-        );
     }
-
-    info!(
-        "[bootstrap_minimal_world] subordinate relationship {} -> {} ({:?})",
-        subordinate_soul.soul_id,
-        player_soul.soul_id,
-        SubordinateType::Control
-    );
 
     let has_forest_origin = ctx
         .db
         .world_tile()
         .iter()
-        .any(|tile| tile.q == 0 && tile.r == 0 && tile.name == "forest");
+        .any(|tile| tile.q == 0 && tile.r == 0 && tile.definition_id == TILE_FOREST);
     if !has_forest_origin {
         let _ = ctx.db.world_tile().insert(WorldTile {
             tile_id: 0,
-            name: "forest".to_string(),
+            definition_id: TILE_FOREST,
             q: 0,
             r: 0,
         });
     }
 
-    let player_card_specs = [
-        (CardKind::Technique, "Work", "#f8be6f", None),
-        (CardKind::Technique, "Study", "#f3d27f", None),
-        (CardKind::Essence, "Health", "#97e3a7", None),
-        (
-            CardKind::Soul,
-            "Follower",
-            "#a8e0e6",
-            Some(subordinate_soul.soul_id),
-        ),
-    ];
-    for (kind, name, bg_color, linked_soul_id) in player_card_specs {
-        let created = ensure_card_for_soul(
-            ctx,
-            player_soul.soul_id,
-            kind.clone(),
-            name,
-            bg_color,
-            linked_soul_id,
-        );
-        info!(
-            "[bootstrap_minimal_world] {} card '{}' for player soul {}",
-            if created { "attached" } else { "verified" },
-            name,
-            player_soul.soul_id
-        );
+    for (definition_id, linked_soul_id) in [
+        (CARD_WORK, None),
+        (CARD_STUDY, None),
+        (CARD_HEALTH, None),
+        (CARD_FOLLOWER, Some(subordinate_soul.soul_id)),
+    ] {
+        let _ = ensure_card_for_soul(ctx, player_soul.soul_id, definition_id, linked_soul_id);
     }
 
-    let subordinate_card_specs = [
-        (CardKind::Technique, "Work", "#f8be6f"),
-        (CardKind::Essence, "Health", "#97e3a7"),
-    ];
-    for (kind, name, bg_color) in subordinate_card_specs {
-        let created = ensure_card_for_soul(
-            ctx,
-            subordinate_soul.soul_id,
-            kind.clone(),
-            name,
-            bg_color,
-            None,
-        );
-        info!(
-            "[bootstrap_minimal_world] {} card '{}' for subordinate soul {}",
-            if created { "attached" } else { "verified" },
-            name,
-            subordinate_soul.soul_id
-        );
+    for definition_id in [CARD_WORK, CARD_HEALTH] {
+        let _ = ensure_card_for_soul(ctx, subordinate_soul.soul_id, definition_id, None);
     }
 
     let has_player_event_tile = ctx
         .db
         .event_tile()
         .iter()
-        .any(|tile| tile.soul_id == player_soul.soul_id && tile.name == "Bootstrap Watch");
+        .any(|tile| tile.soul_id == player_soul.soul_id && tile.label == "Bootstrap Watch");
     if !has_player_event_tile {
         let _ = ctx.db.event_tile().insert(EventTile {
             event_tile_id: 0,
             soul_id: player_soul.soul_id,
-            name: "Bootstrap Watch".to_string(),
+            definition_id: TILE_SCOUT_REFLECTION,
+            label: "Bootstrap Watch".to_string(),
             display_order: 0,
         });
     }
@@ -477,12 +307,13 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
         .db
         .event_tile()
         .iter()
-        .any(|tile| tile.soul_id == subordinate_soul.soul_id && tile.name == "Worker Post");
+        .any(|tile| tile.soul_id == subordinate_soul.soul_id && tile.label == "Worker Post");
     if !has_subordinate_event_tile {
         let _ = ctx.db.event_tile().insert(EventTile {
             event_tile_id: 0,
             soul_id: subordinate_soul.soul_id,
-            name: "Worker Post".to_string(),
+            definition_id: TILE_DESPAIR_CHECK,
+            label: "Worker Post".to_string(),
             display_order: 0,
         });
     }
@@ -575,9 +406,7 @@ pub fn stage_card_on_host(
         .db
         .tile_stage_entry()
         .iter()
-        .filter(|row| {
-            row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id
-        })
+        .filter(|row| row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id)
         .map(|row| row.order_index)
         .max()
         .map(|max| max + 1)

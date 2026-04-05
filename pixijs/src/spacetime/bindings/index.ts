@@ -38,7 +38,6 @@ import AttachTechniqueToEventTileReducer from "./attach_technique_to_event_tile_
 import AttachTechniqueToWorldTileReducer from "./attach_technique_to_world_tile_reducer";
 import BootstrapMinimalWorldReducer from "./bootstrap_minimal_world_reducer";
 import DetachTechniqueFromHostReducer from "./detach_technique_from_host_reducer";
-import SeedTestDataReducer from "./seed_test_data_reducer";
 import StageCardOnHostReducer from "./stage_card_on_host_reducer";
 import UnstageCardFromHostReducer from "./unstage_card_from_host_reducer";
 
@@ -130,7 +129,6 @@ const reducersSchema = __reducers(
   __reducerSchema("attach_technique_to_world_tile", AttachTechniqueToWorldTileReducer),
   __reducerSchema("bootstrap_minimal_world", BootstrapMinimalWorldReducer),
   __reducerSchema("detach_technique_from_host", DetachTechniqueFromHostReducer),
-  __reducerSchema("seed_test_data", SeedTestDataReducer),
   __reducerSchema("stage_card_on_host", StageCardOnHostReducer),
   __reducerSchema("unstage_card_from_host", UnstageCardFromHostReducer),
 );

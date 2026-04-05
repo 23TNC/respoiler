@@ -4,38 +4,23 @@
 /* eslint-disable */
 /* tslint:disable */
 import {
-  TypeBuilder as __TypeBuilder,
   t as __t,
-  type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
 
 export const Card = __t.object("Card", {
   cardId: __t.u64(),
   soulId: __t.u64(),
-  get kind() {
-    return CardKind;
-  },
-  name: __t.string(),
-  bgColor: __t.option(__t.string()),
+  definitionId: __t.u32(),
   linkedSoulId: __t.option(__t.u64()),
 });
 export type Card = __Infer<typeof Card>;
 
-// The tagged union or sum type for the algebraic type `CardKind`.
-export const CardKind = __t.enum("CardKind", {
-  Technique: __t.unit(),
-  Essence: __t.unit(),
-  Sundries: __t.unit(),
-  Reveries: __t.unit(),
-  Soul: __t.unit(),
-});
-export type CardKind = __Infer<typeof CardKind>;
-
 export const EventTile = __t.object("EventTile", {
   eventTileId: __t.u64(),
   soulId: __t.u64(),
-  name: __t.string(),
+  definitionId: __t.u32(),
+  label: __t.string(),
   displayOrder: __t.u32(),
 });
 export type EventTile = __Infer<typeof EventTile>;
@@ -51,7 +36,6 @@ export const Soul = __t.object("Soul", {
 });
 export type Soul = __Infer<typeof Soul>;
 
-// The tagged union or sum type for the algebraic type `SubordinateType`.
 export const SubordinateType = __t.enum("SubordinateType", {
   Control: __t.unit(),
   Influence: __t.unit(),
@@ -59,7 +43,6 @@ export const SubordinateType = __t.enum("SubordinateType", {
 });
 export type SubordinateType = __Infer<typeof SubordinateType>;
 
-// The tagged union or sum type for the algebraic type `TileHostType`.
 export const TileHostType = __t.enum("TileHostType", {
   WorldTile: __t.unit(),
   EventTile: __t.unit(),
@@ -91,9 +74,8 @@ export type TileTechniqueAttachment = __Infer<typeof TileTechniqueAttachment>;
 
 export const WorldTile = __t.object("WorldTile", {
   tileId: __t.u64(),
-  name: __t.string(),
+  definitionId: __t.u32(),
   q: __t.i32(),
   r: __t.i32(),
 });
 export type WorldTile = __Infer<typeof WorldTile>;
-
