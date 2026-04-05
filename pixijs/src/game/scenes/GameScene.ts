@@ -2,7 +2,7 @@ import { Application, Container, Graphics, Text } from 'pixi.js';
 import { loadStaticData } from '../../data/loader';
 import { loadCardDefinitions } from '../../data/cards/loader';
 import { createSpacetimeClient } from '../../spacetime/client';
-import { deriveRuntimeState, isRowsSnapshotEmptyForBootstrap } from '../../spacetime/deriveRuntimeState';
+import { deriveRuntimeState } from '../../spacetime/deriveRuntimeState';
 import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
@@ -21,6 +21,7 @@ import { isHexTile, type BoardTile, type HexTile, type SoulHostedTile } from '..
 export async function startGameScene(container: HTMLElement): Promise<void> {
   const DRAG_THRESHOLD_PX = 8;
   const CHARACTER_ID = 'spacetime-client';
+  const TEST_PLAYER_STORAGE_KEY = 'despoiler.testPlayerId';
 
   const app = new Application();
   await app.init({
@@ -38,6 +39,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const spacetimeClient = createSpacetimeClient();
 
   let runtimeState = deriveRuntimeState({
+    players: [],
     souls: [],
     cards: [],
     worldTiles: [],
@@ -46,13 +48,22 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     recipeQueues: [],
     recipeQueueCards: [],
     cardReservations: [],
+    activePlayerId: null,
     hasAppliedSubscription: false,
   }, staticCardData.cardsById, staticData.tileTypeById);
 
+  const getOrCreateTestPlayerId = (): string => {
+    const existing = window.localStorage.getItem(TEST_PLAYER_STORAGE_KEY)?.trim();
+    if (existing) {
+      return existing;
+    }
+    const generated = `test-${crypto.randomUUID()}`;
+    window.localStorage.setItem(TEST_PLAYER_STORAGE_KEY, generated);
+    return generated;
+  };
+
   let playerSoulId = '';
   let viewedSoulId = '';
-  let isBootstrapping = false;
-  let hasAttemptedBootstrap = false;
   const worldTiles = new Map<string, HexTile>();
   const hostedTilesBySoulId = new Map<string, SoulHostedTile[]>();
   const cardDefinitionByInstanceId = new Map<string, CardDefinition>();
@@ -1027,26 +1038,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     uri: 'ws://127.0.0.1:3000',
     databaseName: 'despoiler-dev',
   });
+  const testPlayerId = getOrCreateTestPlayerId();
+  await spacetimeClient.resolveTestPlayer(testPlayerId);
 
   spacetimeClient.subscribe((rows) => {
     runtimeState = deriveRuntimeState(rows, staticCardData.cardsById, staticData.tileTypeById);
-    const isEmptyDb = isRowsSnapshotEmptyForBootstrap(rows);
-    if (!rows.hasAppliedSubscription) {
-      // Wait until subscribed data is applied before deciding whether to bootstrap.
-    } else if (!isEmptyDb) {
-      isBootstrapping = false;
-    } else if (!isBootstrapping && !hasAttemptedBootstrap) {
-      isBootstrapping = true;
-      hasAttemptedBootstrap = true;
-      void spacetimeClient.bootstrapMinimalWorld()
-        .catch((error) => {
-          console.error('SpaceTimeDB minimal bootstrap failed', error);
-          hasAttemptedBootstrap = false;
-        })
-        .finally(() => {
-          isBootstrapping = false;
-        });
-    }
     playerSoulId = runtimeState.playerSoulId ?? '';
     if (!viewedSoulId || !runtimeState.soulById.has(viewedSoulId)) {
       viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';

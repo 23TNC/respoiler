@@ -9,17 +9,8 @@ import {
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
-import {
-  SubordinateType,
-} from "./types";
-
 
 export default __t.row({
-  soulId: __t.u64().primaryKey().name("soul_id"),
-  name: __t.string(),
-  playerId: __t.option(__t.u64()).name("player_id"),
-  ownerSoulId: __t.option(__t.u64()).name("owner_soul_id"),
-  get subordinateType() {
-    return __t.option(SubordinateType).name("subordinate_type");
-  },
+  playerId: __t.u64().primaryKey().name("player_id"),
+  playerKey: __t.string().unique().name("player_key"),
 });

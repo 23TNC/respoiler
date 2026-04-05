@@ -32,9 +32,26 @@ pub struct Soul {
     #[auto_inc]
     pub soul_id: u64,
     pub name: String,
-    pub player_id: Option<Identity>,
+    pub player_id: Option<u64>,
     pub owner_soul_id: Option<u64>,
     pub subordinate_type: Option<SubordinateType>,
+}
+
+#[spacetimedb::table(accessor = player, public)]
+pub struct Player {
+    #[primary_key]
+    #[auto_inc]
+    pub player_id: u64,
+    #[unique]
+    pub player_key: String,
+}
+
+#[spacetimedb::table(accessor = player_session)]
+pub struct PlayerSession {
+    #[primary_key]
+    pub session_identity: Identity,
+    pub player_id: u64,
+    pub resolved_at_unix_ms: u64,
 }
 
 #[spacetimedb::table(accessor = card, public)]
@@ -273,6 +290,17 @@ fn host_definition_id(
 
 fn is_sender_authorized_for_soul(ctx: &ReducerContext, actor_soul_id: u64) -> bool {
     let sender = ctx.sender();
+    let authorized_player_id = ctx
+        .db
+        .player_session()
+        .session_identity()
+        .find(sender)
+        .map(|session| session.player_id);
+
+    let Some(authorized_player_id) = authorized_player_id else {
+        return false;
+    };
+
     let souls: Vec<Soul> = ctx.db.soul().iter().collect();
     let soul_by_id: HashMap<u64, &Soul> = souls.iter().map(|soul| (soul.soul_id, soul)).collect();
 
@@ -281,7 +309,7 @@ fn is_sender_authorized_for_soul(ctx: &ReducerContext, actor_soul_id: u64) -> bo
         let Some(soul) = soul_by_id.get(&soul_id) else {
             return false;
         };
-        if soul.player_id.as_ref() == Some(&sender) {
+        if soul.player_id == Some(authorized_player_id) {
             return true;
         }
         cursor = soul.owner_soul_id;
@@ -352,80 +380,83 @@ fn find_soul_by_name(ctx: &ReducerContext, name: &str) -> Option<Soul> {
     ctx.db.soul().iter().find(|soul| soul.name == name)
 }
 
-fn ensure_card_for_soul(
-    ctx: &ReducerContext,
-    soul_id: u64,
-    definition_id: u32,
-    linked_soul_id: Option<u64>,
-) -> bool {
-    let exists = ctx.db.card().iter().any(|card| {
-        card.soul_id == soul_id
-            && card.definition_id == definition_id
-            && card.linked_soul_id == linked_soul_id
-    });
-    if exists {
-        return false;
-    }
-
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id,
-        definition_id,
-        linked_soul_id,
-    });
-
-    true
+fn find_player_by_key(ctx: &ReducerContext, player_key: &str) -> Option<Player> {
+    ctx.db
+        .player()
+        .iter()
+        .find(|player| player.player_key == player_key)
 }
 
-#[spacetimedb::reducer]
-pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
+fn ensure_player_session(ctx: &ReducerContext, player_id: u64) {
+    let sender = ctx.sender();
+    let _ = ctx.db.player_session().session_identity().delete(&sender);
+    ctx.db.player_session().insert(PlayerSession {
+        session_identity: sender,
+        player_id,
+        resolved_at_unix_ms: current_unix_ms(),
+    });
+}
+
+fn bootstrap_minimal_world_for_player(ctx: &ReducerContext, player_id: u64) {
     const PLAYER_SOUL_NAME: &str = "Bootstrap Soul";
     const SUBORDINATE_SOUL_NAME: &str = "Bootstrap Worker";
 
-    let (player_soul, player_was_created) =
-        if let Some(existing) = find_soul_by_name(ctx, PLAYER_SOUL_NAME) {
-            (existing, false)
+    let player_soul = if let Some(existing) = ctx
+        .db
+        .soul()
+        .iter()
+        .find(|soul| soul.player_id == Some(player_id) && soul.owner_soul_id.is_none())
+    {
+        existing
+    } else {
+        let fallback_name = find_soul_by_name(ctx, PLAYER_SOUL_NAME);
+        let fallback_name_value = fallback_name.as_ref().map(|soul| soul.name.as_str());
+        let new_name = if fallback_name.is_some() {
+            format!("{} ({})", PLAYER_SOUL_NAME, player_id)
         } else {
-            (
-                ctx.db.soul().insert(Soul {
-                    soul_id: 0,
-                    name: PLAYER_SOUL_NAME.to_string(),
-                    player_id: Some(ctx.sender()),
-                    owner_soul_id: None,
-                    subordinate_type: None,
-                }),
-                true,
-            )
+            PLAYER_SOUL_NAME.to_string()
         };
-    if player_was_created {
+        if fallback_name_value.is_some() {
+            info!(
+                "[bootstrap_minimal_world] creating player soul with unique fallback name '{}' for player {}",
+                new_name, player_id
+            );
+        }
+        let created = ctx.db.soul().insert(Soul {
+            soul_id: 0,
+            name: new_name,
+            player_id: Some(player_id),
+            owner_soul_id: None,
+            subordinate_type: None,
+        });
         info!(
-            "[bootstrap_minimal_world] created player soul '{}' ({})",
-            PLAYER_SOUL_NAME, player_soul.soul_id
+            "[bootstrap_minimal_world] created player soul '{}' ({}) for player {}",
+            created.name, created.soul_id, player_id
         );
-    }
+        created
+    };
 
-    let (subordinate_soul, subordinate_was_created) =
-        if let Some(existing) = find_soul_by_name(ctx, SUBORDINATE_SOUL_NAME) {
-            (existing, false)
-        } else {
-            (
-                ctx.db.soul().insert(Soul {
-                    soul_id: 0,
-                    name: SUBORDINATE_SOUL_NAME.to_string(),
-                    player_id: None,
-                    owner_soul_id: Some(player_soul.soul_id),
-                    subordinate_type: Some(SubordinateType::Control),
-                }),
-                true,
-            )
-        };
-    if subordinate_was_created {
+    let subordinate_soul = if let Some(existing) = ctx.db.soul().iter().find(|soul| {
+        soul.owner_soul_id == Some(player_soul.soul_id)
+            && soul.subordinate_type == Some(SubordinateType::Control)
+    }) {
+        existing
+    } else {
+        let created = ctx.db.soul().insert(Soul {
+            soul_id: 0,
+            name: SUBORDINATE_SOUL_NAME.to_string(),
+            player_id: None,
+            owner_soul_id: Some(player_soul.soul_id),
+            subordinate_type: Some(SubordinateType::Control),
+        });
         info!(
-            "[bootstrap_minimal_world] created subordinate soul '{}' ({})",
-            SUBORDINATE_SOUL_NAME, subordinate_soul.soul_id
+            "[bootstrap_minimal_world] created subordinate soul '{}' ({}) owned by {}",
+            created.name, created.soul_id, player_soul.soul_id
         );
-    }
+        created
+    };
 
+    // Shared world content is still global for the test environment.
     let has_forest_origin = ctx
         .db
         .world_tile()
@@ -476,6 +507,73 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
             display_order: 0,
         });
     }
+}
+
+fn ensure_card_for_soul(
+    ctx: &ReducerContext,
+    soul_id: u64,
+    definition_id: u32,
+    linked_soul_id: Option<u64>,
+) -> bool {
+    let exists = ctx.db.card().iter().any(|card| {
+        card.soul_id == soul_id
+            && card.definition_id == definition_id
+            && card.linked_soul_id == linked_soul_id
+    });
+    if exists {
+        return false;
+    }
+
+    let _ = ctx.db.card().insert(Card {
+        card_id: 0,
+        soul_id,
+        definition_id,
+        linked_soul_id,
+    });
+
+    true
+}
+
+#[spacetimedb::reducer]
+pub fn resolve_test_player(ctx: &ReducerContext, player_key: String) -> Result<(), String> {
+    let trimmed = player_key.trim();
+    if trimmed.is_empty() {
+        return Err("player_key must not be empty".to_string());
+    }
+
+    let player = if let Some(existing) = find_player_by_key(ctx, trimmed) {
+        existing
+    } else {
+        let created = ctx.db.player().insert(Player {
+            player_id: 0,
+            player_key: trimmed.to_string(),
+        });
+        info!(
+            "[resolve_test_player] created player {} for key '{}'",
+            created.player_id, created.player_key
+        );
+        created
+    };
+
+    ensure_player_session(ctx, player.player_id);
+    bootstrap_minimal_world_for_player(ctx, player.player_id);
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn bootstrap_minimal_world(ctx: &ReducerContext) -> Result<(), String> {
+    let sender = ctx.sender();
+    let session = ctx
+        .db
+        .player_session()
+        .session_identity()
+        .find(sender)
+        .ok_or_else(|| {
+            "resolve_test_player must be called before bootstrap_minimal_world".to_string()
+        })?;
+    bootstrap_minimal_world_for_player(ctx, session.player_id);
+    Ok(())
 }
 
 #[spacetimedb::reducer]

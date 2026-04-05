@@ -1,6 +1,7 @@
 import { DbConnection, type SubscriptionHandle } from './bindings';
 
 export interface SpacetimeRowsSnapshot {
+  players: ReturnType<DbConnection['db']['player']['iter']> extends Iterable<infer T> ? T[] : never[];
   souls: ReturnType<DbConnection['db']['soul']['iter']> extends Iterable<infer T> ? T[] : never[];
   cards: ReturnType<DbConnection['db']['card']['iter']> extends Iterable<infer T> ? T[] : never[];
   worldTiles: ReturnType<DbConnection['db']['world_tile']['iter']> extends Iterable<infer T> ? T[] : never[];
@@ -9,6 +10,7 @@ export interface SpacetimeRowsSnapshot {
   recipeQueues: ReturnType<DbConnection['db']['recipe_queue']['iter']> extends Iterable<infer T> ? T[] : never[];
   recipeQueueCards: ReturnType<DbConnection['db']['recipe_queue_card']['iter']> extends Iterable<infer T> ? T[] : never[];
   cardReservations: ReturnType<DbConnection['db']['card_reservation']['iter']> extends Iterable<infer T> ? T[] : never[];
+  activePlayerId: string | null;
   hasAppliedSubscription: boolean;
 }
 
@@ -19,6 +21,7 @@ export interface SpacetimeClientConfig {
 }
 
 const SUBSCRIPTION_SQL = [
+  'SELECT * FROM player',
   'SELECT * FROM soul',
   'SELECT * FROM card',
   'SELECT * FROM world_tile',
@@ -39,6 +42,8 @@ export class SpacetimeClient {
   private bootstrapRequested = false;
   private hasAppliedSubscription = false;
   private rowListenersBound = false;
+  private activePlayerKey: string | null = null;
+  private activePlayerId: string | null = null;
 
   get isConnected(): boolean {
     return this.connection?.isActive ?? false;
@@ -96,6 +101,16 @@ export class SpacetimeClient {
     this.connection = null;
     this.hasAppliedSubscription = false;
     this.rowListenersBound = false;
+  }
+
+  async resolveTestPlayer(playerKey: string): Promise<void> {
+    if (!this.connection) {
+      return;
+    }
+    this.activePlayerKey = playerKey;
+    await this.connection.reducers.resolveTestPlayer({ playerKey });
+    this.refreshActivePlayerId();
+    this.notify();
   }
 
   async bootstrapMinimalWorld(): Promise<void> {
@@ -163,6 +178,7 @@ export class SpacetimeClient {
       table.onUpdate?.(() => this.notify());
     };
 
+    wire(db.player);
     wire(db.soul);
     wire(db.card);
     wire(db.world_tile);
@@ -176,6 +192,7 @@ export class SpacetimeClient {
   private snapshotRows(): SpacetimeRowsSnapshot {
     if (!this.connection) {
       return {
+        players: [],
         souls: [],
         cards: [],
         worldTiles: [],
@@ -184,11 +201,15 @@ export class SpacetimeClient {
         recipeQueues: [],
         recipeQueueCards: [],
         cardReservations: [],
+        activePlayerId: null,
         hasAppliedSubscription: false,
       };
     }
 
+    this.refreshActivePlayerId();
+
     return {
+      players: Array.from(this.connection.db.player.iter()),
       souls: Array.from(this.connection.db.soul.iter()),
       cards: Array.from(this.connection.db.card.iter()),
       worldTiles: Array.from(this.connection.db.world_tile.iter()),
@@ -197,8 +218,20 @@ export class SpacetimeClient {
       recipeQueues: Array.from(this.connection.db.recipe_queue.iter()),
       recipeQueueCards: Array.from(this.connection.db.recipe_queue_card.iter()),
       cardReservations: Array.from(this.connection.db.card_reservation.iter()),
+      activePlayerId: this.activePlayerId,
       hasAppliedSubscription: this.hasAppliedSubscription,
     };
+  }
+
+  private refreshActivePlayerId(): void {
+    if (!this.connection || !this.activePlayerKey) {
+      this.activePlayerId = null;
+      return;
+    }
+
+    const row = Array.from(this.connection.db.player.iter())
+      .find((player) => player.playerKey === this.activePlayerKey);
+    this.activePlayerId = row ? row.playerId.toString() : null;
   }
 
   private notify(): void {
