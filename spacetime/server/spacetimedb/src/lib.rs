@@ -1,3 +1,4 @@
+use log::info;
 use spacetimedb::{Identity, ReducerContext, SpacetimeType, Table};
 
 #[derive(Debug, Clone, PartialEq, Eq, SpacetimeType)]
@@ -185,6 +186,40 @@ fn require_host(
     Ok(())
 }
 
+fn find_soul_by_name(ctx: &ReducerContext, name: &str) -> Option<Soul> {
+    ctx.db.soul().iter().find(|soul| soul.name == name)
+}
+
+fn ensure_card_for_soul(
+    ctx: &ReducerContext,
+    soul_id: u64,
+    kind: CardKind,
+    name: &str,
+    bg_color: &str,
+    linked_soul_id: Option<u64>,
+) -> bool {
+    let exists = ctx.db.card().iter().any(|card| {
+        card.soul_id == soul_id
+            && card.kind == kind
+            && card.name == name
+            && card.linked_soul_id == linked_soul_id
+    });
+    if exists {
+        return false;
+    }
+
+    let _ = ctx.db.card().insert(Card {
+        card_id: 0,
+        soul_id,
+        kind,
+        name: name.to_string(),
+        bg_color: Some(bg_color.to_string()),
+        linked_soul_id,
+    });
+
+    true
+}
+
 #[spacetimedb::reducer]
 pub fn seed_test_data(ctx: &ReducerContext) {
     let player_identity = ctx.sender();
@@ -297,49 +332,160 @@ pub fn seed_test_data(ctx: &ReducerContext) {
 
 #[spacetimedb::reducer]
 pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
-    let has_existing_state = ctx.db.soul().iter().next().is_some()
-        || ctx.db.world_tile().iter().next().is_some()
-        || ctx.db.card().iter().next().is_some()
-        || ctx.db.event_tile().iter().next().is_some()
-        || ctx.db.tile_technique_attachment().iter().next().is_some()
-        || ctx.db.tile_stage_entry().iter().next().is_some();
+    const PLAYER_SOUL_NAME: &str = "Bootstrap Soul";
+    const SUBORDINATE_SOUL_NAME: &str = "Bootstrap Worker";
 
-    if has_existing_state {
-        return;
+    let (player_soul, player_was_created) =
+        if let Some(existing) = find_soul_by_name(ctx, PLAYER_SOUL_NAME) {
+            (existing, false)
+        } else {
+            (
+                ctx.db.soul().insert(Soul {
+                    soul_id: 0,
+                    name: PLAYER_SOUL_NAME.to_string(),
+                    player_id: Some(ctx.sender()),
+                    owner_soul_id: None,
+                    subordinate_type: None,
+                }),
+                true,
+            )
+        };
+    if player_was_created {
+        info!(
+            "[bootstrap_minimal_world] created player soul '{}' ({})",
+            PLAYER_SOUL_NAME, player_soul.soul_id
+        );
+    } else {
+        info!(
+            "[bootstrap_minimal_world] verified player soul '{}' ({})",
+            PLAYER_SOUL_NAME, player_soul.soul_id
+        );
     }
 
-    let soul = ctx.db.soul().insert(Soul {
-        soul_id: 0,
-        name: "Bootstrap Soul".to_string(),
-        player_id: Some(ctx.sender()),
-        owner_soul_id: None,
-        subordinate_type: None,
-    });
+    let (subordinate_soul, subordinate_was_created) =
+        if let Some(existing) = find_soul_by_name(ctx, SUBORDINATE_SOUL_NAME) {
+            (existing, false)
+        } else {
+            (
+                ctx.db.soul().insert(Soul {
+                    soul_id: 0,
+                    name: SUBORDINATE_SOUL_NAME.to_string(),
+                    player_id: None,
+                    owner_soul_id: Some(player_soul.soul_id),
+                    subordinate_type: Some(SubordinateType::Control),
+                }),
+                true,
+            )
+        };
+    if subordinate_was_created {
+        info!(
+            "[bootstrap_minimal_world] created subordinate soul '{}' ({})",
+            SUBORDINATE_SOUL_NAME, subordinate_soul.soul_id
+        );
+    } else {
+        info!(
+            "[bootstrap_minimal_world] verified subordinate soul '{}' ({})",
+            SUBORDINATE_SOUL_NAME, subordinate_soul.soul_id
+        );
+    }
 
-    let _ = ctx.db.world_tile().insert(WorldTile {
-        tile_id: 0,
-        name: "forest".to_string(),
-        q: 0,
-        r: 0,
-    });
+    info!(
+        "[bootstrap_minimal_world] subordinate relationship {} -> {} ({:?})",
+        subordinate_soul.soul_id,
+        player_soul.soul_id,
+        SubordinateType::Control
+    );
 
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: soul.soul_id,
-        kind: CardKind::Technique,
-        name: "Work".to_string(),
-        bg_color: Some("#f8be6f".to_string()),
-        linked_soul_id: None,
-    });
+    let has_forest_origin = ctx
+        .db
+        .world_tile()
+        .iter()
+        .any(|tile| tile.q == 0 && tile.r == 0 && tile.name == "forest");
+    if !has_forest_origin {
+        let _ = ctx.db.world_tile().insert(WorldTile {
+            tile_id: 0,
+            name: "forest".to_string(),
+            q: 0,
+            r: 0,
+        });
+    }
 
-    let _ = ctx.db.card().insert(Card {
-        card_id: 0,
-        soul_id: soul.soul_id,
-        kind: CardKind::Essence,
-        name: "Health".to_string(),
-        bg_color: Some("#97e3a7".to_string()),
-        linked_soul_id: None,
-    });
+    let player_card_specs = [
+        (CardKind::Technique, "Work", "#f8be6f", None),
+        (CardKind::Technique, "Study", "#f3d27f", None),
+        (CardKind::Essence, "Health", "#97e3a7", None),
+        (
+            CardKind::Soul,
+            "Follower",
+            "#a8e0e6",
+            Some(subordinate_soul.soul_id),
+        ),
+    ];
+    for (kind, name, bg_color, linked_soul_id) in player_card_specs {
+        let created = ensure_card_for_soul(
+            ctx,
+            player_soul.soul_id,
+            kind.clone(),
+            name,
+            bg_color,
+            linked_soul_id,
+        );
+        info!(
+            "[bootstrap_minimal_world] {} card '{}' for player soul {}",
+            if created { "attached" } else { "verified" },
+            name,
+            player_soul.soul_id
+        );
+    }
+
+    let subordinate_card_specs = [
+        (CardKind::Technique, "Work", "#f8be6f"),
+        (CardKind::Essence, "Health", "#97e3a7"),
+    ];
+    for (kind, name, bg_color) in subordinate_card_specs {
+        let created = ensure_card_for_soul(
+            ctx,
+            subordinate_soul.soul_id,
+            kind.clone(),
+            name,
+            bg_color,
+            None,
+        );
+        info!(
+            "[bootstrap_minimal_world] {} card '{}' for subordinate soul {}",
+            if created { "attached" } else { "verified" },
+            name,
+            subordinate_soul.soul_id
+        );
+    }
+
+    let has_player_event_tile = ctx
+        .db
+        .event_tile()
+        .iter()
+        .any(|tile| tile.soul_id == player_soul.soul_id && tile.name == "Bootstrap Watch");
+    if !has_player_event_tile {
+        let _ = ctx.db.event_tile().insert(EventTile {
+            event_tile_id: 0,
+            soul_id: player_soul.soul_id,
+            name: "Bootstrap Watch".to_string(),
+            display_order: 0,
+        });
+    }
+
+    let has_subordinate_event_tile = ctx
+        .db
+        .event_tile()
+        .iter()
+        .any(|tile| tile.soul_id == subordinate_soul.soul_id && tile.name == "Worker Post");
+    if !has_subordinate_event_tile {
+        let _ = ctx.db.event_tile().insert(EventTile {
+            event_tile_id: 0,
+            soul_id: subordinate_soul.soul_id,
+            name: "Worker Post".to_string(),
+            display_order: 0,
+        });
+    }
 }
 
 #[spacetimedb::reducer]
