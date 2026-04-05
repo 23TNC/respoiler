@@ -172,7 +172,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   );
   fixedUiLayer.addChild(characterBoard.root);
 
-  const stagedActionUI = new StagedActionUI(staticCardData.cardsById, (instanceId) => cardDefinitionByInstanceId.get(instanceId));
+  const stagedActionUI = new StagedActionUI((instanceId) => cardDefinitionByInstanceId.get(instanceId));
   fixedUiLayer.addChild(stagedActionUI.root);
   const hostedTilesUI = new SoulHostedTilesUI(
     getViewedHostedTiles,
@@ -221,6 +221,16 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   dragPreviewLayer.addChild(dragGhost);
 
   const getCardByInstanceId = (instanceId: string): CardDefinition | undefined => cardDefinitionByInstanceId.get(instanceId);
+  const isTileVisibleForViewedSoul = (tileInstanceId: string, details?: RuntimeStageDetails): boolean => {
+    if (tileInstanceId.startsWith('world:')) {
+      return true;
+    }
+    const hostSoulId = details?.hostSoulId;
+    if (hostSoulId) {
+      return hostSoulId === viewedSoulId;
+    }
+    return getViewedHostedTiles().some((tile) => tile.id === tileInstanceId);
+  };
   const getStagedForSoul = (soulId: string): Map<string, StagedTileAction> => {
     let staged = stagedBySoulId.get(soulId);
     if (!staged) {
@@ -243,12 +253,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return {
       stagedActionId: `runtime-${details.status}-${tileInstanceId}`,
       characterId: CHARACTER_ID,
-      soulId: viewedSoulId,
+      soulId: details.hostSoulId ?? viewedSoulId,
       tileId: tileInstanceId,
       tileInstanceId,
-      verbCardInstanceId: details.techniqueCardInstanceId ?? details.attachmentName ?? 'attached-technique',
+      verbCardInstanceId: details.techniqueCardInstanceId ?? 'attached-technique',
       inputCardInstanceIds: [...details.cardInstanceIds],
-      queuedVerbLabel: details.attachmentName ?? undefined,
+      queuedVerbLabel: details.techniqueCardName ?? details.attachmentName ?? undefined,
       queuedInputCardNames: [...details.cardNames],
       repeat: false,
       status: details.status,
@@ -257,14 +267,16 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const getDisplayStagedActionForTile = (tileInstanceId: string): StagedTileAction | undefined => {
     const local = getViewedStaged().get(tileInstanceId);
     const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(tileInstanceId);
-    if (runtimeDetails) {
+    if (runtimeDetails && isTileVisibleForViewedSoul(tileInstanceId, runtimeDetails)) {
       const runtimeDisplay = toRuntimeDisplayAction(tileInstanceId, runtimeDetails);
       if (runtimeDisplay && runtimeDisplay.status !== 'staged') {
         return runtimeDisplay;
       }
     }
     return local
-      ?? (runtimeDetails ? toRuntimeDisplayAction(tileInstanceId, runtimeDetails) ?? undefined : undefined);
+      ?? (runtimeDetails && isTileVisibleForViewedSoul(tileInstanceId, runtimeDetails)
+        ? toRuntimeDisplayAction(tileInstanceId, runtimeDetails) ?? undefined
+        : undefined);
   };
   const syncTechniqueAttachment = async (soulId: string, tileInstanceId: string, techniqueCardInstanceId: string): Promise<void> => {
     const [hostKind, rawHostId] = tileInstanceId.split(':');
@@ -396,6 +408,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const viewedStaged = getViewedStaged();
     const displayStagedByTileInstanceId = new Map<string, StagedTileAction>(viewedStaged);
     for (const [tileId, details] of runtimeState.runtimeStageDetailsByTileId.entries()) {
+      if (!isTileVisibleForViewedSoul(tileId, details)) {
+        continue;
+      }
       const runtimeDisplay = toRuntimeDisplayAction(tileId, details);
       if (!runtimeDisplay) {
         continue;
@@ -419,8 +434,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       status: 'staged' | 'queued' | 'running';
     }>(
       Array.from(displayStagedByTileInstanceId.values()).map((staged) => {
+        const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(staged.tileInstanceId);
         const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name
           ?? staged.queuedVerbLabel
+          ?? runtimeDetails?.techniqueCardName
+          ?? runtimeDetails?.techniqueCardKey
           ?? staged.verbCardInstanceId;
         const stagedTile = getTileByInstanceId(staged.tileInstanceId);
         return [
@@ -429,7 +447,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
             verbId: String(getCardByInstanceId(staged.verbCardInstanceId)?.id ?? ''),
             verbLabel,
             tileLabel: staticData.tileTypeByKey.get(stagedTile?.tileType ?? '')?.name,
-            cardColor: getCardByInstanceId(staged.verbCardInstanceId)?.backgroundColor,
+            cardColor: getCardByInstanceId(staged.verbCardInstanceId)?.backgroundColor
+              ?? runtimeDetails?.techniqueCardColor
+              ?? undefined,
             stagedCardNames: (
               staged.status === 'queued' && staged.queuedInputCardNames?.length
                 ? staged.queuedInputCardNames
@@ -1122,10 +1142,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   await spacetimeClient.resolveTestPlayer(testPlayerId);
 
   spacetimeClient.subscribe((rows) => {
+    const previousViewedSoulId = viewedSoulId;
     runtimeState = deriveRuntimeState(rows, staticCardData.cardsById, staticData.tileTypeById);
     playerSoulId = runtimeState.playerSoulId ?? '';
     if (!viewedSoulId || !runtimeState.soulById.has(viewedSoulId)) {
       viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';
+    }
+    if (previousViewedSoulId && previousViewedSoulId !== viewedSoulId) {
+      setSelectedTileInstanceId(null);
+      inspectedTarget = null;
     }
 
     const viewedInventory = runtimeState.inventoryBySoulId[viewedSoulId];
@@ -1167,6 +1192,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     updateRuntimeCollections();
+    if (selectedTileInstanceId && !getTileByInstanceId(selectedTileInstanceId)) {
+      setSelectedTileInstanceId(null);
+      inspectedTarget = null;
+    }
     layoutUi();
     render();
   });
