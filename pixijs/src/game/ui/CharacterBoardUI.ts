@@ -1,7 +1,7 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import type { CharacterInventory, SoulModel } from '../characters/types';
 import { INVENTORY_GROUP_ORDER } from '../characters/types';
-import { CARD_GROUP_LABEL, type CardDefinition, type CardGroup, type CardInstanceState } from '../cards/types';
+import { CARD_GROUP_LABEL, type CardDefinition, type CardGroup, type CardInstance, type CardInstanceState } from '../cards/types';
 import type { DragCardPayload } from './dragTypes';
 import { CARD_HEIGHT, CARD_WIDTH, pointInRoundedRect, renderCardTag } from './cardVisual';
 
@@ -57,7 +57,7 @@ export class CharacterBoardUI {
   private returnToPlayerBounds: Rectangle | null = null;
 
   constructor(
-    private readonly cardsById: Map<string, CardDefinition>,
+    private readonly getCardDefinitionForInstance: (instance: CardInstance) => CardDefinition | undefined,
     private readonly getCardState: (instanceId: string) => CardInstanceState,
     private readonly getViewedSoul: () => SoulModel | undefined,
     private readonly getViewedInventory: () => CharacterInventory | undefined,
@@ -188,7 +188,7 @@ export class CharacterBoardUI {
         continue;
       }
 
-      const card = this.cardsById.get(instance.cardId);
+      const card = this.getCardDefinitionForInstance(instance);
       if (!card) {
         continue;
       }

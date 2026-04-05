@@ -118,7 +118,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return getViewedHostedTiles().find((tile) => tile.id === tileInstanceId) ?? null;
   };
   const characterBoard = new CharacterBoardUI(
-    staticCardData.cardsById,
+    (instance) => cardDefinitionByInstanceId.get(instance.instanceId) ?? staticCardData.cardsById.get(instance.cardId),
     (instanceId) => cardStateByInstanceId.get(instanceId) ?? 'in_inventory',
     getViewedSoul,
     getViewedInventory,
@@ -144,6 +144,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     | null = null;
   const stagedBySoulId = new Map<string, Map<string, StagedTileAction>>();
   const queuedTechniques: QueuedAction[] = [];
+  let lastLoggedInventorySignature = '';
 
   let draggingPayload: DragCardPayload | null = null;
   let draggingDetachedAction: StagedTileAction | null = null;
@@ -908,6 +909,32 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (!viewedSoulId || !runtimeState.soulById.has(viewedSoulId)) {
       viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';
     }
+
+    const techniqueRows = rows.cards.filter((card) => 'Technique' in (card.kind as Record<string, unknown>));
+    const essenceRows = rows.cards.filter((card) => 'Essence' in (card.kind as Record<string, unknown>));
+    const viewedInventory = runtimeState.inventoryBySoulId[viewedSoulId];
+    const viewedTechniqueCount = viewedInventory?.techniques.length ?? 0;
+    const viewedEssenceCount = viewedInventory?.essence.length ?? 0;
+    const inventorySignature = [
+      rows.cards.length,
+      techniqueRows.length,
+      essenceRows.length,
+      viewedSoulId,
+      viewedTechniqueCount,
+      viewedEssenceCount,
+    ].join('|');
+    if (inventorySignature !== lastLoggedInventorySignature) {
+      console.info('[CharacterBoard] subscription sync', {
+        totalCards: rows.cards.length,
+        techniquesSynced: techniqueRows.length,
+        essencesSynced: essenceRows.length,
+        viewedSoulId,
+        viewedTechniques: viewedTechniqueCount,
+        viewedEssences: viewedEssenceCount,
+      });
+      lastLoggedInventorySignature = inventorySignature;
+    }
+
     updateRuntimeCollections();
     layoutUi();
     render();
