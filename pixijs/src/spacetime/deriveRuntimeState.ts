@@ -20,7 +20,9 @@ function createEmptyInventory(): CharacterInventory {
 }
 
 export interface RuntimeStageDetails {
+  techniqueCardInstanceId: string | null;
   cardNames: string[];
+  cardInstanceIds: string[];
   attachmentName: string | null;
   status: 'staged' | 'queued';
 }
@@ -217,8 +219,16 @@ export function deriveRuntimeState(
 
   for (const attachment of rows.attachments) {
     const tileId = tileHostInstanceId(attachment.hostType, attachment.hostId);
-    const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null, status: 'staged' as const };
-    existing.attachmentName = cardNameByInstanceId.get(idToString(attachment.techniqueCardId)) ?? null;
+    const existing = runtimeStageDetailsByTileId.get(tileId) ?? {
+      techniqueCardInstanceId: null,
+      cardNames: [],
+      cardInstanceIds: [],
+      attachmentName: null,
+      status: 'staged' as const,
+    };
+    const techniqueCardInstanceId = idToString(attachment.techniqueCardId);
+    existing.techniqueCardInstanceId = techniqueCardInstanceId;
+    existing.attachmentName = cardNameByInstanceId.get(techniqueCardInstanceId) ?? techniqueCardInstanceId;
     runtimeStageDetailsByTileId.set(tileId, existing);
   }
 
@@ -239,8 +249,15 @@ export function deriveRuntimeState(
     }
 
     const tileId = tileHostInstanceId(queue.hostType, queue.hostId);
-    const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null, status: 'staged' as const };
+    const existing = runtimeStageDetailsByTileId.get(tileId) ?? {
+      techniqueCardInstanceId: null,
+      cardNames: [],
+      cardInstanceIds: [],
+      attachmentName: null,
+      status: 'staged' as const,
+    };
     const queueCardIds = queueCardIdsByQueueId.get(idToString(queue.queueId)) ?? [];
+    existing.cardInstanceIds = queueCardIds;
     existing.cardNames = queueCardIds.map((cardId) => cardNameByInstanceId.get(cardId) ?? cardId);
     existing.status = 'queued';
     runtimeStageDetailsByTileId.set(tileId, existing);

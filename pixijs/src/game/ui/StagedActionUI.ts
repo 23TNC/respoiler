@@ -227,9 +227,12 @@ export class StagedActionUI {
     hintText.position.set(12, 160);
     this.root.addChild(hintText);
 
-    const stagedTitles = stagedAction.inputCardInstanceIds
-      .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(Number(instanceId))?.name ?? instanceId)
-      .join(', ');
+    const stagedTitles = (
+      stagedAction.status === 'queued' && stagedAction.queuedInputCardNames?.length
+        ? stagedAction.queuedInputCardNames
+        : stagedAction.inputCardInstanceIds
+          .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(Number(instanceId))?.name ?? instanceId)
+    ).join(', ');
     const stagedText = new Text({
       text: `Staged: ${stagedTitles.length > 0 ? stagedTitles : 'None'}`,
       style: { fill: '#d5e5ff', fontSize: 11, fontWeight: '700' },
