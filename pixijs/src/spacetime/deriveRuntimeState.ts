@@ -1,5 +1,10 @@
 import type { CardDefinition, CardGroup, CardInstance } from '../game/cards/types';
 import type { CharacterInventory, SoulModel, SoulHostedTileModel } from '../game/characters/types';
+import {
+  findCardDefinitionByRuntimeCardId,
+  resolveCanonicalCardGroup,
+  warnCardClassificationIssue,
+} from '../game/cards/classification';
 import { axialKey } from '../game/hex/coords';
 import type { HexTile } from '../game/world/types';
 import type { SpacetimeRowsSnapshot } from './client';
@@ -49,22 +54,6 @@ function idToString(value: bigint | number | string): string {
   return value.toString();
 }
 
-function mapCardGroup(cardKind: Record<string, unknown>): CardGroup {
-  if ('Technique' in cardKind) {
-    return 'techniques';
-  }
-  if ('Essence' in cardKind) {
-    return 'essence';
-  }
-  if ('Sundries' in cardKind) {
-    return 'sundries';
-  }
-  if ('Reveries' in cardKind) {
-    return 'reveries';
-  }
-  return 'souls';
-}
-
 function parseHexColor(color: string | null | undefined, fallback: number): number {
   if (!color) {
     return fallback;
@@ -72,7 +61,10 @@ function parseHexColor(color: string | null | undefined, fallback: number): numb
   return Number.parseInt(color.replace('#', ''), 16);
 }
 
-export function deriveRuntimeState(rows: SpacetimeRowsSnapshot): RuntimeDerivedState {
+export function deriveRuntimeState(
+  rows: SpacetimeRowsSnapshot,
+  cardDefinitionsById?: ReadonlyMap<string, CardDefinition>,
+): RuntimeDerivedState {
   const souls = rows.souls.map((row) => ({
     soulId: idToString(row.soulId),
     name: row.name,
@@ -102,15 +94,35 @@ export function deriveRuntimeState(rows: SpacetimeRowsSnapshot): RuntimeDerivedS
 
   for (const card of rows.cards) {
     const soulId = idToString(card.soulId);
-    const group = mapCardGroup(card.kind as Record<string, unknown>);
     const instanceId = idToString(card.cardId);
     const cardId = card.name;
+    const cardDefinition = findCardDefinitionByRuntimeCardId(cardId, cardDefinitionsById);
+    const resolvedGroup = resolveCanonicalCardGroup(
+      {
+        instanceId,
+        cardId,
+        runtimeKind: card.kind as Record<string, unknown>,
+      },
+      cardDefinition,
+    );
+    if (!resolvedGroup.group) {
+      warnCardClassificationIssue(
+        {
+          instanceId,
+          cardId,
+          runtimeKind: card.kind as Record<string, unknown>,
+        },
+        resolvedGroup.reason,
+      );
+      continue;
+    }
+    const group: CardGroup = resolvedGroup.group;
 
-    const cardDefinition: CardDefinition = {
+    const runtimeCardDefinition: CardDefinition = {
       id: cardId,
-      name: card.name,
+      name: cardDefinition?.name ?? card.name,
       group,
-      backgroundColor: parseHexColor(card.bgColor ?? null, 0x8aa3c8),
+      backgroundColor: parseHexColor(card.bgColor ?? null, cardDefinition?.backgroundColor ?? 0x8aa3c8),
     };
 
     const cardInstance: CardInstance = {
@@ -120,7 +132,7 @@ export function deriveRuntimeState(rows: SpacetimeRowsSnapshot): RuntimeDerivedS
       linkedSoulId: card.linkedSoulId ? idToString(card.linkedSoulId) : undefined,
     };
 
-    cardDefinitionsByInstanceId.set(instanceId, cardDefinition);
+    cardDefinitionsByInstanceId.set(instanceId, runtimeCardDefinition);
     cardInstancesById.set(instanceId, cardInstance);
 
     const inventory = inventoryBySoulId[soulId] ?? { ...EMPTY_INVENTORY };
