@@ -84,18 +84,6 @@ pub struct TileTechniqueAttachment {
     pub technique_card_id: u64,
 }
 
-#[spacetimedb::table(accessor = tile_stage_entry, public)]
-pub struct TileStageEntry {
-    #[primary_key]
-    #[auto_inc]
-    pub stage_entry_id: u64,
-    pub soul_id: u64,
-    pub host_type: TileHostType,
-    pub host_id: u64,
-    pub card_id: u64,
-    pub order_index: u32,
-}
-
 #[spacetimedb::table(accessor = recipe_queue, public)]
 pub struct RecipeQueue {
     #[primary_key]
@@ -220,6 +208,18 @@ fn replace_attachment_for_host(
         });
 }
 
+fn find_attachment_for_host(
+    ctx: &ReducerContext,
+    soul_id: u64,
+    host_type: &TileHostType,
+    host_id: u64,
+) -> Option<TileTechniqueAttachment> {
+    ctx.db
+        .tile_technique_attachment()
+        .iter()
+        .find(|row| row.soul_id == soul_id && row.host_type == *host_type && row.host_id == host_id)
+}
+
 fn delete_attachment_for_host(
     ctx: &ReducerContext,
     soul_id: u64,
@@ -230,7 +230,9 @@ fn delete_attachment_for_host(
         .db
         .tile_technique_attachment()
         .iter()
-        .filter(|row| row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id)
+        .filter(|row| {
+            row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id
+        })
         .map(|row| row.attachment_id)
         .collect();
 
@@ -242,7 +244,11 @@ fn delete_attachment_for_host(
     }
 }
 
-fn require_host(ctx: &ReducerContext, host_type: &TileHostType, host_id: u64) -> Result<(), String> {
+fn require_host(
+    ctx: &ReducerContext,
+    host_type: &TileHostType,
+    host_id: u64,
+) -> Result<(), String> {
     match host_type {
         TileHostType::WorldTile => {
             let _ = require_world_tile(ctx, host_id)?;
@@ -254,7 +260,11 @@ fn require_host(ctx: &ReducerContext, host_type: &TileHostType, host_id: u64) ->
     Ok(())
 }
 
-fn host_definition_id(ctx: &ReducerContext, host_type: &TileHostType, host_id: u64) -> Result<u32, String> {
+fn host_definition_id(
+    ctx: &ReducerContext,
+    host_type: &TileHostType,
+    host_id: u64,
+) -> Result<u32, String> {
     match host_type {
         TileHostType::WorldTile => Ok(require_world_tile(ctx, host_id)?.definition_id),
         TileHostType::EventTile => Ok(require_event_tile(ctx, host_id)?.definition_id),
@@ -292,7 +302,9 @@ fn parse_constant_count(expr: &Option<RecipeExpr>) -> Result<u32, String> {
         return Ok(1);
     };
     let Some(value) = &expr.value else {
-        return Err("Only constant numeric recipe input counts are currently supported".to_string());
+        return Err(
+            "Only constant numeric recipe input counts are currently supported".to_string(),
+        );
     };
     let Some(count) = value.as_u64() else {
         return Err("Recipe input count must be an unsigned integer".to_string());
@@ -305,11 +317,15 @@ fn parse_constant_count(expr: &Option<RecipeExpr>) -> Result<u32, String> {
 
 fn find_recipe(recipe_id: u32) -> Result<(u32, RecipeDef), String> {
     let raw = include_str!("../static/recipes/base.recipes.json");
-    let files: Vec<RecipeFileDef> =
-        serde_json::from_str(raw).map_err(|error| format!("Failed parsing recipe JSON: {error}"))?;
+    let files: Vec<RecipeFileDef> = serde_json::from_str(raw)
+        .map_err(|error| format!("Failed parsing recipe JSON: {error}"))?;
 
     for file in files {
-        if let Some(recipe) = file.recipes.into_iter().find(|candidate| candidate.id == recipe_id) {
+        if let Some(recipe) = file
+            .recipes
+            .into_iter()
+            .find(|candidate| candidate.id == recipe_id)
+        {
             return Ok((file.action_card_id, recipe));
         }
     }
@@ -337,11 +353,11 @@ fn ensure_card_for_soul(
     definition_id: u32,
     linked_soul_id: Option<u64>,
 ) -> bool {
-    let exists = ctx
-        .db
-        .card()
-        .iter()
-        .any(|card| card.soul_id == soul_id && card.definition_id == definition_id && card.linked_soul_id == linked_soul_id);
+    let exists = ctx.db.card().iter().any(|card| {
+        card.soul_id == soul_id
+            && card.definition_id == definition_id
+            && card.linked_soul_id == linked_soul_id
+    });
     if exists {
         return false;
     }
@@ -432,11 +448,9 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
         let _ = ensure_card_for_soul(ctx, subordinate_soul.soul_id, definition_id, None);
     }
 
-    let has_player_event_tile = ctx
-        .db
-        .event_tile()
-        .iter()
-        .any(|tile| tile.soul_id == player_soul.soul_id && tile.definition_id == TILE_SCOUT_REFLECTION);
+    let has_player_event_tile = ctx.db.event_tile().iter().any(|tile| {
+        tile.soul_id == player_soul.soul_id && tile.definition_id == TILE_SCOUT_REFLECTION
+    });
     if !has_player_event_tile {
         let _ = ctx.db.event_tile().insert(EventTile {
             event_tile_id: 0,
@@ -446,11 +460,9 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
         });
     }
 
-    let has_subordinate_event_tile = ctx
-        .db
-        .event_tile()
-        .iter()
-        .any(|tile| tile.soul_id == subordinate_soul.soul_id && tile.definition_id == TILE_DESPAIR_CHECK);
+    let has_subordinate_event_tile = ctx.db.event_tile().iter().any(|tile| {
+        tile.soul_id == subordinate_soul.soul_id && tile.definition_id == TILE_DESPAIR_CHECK
+    });
     if !has_subordinate_event_tile {
         let _ = ctx.db.event_tile().insert(EventTile {
             event_tile_id: 0,
@@ -526,76 +538,6 @@ pub fn detach_technique_from_host(
 }
 
 #[spacetimedb::reducer]
-pub fn stage_card_on_host(
-    ctx: &ReducerContext,
-    soul_id: u64,
-    host_type: TileHostType,
-    host_id: u64,
-    card_id: u64,
-) -> Result<(), String> {
-    let card = require_card(ctx, card_id)?;
-
-    if card.soul_id != soul_id {
-        return Err(format!(
-            "Card {} belongs to soul {}, not {}",
-            card_id, card.soul_id, soul_id
-        ));
-    }
-
-    require_host(ctx, &host_type, host_id)?;
-
-    let next_order = ctx
-        .db
-        .tile_stage_entry()
-        .iter()
-        .filter(|row| row.soul_id == soul_id && row.host_type == host_type && row.host_id == host_id)
-        .map(|row| row.order_index)
-        .max()
-        .map(|max| max + 1)
-        .unwrap_or(0);
-
-    ctx.db.tile_stage_entry().insert(TileStageEntry {
-        stage_entry_id: 0,
-        soul_id,
-        host_type,
-        host_id,
-        card_id,
-        order_index: next_order,
-    });
-
-    Ok(())
-}
-
-#[spacetimedb::reducer]
-pub fn unstage_card_from_host(
-    ctx: &ReducerContext,
-    soul_id: u64,
-    host_type: TileHostType,
-    host_id: u64,
-    card_id: u64,
-) {
-    let stage_entry_ids: Vec<u64> = ctx
-        .db
-        .tile_stage_entry()
-        .iter()
-        .filter(|row| {
-            row.soul_id == soul_id
-                && row.host_type == host_type
-                && row.host_id == host_id
-                && row.card_id == card_id
-        })
-        .map(|row| row.stage_entry_id)
-        .collect();
-
-    for stage_entry_id in stage_entry_ids {
-        ctx.db
-            .tile_stage_entry()
-            .stage_entry_id()
-            .delete(&stage_entry_id);
-    }
-}
-
-#[spacetimedb::reducer]
 pub fn queue_recipe_on_host(
     ctx: &ReducerContext,
     actor_soul_id: u64,
@@ -624,7 +566,16 @@ pub fn queue_recipe_on_host(
         }
     }
 
-    let technique_card = validate_technique_card(ctx, technique_card_id)?;
+    let attachment = find_attachment_for_host(ctx, actor_soul_id, &host_type, host_id)
+        .ok_or_else(|| "No technique attachment exists for this host".to_string())?;
+    if attachment.technique_card_id != technique_card_id {
+        return Err(format!(
+            "Submitted technique card {} does not match attached technique {}",
+            technique_card_id, attachment.technique_card_id
+        ));
+    }
+
+    let technique_card = validate_technique_card(ctx, attachment.technique_card_id)?;
     if technique_card.soul_id != actor_soul_id {
         return Err(format!(
             "Technique card {} belongs to soul {}, not {}",
@@ -643,7 +594,10 @@ pub fn queue_recipe_on_host(
     let mut unique_inputs = std::collections::HashSet::new();
     for card_id in &input_card_ids {
         if !unique_inputs.insert(*card_id) {
-            return Err(format!("Input card {} is duplicated in queue request", card_id));
+            return Err(format!(
+                "Input card {} is duplicated in queue request",
+                card_id
+            ));
         }
         if *card_id == technique_card_id {
             return Err("Technique card cannot be included in input_card_ids".to_string());
@@ -673,7 +627,10 @@ pub fn queue_recipe_on_host(
     let mut required_definition_counts = HashMap::<u32, u32>::new();
     for input in &recipe.input {
         let count = parse_constant_count(&input.count)?;
-        required_definition_counts.insert(input.id, count);
+        required_definition_counts
+            .entry(input.id)
+            .and_modify(|existing| *existing += count)
+            .or_insert(count);
     }
 
     if required_definition_counts != submitted_definition_counts {
