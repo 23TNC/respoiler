@@ -2,7 +2,6 @@ use log::info;
 use serde::Deserialize;
 use spacetimedb::{Identity, ReducerContext, SpacetimeType, Table};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const CARD_WORK: u32 = 1;
 const CARD_STUDY: u32 = 2;
@@ -318,12 +317,11 @@ fn is_sender_authorized_for_soul(ctx: &ReducerContext, actor_soul_id: u64) -> bo
     false
 }
 
-fn current_unix_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
+fn current_unix_ms(ctx: &ReducerContext) -> u64 {
+    let micros: i64 = ctx.timestamp.to_micros_since_unix_epoch();
+    (micros / 1_000) as u64
 }
+
 
 fn parse_constant_count(expr: &Option<RecipeExpr>) -> Result<u32, String> {
     let Some(expr) = expr else {
@@ -393,7 +391,7 @@ fn ensure_player_session(ctx: &ReducerContext, player_id: u64) {
     ctx.db.player_session().insert(PlayerSession {
         session_identity: sender,
         player_id,
-        resolved_at_unix_ms: current_unix_ms(),
+        resolved_at_unix_ms: current_unix_ms(ctx),
     });
 }
 

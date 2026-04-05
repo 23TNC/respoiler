@@ -1,0 +1,12 @@
+default_server = "maincloud"
+spacetimedb_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJoZXhfaWRlbnRpdHkiOiJjMjAwNTA2NzM0NjNkY2U0MzI4ZTZlOWMxMzNhNzFjN2I0YWNjNWY0NTM0Mjk2NzYzODgxNjQxNmY3OTYzMWRkIiwic3ViIjoiNzE2ZjQ0YmQtMjE3NC00NzFjLWFjMmItYTM5ZTMyNjAwNDQ1IiwiaXNzIjoibG9jYWxob3N0IiwiYXVkIjpbInNwYWNldGltZWRiIl0sImlhdCI6MTc3NTQxOTM1MiwiZXhwIjpudWxsfQ.jTwCkA-oFC0_HdM7j9KenxnF-ZtETu5A_pOVMMnnOoGmYnNq51hn-oEE2jm1ST-odL87jKjViYNjeVFnXNLrqg"
+
+[[server_configs]]
+nickname = "maincloud"
+host = "maincloud.spacetimedb.com"
+protocol = "https"
+
+[[server_configs]]
+nickname = "local"
+host = "127.0.0.1:3000"
+protocol = "http"
