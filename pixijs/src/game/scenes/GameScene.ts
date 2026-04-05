@@ -106,6 +106,34 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       cardDefinitionByInstanceId.set(instanceId, card);
       cardStateByInstanceId.set(instanceId, 'in_inventory');
     });
+
+    for (const [soulId, stagedForSoul] of stagedBySoulId.entries()) {
+      if (!runtimeState.soulById.has(soulId)) {
+        stagedBySoulId.delete(soulId);
+        continue;
+      }
+
+      for (const [tileInstanceId, staged] of stagedForSoul.entries()) {
+        const verbInstance = runtimeState.cardInstancesById.get(staged.verbCardInstanceId);
+        if (!verbInstance || verbInstance.soulId !== soulId) {
+          removeQueuedActionForTile(staged.tileId, soulId);
+          stagedForSoul.delete(tileInstanceId);
+          continue;
+        }
+
+        const validInputInstanceIds = staged.inputCardInstanceIds.filter((inputInstanceId) => {
+          const inputInstance = runtimeState.cardInstancesById.get(inputInstanceId);
+          return Boolean(inputInstance && inputInstance.soulId === soulId);
+        });
+        staged.inputCardInstanceIds = validInputInstanceIds;
+
+        const localState: CardInstanceState = staged.status === 'queued' ? 'queued' : 'staged';
+        cardStateByInstanceId.set(staged.verbCardInstanceId, localState);
+        for (const inputId of staged.inputCardInstanceIds) {
+          cardStateByInstanceId.set(inputId, localState);
+        }
+      }
+    }
   };
 
   const getViewedInventory = () => runtimeState.inventoryBySoulId[viewedSoulId] ?? runtimeState.inventoryBySoulId[playerSoulId];
