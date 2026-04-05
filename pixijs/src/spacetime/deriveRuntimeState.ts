@@ -64,7 +64,11 @@ function normalizeEnumTag(value: unknown): string {
     return value;
   }
   if (value && typeof value === 'object') {
-    return Object.keys(value as Record<string, unknown>)[0] ?? '';
+    const record = value as Record<string, unknown>;
+    if (typeof record.tag === 'string') {
+      return record.tag;
+    }
+    return Object.keys(record)[0] ?? '';
   }
   return '';
 }
@@ -234,6 +238,21 @@ export function deriveRuntimeState(
       return [instanceId, cardDefinition?.name ?? instanceId] as const;
     }),
   );
+  const cardGroupByInstanceId = new Map(
+    rows.cards.map((card) => {
+      const instanceId = idToString(card.cardId);
+      const definitionId = Number(card.definitionId);
+      const cardDefinition = findCardDefinitionByRuntimeCardId(definitionId, cardDefinitionsById);
+      const resolvedGroup = resolveCanonicalCardGroup(
+        {
+          instanceId,
+          cardDefinitionId: definitionId,
+        },
+        cardDefinition,
+      );
+      return [instanceId, resolvedGroup.group] as const;
+    }),
+  );
   const runtimeStageDetailsByTileId = new Map<string, RuntimeStageDetails>();
 
   for (const attachment of rows.attachments) {
@@ -274,9 +293,10 @@ export function deriveRuntimeState(
       status: 'staged' as const,
     };
     const queueCardIds = queueCardIdsByQueueId.get(idToString(queue.queueId)) ?? [];
-    const queuedInputCardIds = existing.techniqueCardInstanceId
-      ? queueCardIds.filter((cardId) => cardId !== existing.techniqueCardInstanceId)
-      : queueCardIds;
+    const queuedInputCardIds = queueCardIds.filter((cardId) => (
+      cardId !== existing.techniqueCardInstanceId
+      && cardGroupByInstanceId.get(cardId) !== 'techniques'
+    ));
     existing.cardInstanceIds = queuedInputCardIds;
     existing.cardNames = queuedInputCardIds.map((cardId) => cardNameByInstanceId.get(cardId) ?? cardId);
     existing.status = runtimeStatus;
