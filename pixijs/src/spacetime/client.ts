@@ -34,6 +34,7 @@ export class SpacetimeClient {
 
   private bootstrapRequested = false;
   private hasAppliedSubscription = false;
+  private rowListenersBound = false;
 
   get isConnected(): boolean {
     return this.connection?.isActive ?? false;
@@ -90,6 +91,7 @@ export class SpacetimeClient {
     this.connection?.disconnect();
     this.connection = null;
     this.hasAppliedSubscription = false;
+    this.rowListenersBound = false;
   }
 
   async bootstrapMinimalWorld(): Promise<void> {
@@ -127,9 +129,11 @@ export class SpacetimeClient {
 
   private bindRowListeners(): void {
     const db = this.connection?.db;
-    if (!db) {
+    if (!db || this.rowListenersBound) {
       return;
     }
+    this.rowListenersBound = true;
+    console.info('[SpacetimeClient] binding row listeners');
 
     const wire = <T>(table: {
       onInsert: (cb: (ctx: unknown, row: T) => void) => void;
