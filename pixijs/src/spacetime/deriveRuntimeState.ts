@@ -52,8 +52,12 @@ function worldTileInstanceId(rawId: bigint | number | string): string {
   return `world:${idToString(rawId)}`;
 }
 
-function eventTileInstanceId(rawId: bigint | number | string): string {
-  return `event:${idToString(rawId)}`;
+function eventTileInstanceId(rawId: bigint | number | string, soulId?: bigint | number | string | null): string {
+  const normalizedRawId = idToString(rawId);
+  if (soulId === undefined || soulId === null) {
+    return `event:${normalizedRawId}`;
+  }
+  return `event:${idToString(soulId)}:${normalizedRawId}`;
 }
 
 function tileHostInstanceId(hostType: unknown, hostId: bigint | number | string): string {
@@ -216,6 +220,7 @@ export function deriveRuntimeState(
   }
 
   const hostedTilesBySoulId: Record<string, SoulHostedTileModel[]> = {};
+  const eventTileHostsByRawId = new Map<string, Array<{ soulId: string; tileId: string }>>();
   for (const eventTile of rows.eventTiles) {
     const soulId = idToString(eventTile.soulId);
     const list = hostedTilesBySoulId[soulId] ?? [];
@@ -225,30 +230,56 @@ export function deriveRuntimeState(
       continue;
     }
 
+    const tileId = eventTileInstanceId(eventTile.eventTileId, soulId);
     list.push({
-      id: eventTileInstanceId(eventTile.eventTileId),
+      id: tileId,
       tileType: tileDef.key,
       eventLabel: tileDef.name,
       activeVerbs: [],
     });
     hostedTilesBySoulId[soulId] = list;
+
+    const rawEventTileId = idToString(eventTile.eventTileId);
+    const hosts = eventTileHostsByRawId.get(rawEventTileId) ?? [];
+    hosts.push({ soulId, tileId });
+    eventTileHostsByRawId.set(rawEventTileId, hosts);
   }
 
   for (const entries of Object.values(hostedTilesBySoulId)) {
     entries.sort((a, b) => a.eventLabel.localeCompare(b.eventLabel));
   }
 
-  const eventTileSoulIdByHostId = new Map(
-    rows.eventTiles.map((eventTile) => [idToString(eventTile.eventTileId), idToString(eventTile.soulId)] as const),
-  );
+  const resolveEventTileHost = (
+    rawHostId: bigint | number | string,
+    fallbackSoulId: string | null,
+  ): { soulId: string | null; tileId: string } => {
+    const rawId = idToString(rawHostId);
+    const hosts = eventTileHostsByRawId.get(rawId) ?? [];
+    const matchedHost = fallbackSoulId
+      ? hosts.find((host) => host.soulId === fallbackSoulId)
+      : undefined;
+    const resolvedHost = matchedHost ?? hosts[0];
+    if (resolvedHost) {
+      return { soulId: resolvedHost.soulId, tileId: resolvedHost.tileId };
+    }
+    return {
+      soulId: fallbackSoulId,
+      tileId: eventTileInstanceId(rawId, fallbackSoulId),
+    };
+  };
   const runtimeStageDetailsByTileId = new Map<string, RuntimeStageDetails>();
 
   for (const attachment of rows.attachments) {
-    const tileId = tileHostInstanceId(attachment.hostType, attachment.hostId);
+    const hostType = normalizeEnumTag(attachment.hostType);
+    const fallbackSoulId = idToString(attachment.soulId);
+    const eventHost = hostType === 'EventTile'
+      ? resolveEventTileHost(attachment.hostId, fallbackSoulId)
+      : null;
+    const tileId = eventHost
+      ? eventHost.tileId
+      : tileHostInstanceId(attachment.hostType, attachment.hostId);
     const existing = runtimeStageDetailsByTileId.get(tileId) ?? {
-      hostSoulId: normalizeEnumTag(attachment.hostType) === 'EventTile'
-        ? eventTileSoulIdByHostId.get(idToString(attachment.hostId)) ?? idToString(attachment.soulId)
-        : null,
+      hostSoulId: eventHost ? eventHost.soulId : null,
       techniqueCardInstanceId: null,
       techniqueCardDefinitionId: null,
       techniqueCardKey: null,
@@ -286,11 +317,16 @@ export function deriveRuntimeState(
       continue;
     }
 
-    const tileId = tileHostInstanceId(queue.hostType, queue.hostId);
+    const hostType = normalizeEnumTag(queue.hostType);
+    const fallbackSoulId = idToString(queue.actorSoulId);
+    const eventHost = hostType === 'EventTile'
+      ? resolveEventTileHost(queue.hostId, fallbackSoulId)
+      : null;
+    const tileId = eventHost
+      ? eventHost.tileId
+      : tileHostInstanceId(queue.hostType, queue.hostId);
     const existing = runtimeStageDetailsByTileId.get(tileId) ?? {
-      hostSoulId: normalizeEnumTag(queue.hostType) === 'EventTile'
-        ? eventTileSoulIdByHostId.get(idToString(queue.hostId)) ?? idToString(queue.actorSoulId)
-        : null,
+      hostSoulId: eventHost ? eventHost.soulId : null,
       techniqueCardInstanceId: null,
       techniqueCardDefinitionId: null,
       techniqueCardKey: null,

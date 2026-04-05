@@ -221,6 +221,17 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   dragPreviewLayer.addChild(dragGhost);
 
   const getCardByInstanceId = (instanceId: string): CardDefinition | undefined => cardDefinitionByInstanceId.get(instanceId);
+  const parseTileInstanceTarget = (
+    tileInstanceId: string,
+  ): { hostKind: 'world' | 'event'; hostId: string } | null => {
+    const parts = tileInstanceId.split(':');
+    const hostKind = parts[0];
+    const hostId = parts[parts.length - 1];
+    if ((hostKind !== 'world' && hostKind !== 'event') || !hostId) {
+      return null;
+    }
+    return { hostKind, hostId };
+  };
   const isTileVisibleForViewedSoul = (tileInstanceId: string, details?: RuntimeStageDetails): boolean => {
     if (tileInstanceId.startsWith('world:')) {
       return true;
@@ -279,16 +290,16 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         : undefined);
   };
   const syncTechniqueAttachment = async (soulId: string, tileInstanceId: string, techniqueCardInstanceId: string): Promise<void> => {
-    const [hostKind, rawHostId] = tileInstanceId.split(':');
-    if ((hostKind !== 'world' && hostKind !== 'event') || !rawHostId) {
+    const target = parseTileInstanceTarget(tileInstanceId);
+    if (!target) {
       throw new Error(`Invalid tile target "${tileInstanceId}"`);
     }
 
-    if (hostKind === 'world') {
+    if (target.hostKind === 'world') {
       await spacetimeClient.attachTechniqueToWorldTile(
         BigInt(soulId),
         BigInt(techniqueCardInstanceId),
-        BigInt(rawHostId),
+        BigInt(target.hostId),
       );
       return;
     }
@@ -296,7 +307,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     await spacetimeClient.attachTechniqueToEventTile(
       BigInt(soulId),
       BigInt(techniqueCardInstanceId),
-      BigInt(rawHostId),
+      BigInt(target.hostId),
     );
   };
 
@@ -306,14 +317,14 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
 
   const detachTechniqueAttachment = async (soulId: string, tileInstanceId: string): Promise<void> => {
-    const [hostKind, rawHostId] = tileInstanceId.split(':');
-    if ((hostKind !== 'world' && hostKind !== 'event') || !rawHostId) {
+    const target = parseTileInstanceTarget(tileInstanceId);
+    if (!target) {
       throw new Error(`Invalid tile target "${tileInstanceId}"`);
     }
     await spacetimeClient.detachTechniqueFromHost(
       BigInt(soulId),
-      hostKind === 'world' ? 'WorldTile' : 'EventTile',
-      BigInt(rawHostId),
+      target.hostKind === 'world' ? 'WorldTile' : 'EventTile',
+      BigInt(target.hostId),
     );
   };
 
@@ -897,8 +908,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return;
     }
     const selectedRecipe = matchingRecipes[0];
-    const [hostKind, rawHostId] = staged.tileInstanceId.split(':');
-    if ((hostKind !== 'world' && hostKind !== 'event') || !rawHostId) {
+    const target = parseTileInstanceTarget(staged.tileInstanceId);
+    if (!target) {
       staged.error = 'Invalid tile target.';
       render();
       return;
@@ -906,8 +917,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     void spacetimeClient.queueRecipeOnHost(
       BigInt(staged.soulId),
-      hostKind === 'world' ? 'WorldTile' : 'EventTile',
-      BigInt(rawHostId),
+      target.hostKind === 'world' ? 'WorldTile' : 'EventTile',
+      BigInt(target.hostId),
       selectedRecipe.id,
       BigInt(staged.verbCardInstanceId),
       staged.inputCardInstanceIds.map((id) => BigInt(id)),
@@ -1192,7 +1203,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     updateRuntimeCollections();
-    if (selectedTileInstanceId && !getTileByInstanceId(selectedTileInstanceId)) {
+    if (
+      selectedTileInstanceId
+      && (
+        !getTileByInstanceId(selectedTileInstanceId)
+        || (selectedTileInstanceId.startsWith('event:') && !getViewedHostedTiles().some((tile) => tile.id === selectedTileInstanceId))
+      )
+    ) {
       setSelectedTileInstanceId(null);
       inspectedTarget = null;
     }
