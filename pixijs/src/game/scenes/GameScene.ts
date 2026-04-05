@@ -7,7 +7,7 @@ import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
 import type { CardDefinition, CardInstanceState } from '../cards/types';
-import { canStageCard, getRecipeCardCategory, type NormalizedStagedCards } from '../recipes/stagingValidation';
+import { canStageCard, getMatchingRecipes, getRecipeCardCategory, type NormalizedStagedCards } from '../recipes/stagingValidation';
 import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import { CharacterBoardUI } from '../ui/CharacterBoardUI';
@@ -44,6 +44,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     eventTiles: [],
     attachments: [],
     stageEntries: [],
+    recipeQueues: [],
+    recipeQueueCards: [],
+    cardReservations: [],
     hasAppliedSubscription: false,
   }, staticCardData.cardsById, staticData.tileTypeById);
 
@@ -689,17 +692,79 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return;
     }
 
-    const queued = toQueuedAction(staged);
-    queuedTechniques.push(queued);
-    staged.status = 'queued';
-    staged.error = undefined;
-
-    cardStateByInstanceId.set(staged.verbCardInstanceId, 'queued');
-    for (const input of staged.inputCardInstanceIds) {
-      cardStateByInstanceId.set(input, 'queued');
+    const tile = getTileByInstanceId(staged.tileInstanceId);
+    const verbCard = getCardByInstanceId(staged.verbCardInstanceId);
+    if (!tile || !verbCard) {
+      staged.error = 'Tile or verb card is unavailable.';
+      render();
+      return;
     }
 
-    render();
+    const tileDefinitionId = staticData.tileTypeByKey.get(tile.tileType)?.id ?? null;
+    if (tileDefinitionId === null) {
+      staged.error = 'Tile definition is unknown.';
+      render();
+      return;
+    }
+
+    const normalized: NormalizedStagedCards = {
+      tileId: tileDefinitionId,
+      actionCardId: verbCard.id,
+      aspects: [],
+      sundries: [],
+    };
+    for (const instanceId of staged.inputCardInstanceIds) {
+      const card = getCardByInstanceId(instanceId);
+      const category = card ? getRecipeCardCategory(card) : null;
+      if (!card || (category !== 'aspect' && category !== 'item')) {
+        staged.error = `Input card ${instanceId} is unavailable.`;
+        render();
+        return;
+      }
+      if (category === 'aspect') {
+        normalized.aspects.push(card.id);
+      } else {
+        normalized.sundries.push(card.id);
+      }
+    }
+
+    const matchingRecipes = getMatchingRecipes(normalized, staticData.recipes);
+    if (matchingRecipes.length === 0) {
+      staged.error = 'No matching recipe for staged cards.';
+      render();
+      return;
+    }
+    const selectedRecipe = matchingRecipes[0];
+    const [hostKind, rawHostId] = staged.tileInstanceId.split(':');
+    if ((hostKind !== 'world' && hostKind !== 'event') || !rawHostId) {
+      staged.error = 'Invalid tile target.';
+      render();
+      return;
+    }
+
+    void spacetimeClient.queueRecipeOnHost(
+      BigInt(staged.soulId),
+      hostKind === 'world' ? 'WorldTile' : 'EventTile',
+      BigInt(rawHostId),
+      selectedRecipe.id,
+      BigInt(staged.verbCardInstanceId),
+      staged.inputCardInstanceIds.map((id) => BigInt(id)),
+    ).then(() => {
+      const queued = toQueuedAction(staged);
+      queuedTechniques.push(queued);
+      staged.status = 'queued';
+      staged.error = undefined;
+
+      cardStateByInstanceId.set(staged.verbCardInstanceId, 'queued');
+      for (const input of staged.inputCardInstanceIds) {
+        cardStateByInstanceId.set(input, 'queued');
+      }
+
+      render();
+    }).catch((error: unknown) => {
+      staged.error = error instanceof Error ? error.message : 'Failed to queue recipe.';
+      render();
+    });
   };
 
   const clickRepeat = (): void => {

@@ -38,6 +38,7 @@ import AttachTechniqueToEventTileReducer from "./attach_technique_to_event_tile_
 import AttachTechniqueToWorldTileReducer from "./attach_technique_to_world_tile_reducer";
 import BootstrapMinimalWorldReducer from "./bootstrap_minimal_world_reducer";
 import DetachTechniqueFromHostReducer from "./detach_technique_from_host_reducer";
+import QueueRecipeOnHostReducer from "./queue_recipe_on_host_reducer";
 import StageCardOnHostReducer from "./stage_card_on_host_reducer";
 import UnstageCardFromHostReducer from "./unstage_card_from_host_reducer";
 
@@ -45,7 +46,10 @@ import UnstageCardFromHostReducer from "./unstage_card_from_host_reducer";
 
 // Import all table schema definitions
 import CardRow from "./card_table";
+import CardReservationRow from "./card_reservation_table";
 import EventTileRow from "./event_tile_table";
+import RecipeQueueCardRow from "./recipe_queue_card_table";
+import RecipeQueueRow from "./recipe_queue_table";
 import SoulRow from "./soul_table";
 import TileStageEntryRow from "./tile_stage_entry_table";
 import TileTechniqueAttachmentRow from "./tile_technique_attachment_table";
@@ -66,6 +70,17 @@ const tablesSchema = __schema({
       { name: 'card_card_id_key', constraint: 'unique', columns: ['cardId'] },
     ],
   }, CardRow),
+  card_reservation: __table({
+    name: 'card_reservation',
+    indexes: [
+      { name: 'card_id', algorithm: 'btree', columns: [
+        'cardId',
+      ] },
+    ],
+    constraints: [
+      { name: 'card_reservation_card_id_key', constraint: 'unique', columns: ['cardId'] },
+    ],
+  }, CardReservationRow),
   event_tile: __table({
     name: 'event_tile',
     indexes: [
@@ -77,6 +92,28 @@ const tablesSchema = __schema({
       { name: 'event_tile_event_tile_id_key', constraint: 'unique', columns: ['eventTileId'] },
     ],
   }, EventTileRow),
+  recipe_queue: __table({
+    name: 'recipe_queue',
+    indexes: [
+      { name: 'queue_id', algorithm: 'btree', columns: [
+        'queueId',
+      ] },
+    ],
+    constraints: [
+      { name: 'recipe_queue_queue_id_key', constraint: 'unique', columns: ['queueId'] },
+    ],
+  }, RecipeQueueRow),
+  recipe_queue_card: __table({
+    name: 'recipe_queue_card',
+    indexes: [
+      { name: 'queue_card_id', algorithm: 'btree', columns: [
+        'queueCardId',
+      ] },
+    ],
+    constraints: [
+      { name: 'recipe_queue_card_queue_card_id_key', constraint: 'unique', columns: ['queueCardId'] },
+    ],
+  }, RecipeQueueCardRow),
   soul: __table({
     name: 'soul',
     indexes: [
@@ -129,6 +166,7 @@ const reducersSchema = __reducers(
   __reducerSchema("attach_technique_to_world_tile", AttachTechniqueToWorldTileReducer),
   __reducerSchema("bootstrap_minimal_world", BootstrapMinimalWorldReducer),
   __reducerSchema("detach_technique_from_host", DetachTechniqueFromHostReducer),
+  __reducerSchema("queue_recipe_on_host", QueueRecipeOnHostReducer),
   __reducerSchema("stage_card_on_host", StageCardOnHostReducer),
   __reducerSchema("unstage_card_from_host", UnstageCardFromHostReducer),
 );
