@@ -10,7 +10,6 @@ import AttachTechniqueToEventTileReducer from "../attach_technique_to_event_tile
 import AttachTechniqueToWorldTileReducer from "../attach_technique_to_world_tile_reducer";
 import BootstrapMinimalWorldReducer from "../bootstrap_minimal_world_reducer";
 import DetachTechniqueFromHostReducer from "../detach_technique_from_host_reducer";
-import SeedTestDataReducer from "../seed_test_data_reducer";
 import StageCardOnHostReducer from "../stage_card_on_host_reducer";
 import UnstageCardFromHostReducer from "../unstage_card_from_host_reducer";
 
@@ -18,6 +17,5 @@ export type AttachTechniqueToEventTileParams = __Infer<typeof AttachTechniqueToE
 export type AttachTechniqueToWorldTileParams = __Infer<typeof AttachTechniqueToWorldTileReducer>;
 export type BootstrapMinimalWorldParams = __Infer<typeof BootstrapMinimalWorldReducer>;
 export type DetachTechniqueFromHostParams = __Infer<typeof DetachTechniqueFromHostReducer>;
-export type SeedTestDataParams = __Infer<typeof SeedTestDataReducer>;
 export type StageCardOnHostParams = __Infer<typeof StageCardOnHostReducer>;
 export type UnstageCardFromHostParams = __Infer<typeof UnstageCardFromHostReducer>;

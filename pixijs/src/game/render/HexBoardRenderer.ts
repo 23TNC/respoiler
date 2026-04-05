@@ -4,11 +4,11 @@ import type { AxialCoord } from '../hex/coords';
 import type { HexTile, TileTypeDefinition } from '../world/types';
 
 interface RenderContext {
-  tileTypeById: Map<string, TileTypeDefinition>;
+  tileTypeByKey: Map<string, TileTypeDefinition>;
 }
 
 export interface RenderedTileActionBadge {
-  verbId: string;
+  verbId: string | number;
   verbLabel: string;
   tileLabel?: string;
   cardColor?: number;
@@ -68,7 +68,7 @@ export class HexBoardRenderer {
     const tileCenterByKey = new Map<string, { x: number; y: number }>();
 
     for (const tile of tiles) {
-      const tileType = context.tileTypeById.get(tile.tileType);
+      const tileType = context.tileTypeByKey.get(tile.tileType);
       if (!tileType) {
         continue;
       }

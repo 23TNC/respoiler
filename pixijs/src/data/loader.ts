@@ -7,7 +7,8 @@ import type { RecipeFile } from '../game/recipes/types';
 interface StaticData {
   tileTypes: TileTypeDefinition[];
   verbs: VerbDefinition[];
-  tileTypeById: Map<string, TileTypeDefinition>;
+  tileTypeById: Map<number, TileTypeDefinition>;
+  tileTypeByKey: Map<string, TileTypeDefinition>;
   verbById: Map<string, VerbDefinition>;
   recipes: RecipeFile[];
 }
@@ -27,7 +28,8 @@ function parseTileTypes(input: unknown): TileTypeDefinition[] {
 
   return input.map((item, index) => {
     assert(isObject(item), `tile[${index}] must be object`);
-    assert(typeof item.id === 'string', `tile[${index}].id must be string`);
+    assert(typeof item.id === 'number', `tile[${index}].id must be number`);
+    assert(typeof item.key === 'string', `tile[${index}].key must be string`);
     assert(typeof item.name === 'string', `tile[${index}].name must be string`);
     assert(item.hostKind === 'world' || item.hostKind === 'soul', `tile[${index}].hostKind must be world|soul`);
     assert(isObject(item.style), `tile[${index}].style must be object`);
@@ -43,6 +45,7 @@ function parseTileTypes(input: unknown): TileTypeDefinition[] {
 
     return {
       id: item.id,
+      key: item.key,
       name: item.name,
       hostKind: item.hostKind,
       style: {
@@ -81,12 +84,14 @@ export function loadStaticData(): StaticData {
   const recipes = loadRecipes();
 
   const tileTypeById = new Map(tileTypes.map((tile) => [tile.id, tile]));
+  const tileTypeByKey = new Map(tileTypes.map((tile) => [tile.key, tile]));
   const verbById = new Map(verbs.map((verb) => [verb.id, verb]));
 
   return {
     tileTypes,
     verbs,
     tileTypeById,
+    tileTypeByKey,
     verbById,
     recipes,
   };

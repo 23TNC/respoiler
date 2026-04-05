@@ -4,15 +4,13 @@
 /* eslint-disable */
 /* tslint:disable */
 import {
-  TypeBuilder as __TypeBuilder,
   t as __t,
-  type AlgebraicTypeType as __AlgebraicTypeType,
-  type Infer as __Infer,
 } from "spacetimedb";
 
 export default __t.row({
   eventTileId: __t.u64().primaryKey().name("event_tile_id"),
   soulId: __t.u64().name("soul_id"),
-  name: __t.string(),
+  definitionId: __t.u32().name("definition_id"),
+  label: __t.string(),
   displayOrder: __t.u32().name("display_order"),
 });

@@ -17,14 +17,16 @@ export type RecipeExpr =
   | { lhs: RecipeExpr; op: RecipeOp; rhs?: RecipeExpr };
 
 export interface InputBinding {
-  id: string;
+  id: number;
+  key: string;
   count?: RecipeExpr;
   all?: RecipeExpr[];
   any?: RecipeExpr[];
 }
 
 export interface OutputBinding {
-  id: string;
+  id: number;
+  key: string;
   count?: RecipeExpr;
   all?: RecipeExpr[];
   any?: RecipeExpr[];
@@ -32,7 +34,8 @@ export interface OutputBinding {
 }
 
 export interface RecipeDefinition {
-  id: string;
+  id: number;
+  key: string;
   input: InputBinding[];
   output: OutputBinding[];
   effects?: RecipeExpr[];
@@ -40,7 +43,8 @@ export interface RecipeDefinition {
 }
 
 export interface RecipeFile {
-  action: string;
+  actionCardId: number;
+  actionKey: string;
   recipes: RecipeDefinition[];
 }
 
@@ -54,7 +58,7 @@ export interface RecipeEvaluationContext {
 export interface ProducedOutput {
   recipeIndex: number;
   outputIndex: number;
-  id: string;
+  id: number;
   amount: number;
 }
 

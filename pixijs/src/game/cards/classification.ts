@@ -2,7 +2,7 @@ import type { CardDefinition, CardGroup } from './types';
 
 export interface RuntimeCardClassificationSource {
   instanceId: string;
-  cardId: string;
+  cardDefinitionId: number;
   runtimeKind?: Record<string, unknown> | null;
 }
 
@@ -13,59 +13,21 @@ export interface CardGroupResolution {
 
 const warnedNormalizationIssues = new Set<string>();
 
-function normalizeToken(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 function canonicalGroupFromText(value: string): CardGroup | null {
-  const token = normalizeToken(value);
-  if (token === 'techniques' || token === 'technique' || token === 'action') {
-    return 'techniques';
-  }
-  if (token === 'essence' || token === 'essences' || token === 'aspect' || token === 'aspects') {
-    return 'essence';
-  }
-  if (token === 'sundries' || token === 'sundry' || token === 'item' || token === 'items') {
-    return 'sundries';
-  }
-  if (token === 'reveries' || token === 'reverie' || token === 'memory' || token === 'memories') {
-    return 'reveries';
-  }
-  if (token === 'souls' || token === 'soul' || token === 'character' || token === 'characters') {
-    return 'souls';
-  }
+  const token = value.trim().toLowerCase();
+  if (token === 'technique') return 'techniques';
+  if (token === 'essence') return 'essence';
+  if (token === 'sundries') return 'sundries';
+  if (token === 'reveries') return 'reveries';
+  if (token === 'soul') return 'souls';
   return null;
 }
 
 export function findCardDefinitionByRuntimeCardId(
-  runtimeCardId: string,
-  definitionsById?: ReadonlyMap<string, CardDefinition>,
+  runtimeCardId: number,
+  definitionsById?: ReadonlyMap<number, CardDefinition>,
 ): CardDefinition | undefined {
-  if (!definitionsById) {
-    return undefined;
-  }
-
-  const direct = definitionsById.get(runtimeCardId);
-  if (direct) {
-    return direct;
-  }
-
-  const normalizedRuntimeId = normalizeToken(runtimeCardId);
-  if (!normalizedRuntimeId) {
-    return undefined;
-  }
-
-  for (const [id, definition] of definitionsById.entries()) {
-    if (normalizeToken(id) === normalizedRuntimeId) {
-      return definition;
-    }
-  }
-
-  return undefined;
+  return definitionsById?.get(runtimeCardId);
 }
 
 export function resolveCanonicalCardGroup(
@@ -83,25 +45,24 @@ export function resolveCanonicalCardGroup(
       if (groupFromRuntime) {
         return { group: groupFromRuntime, reason: `runtime-kind:${runtimeKindKey}` };
       }
-      return { group: null, reason: `unknown-runtime-kind:${runtimeKindKey}` };
     }
   }
 
-  return { group: null, reason: 'missing-card-definition-and-runtime-kind' };
+  return { group: null, reason: 'missing-card-definition' };
 }
 
 export function warnCardClassificationIssue(
   source: RuntimeCardClassificationSource,
   reason: string,
 ): void {
-  const key = `${source.instanceId}|${source.cardId}|${reason}`;
+  const key = `${source.instanceId}|${source.cardDefinitionId}|${reason}`;
   if (warnedNormalizationIssues.has(key)) {
     return;
   }
   warnedNormalizationIssues.add(key);
   console.warn('[CardClassification] Unable to classify runtime card', {
     instanceId: source.instanceId,
-    cardId: source.cardId,
+    cardDefinitionId: source.cardDefinitionId,
     reason,
     runtimeKind: source.runtimeKind ?? null,
   });

@@ -7,7 +7,6 @@ import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
 import type { CardDefinition, CardInstanceState } from '../cards/types';
-import { findCardDefinitionByRuntimeCardId, resolveCanonicalCardGroup } from '../cards/classification';
 import { canStageCard, getRecipeCardCategory, type NormalizedStagedCards } from '../recipes/stagingValidation';
 import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
@@ -46,7 +45,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     attachments: [],
     stageEntries: [],
     hasAppliedSubscription: false,
-  }, staticCardData.cardsById);
+  }, staticCardData.cardsById, staticData.tileTypeById);
 
   let playerSoulId = '';
   let viewedSoulId = '';
@@ -131,7 +130,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   fixedUiLayer.addChild(stagedActionUI.root);
   const hostedTilesUI = new SoulHostedTilesUI(
     getViewedHostedTiles,
-    staticData.tileTypeById,
+    staticData.tileTypeByKey,
     (tileId) => getViewedStaged().get(tileId),
     (tileId) => tileId === selectedTileInstanceId,
   );
@@ -190,8 +189,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const keptInputs: string[] = [];
     const invalidInputs: string[] = [];
     let stagedCards: NormalizedStagedCards = {
-      tile: tile.tileType,
-      action: verbCard.id,
+      tileId: staticData.tileTypeByKey.get(tile.tileType)?.id ?? null,
+      actionCardId: verbCard.id,
       aspects: [],
       sundries: [],
     };
@@ -269,9 +268,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         return [
           staged.tileId,
           {
-            verbId: getCardByInstanceId(staged.verbCardInstanceId)?.id ?? '',
+            verbId: String(getCardByInstanceId(staged.verbCardInstanceId)?.id ?? ''),
             verbLabel,
-            tileLabel: staticData.tileTypeById.get(stagedTile?.tileType ?? '')?.name,
+            tileLabel: staticData.tileTypeByKey.get(stagedTile?.tileType ?? '')?.name,
             cardColor: getCardByInstanceId(staged.verbCardInstanceId)?.backgroundColor,
             stagedCardNames: staged.inputCardInstanceIds.map(
               (instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId,
@@ -296,7 +295,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       });
     }
 
-    boardRenderer.renderTiles(worldTiles.values(), staticData, stagedByTileId);
+    boardRenderer.renderTiles(worldTiles.values(), { tileTypeByKey: staticData.tileTypeByKey }, stagedByTileId);
     hostedTilesUI.render();
 
     if (inspectedTarget?.type === 'card') {
@@ -311,7 +310,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         selectedTile
           ? {
               tile: selectedTile,
-              tileType: staticData.tileTypeById.get(selectedTile.tileType),
+              tileType: staticData.tileTypeByKey.get(selectedTile.tileType),
               availableVerbs: selectedTile.activeVerbs.map((verbId) => staticData.verbById.get(verbId)).filter((verb): verb is NonNullable<typeof verb> => Boolean(verb)),
               stagedAction: viewedStaged.get(inspectedTileInstanceId ?? '') ?? null,
             }
@@ -441,8 +440,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       .map((instanceId) => getCardByInstanceId(instanceId))
       .filter((card): card is CardDefinition => Boolean(card));
     const stagedCards: NormalizedStagedCards = {
-      tile: tile.tileType,
-      action: getCardByInstanceId(staged.verbCardInstanceId)?.id ?? null,
+      tileId: staticData.tileTypeByKey.get(tile.tileType)?.id ?? null,
+      actionCardId: getCardByInstanceId(staged.verbCardInstanceId)?.id ?? null,
       aspects: stagedInputs.filter((card) => getRecipeCardCategory(card) === 'aspect').map((card) => card.id),
       sundries: stagedInputs.filter((card) => getRecipeCardCategory(card) === 'item').map((card) => card.id),
     };
@@ -450,10 +449,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (!canStageCard(stagedCards, { category, id: payload.card.id }, staticData.recipes)) {
       console.info('[DragDrop] rejected input drop due to recipe mismatch', {
         instanceId: payload.instance.instanceId,
-        cardId: payload.card.id,
+        cardId: payload.card.key,
         group: payload.card.group,
         targetTileInstanceId,
-        stagedActionCardId: stagedCards.action,
+        stagedActionCardId: stagedCards.actionCardId,
       });
       return { state: 'invalid', reason: 'Drop does not match any recipe.' };
     }
@@ -490,8 +489,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     const canDrop = canStageCard(
       {
-        tile: tile.tileType,
-        action: null,
+        tileId: staticData.tileTypeByKey.get(tile.tileType)?.id ?? null,
+        actionCardId: null,
         aspects: [],
         sundries: [],
       },
@@ -623,8 +622,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       }
       const canDrop = canStageCard(
         {
-          tile: hoverTile.tileType,
-          action: null,
+          tileId: staticData.tileTypeByKey.get(hoverTile.tileType)?.id ?? null,
+          actionCardId: null,
           aspects: [],
           sundries: [],
         },
@@ -895,7 +894,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   });
 
   spacetimeClient.subscribe((rows) => {
-    runtimeState = deriveRuntimeState(rows, staticCardData.cardsById);
+    runtimeState = deriveRuntimeState(rows, staticCardData.cardsById, staticData.tileTypeById);
     const isEmptyDb = isRowsSnapshotEmptyForBootstrap(rows);
     if (!rows.hasAppliedSubscription) {
       // Wait until subscribed data is applied before deciding whether to bootstrap.
@@ -918,33 +917,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';
     }
 
-    const techniqueRows = rows.cards.filter((card) => (
-      resolveCanonicalCardGroup(
-        {
-          instanceId: card.cardId.toString(),
-          cardId: card.name,
-          runtimeKind: card.kind as Record<string, unknown>,
-        },
-        findCardDefinitionByRuntimeCardId(card.name, staticCardData.cardsById),
-      ).group === 'techniques'
-    ));
-    const essenceRows = rows.cards.filter((card) => (
-      resolveCanonicalCardGroup(
-        {
-          instanceId: card.cardId.toString(),
-          cardId: card.name,
-          runtimeKind: card.kind as Record<string, unknown>,
-        },
-        findCardDefinitionByRuntimeCardId(card.name, staticCardData.cardsById),
-      ).group === 'essence'
-    ));
     const viewedInventory = runtimeState.inventoryBySoulId[viewedSoulId];
     const viewedTechniqueCount = viewedInventory?.techniques.length ?? 0;
     const viewedEssenceCount = viewedInventory?.essence.length ?? 0;
     const inventorySignature = [
       rows.cards.length,
-      techniqueRows.length,
-      essenceRows.length,
       viewedSoulId,
       viewedTechniqueCount,
       viewedEssenceCount,
@@ -952,8 +929,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (inventorySignature !== lastLoggedInventorySignature) {
       console.info('[CharacterBoard] subscription sync', {
         totalCards: rows.cards.length,
-        techniquesSynced: techniqueRows.length,
-        essencesSynced: essenceRows.length,
         viewedSoulId,
         viewedTechniques: viewedTechniqueCount,
         viewedEssences: viewedEssenceCount,

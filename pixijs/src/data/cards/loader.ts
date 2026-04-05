@@ -5,24 +5,29 @@ function isCardGroup(value: unknown): value is CardGroup {
   return value === 'techniques' || value === 'essence' || value === 'sundries' || value === 'reveries' || value === 'souls';
 }
 
-export function loadCardDefinitions(): { cards: CardDefinition[]; cardsById: Map<string, CardDefinition> } {
+export function loadCardDefinitions(): {
+  cards: CardDefinition[];
+  cardsById: Map<number, CardDefinition>;
+  cardsByKey: Map<string, CardDefinition>;
+} {
   const cards = (rawCards as unknown[]).map((entry, index) => {
     if (typeof entry !== 'object' || entry === null) {
       throw new Error(`Invalid card at index ${index}`);
     }
 
     const item = entry as Record<string, unknown>;
-    if (typeof item.id !== 'string' || typeof item.name !== 'string' || !isCardGroup(item.group)) {
+    if (typeof item.id !== 'number' || typeof item.key !== 'string' || typeof item.name !== 'string' || !isCardGroup(item.group)) {
       throw new Error(`Malformed card definition at index ${index}`);
     }
 
     const parsedColor = parseColor(item.backgroundColor);
     if (parsedColor === null) {
-      throw new Error(`Malformed backgroundColor for card "${item.id}" at index ${index}`);
+      throw new Error(`Malformed backgroundColor for card "${item.key}" at index ${index}`);
     }
 
     return {
       id: item.id,
+      key: item.key,
       name: item.name,
       group: item.group,
       backgroundColor: parsedColor,
@@ -32,6 +37,7 @@ export function loadCardDefinitions(): { cards: CardDefinition[]; cardsById: Map
   return {
     cards,
     cardsById: new Map(cards.map((card) => [card.id, card])),
+    cardsByKey: new Map(cards.map((card) => [card.key, card])),
   };
 }
 

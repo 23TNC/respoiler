@@ -86,7 +86,8 @@ export class CharacterBoardUI {
     this.root.addChild(board);
 
     const viewedSoulCard: CardDefinition = {
-      id: viewedSoul.soulId,
+      id: -1,
+      key: `viewed-soul-${viewedSoul.soulId}`,
       name: viewedSoul.name,
       group: 'souls',
       backgroundColor: 0xa8e0e6,
@@ -98,7 +99,7 @@ export class CharacterBoardUI {
         card: viewedSoulCard,
         instance: {
           instanceId: `viewed-soul-${viewedSoul.soulId}`,
-          cardId: viewedSoul.soulId,
+          cardId: -1,
           soulId: viewedSoul.soulId,
         },
       },

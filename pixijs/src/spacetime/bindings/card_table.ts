@@ -4,23 +4,12 @@
 /* eslint-disable */
 /* tslint:disable */
 import {
-  TypeBuilder as __TypeBuilder,
   t as __t,
-  type AlgebraicTypeType as __AlgebraicTypeType,
-  type Infer as __Infer,
 } from "spacetimedb";
-import {
-  CardKind,
-} from "./types";
-
 
 export default __t.row({
   cardId: __t.u64().primaryKey().name("card_id"),
   soulId: __t.u64().name("soul_id"),
-  get kind() {
-    return CardKind;
-  },
-  name: __t.string(),
-  bgColor: __t.option(__t.string()).name("bg_color"),
+  definitionId: __t.u32().name("definition_id"),
   linkedSoulId: __t.option(__t.u64()).name("linked_soul_id"),
 });

@@ -54,22 +54,22 @@ export function isCardCompatibleForVerb(verbId: string, card: CardDefinition): b
   }
 
   const allowedByGroup = rule.allowedGroups.includes(card.group);
-  const allowedById = (rule.allowedCardIds ?? []).includes(card.id);
+  const allowedById = (rule.allowedCardIds ?? []).includes(card.key);
 
   if (verbId === 'work') {
-    return card.id === 'health' || card.id === 'passion' || card.id === 'reason' || allowedById;
+    return card.key === 'health' || card.key === 'passion' || card.key === 'reason' || allowedById;
   }
 
   if (verbId === 'study') {
-    return card.group === 'reveries' || card.id === 'passion' || card.id === 'reason';
+    return card.group === 'reveries' || card.key === 'passion' || card.key === 'reason';
   }
 
   if (verbId === 'defend') {
-    return card.id === 'health' || card.id === 'reason' || card.group === 'sundries';
+    return card.key === 'health' || card.key === 'reason' || card.group === 'sundries';
   }
 
   if (verbId === 'explore') {
-    return card.id === 'passion' || card.id === 'reason' || card.group === 'reveries' || allowedById;
+    return card.key === 'passion' || card.key === 'reason' || card.group === 'reveries' || allowedById;
   }
 
   return allowedByGroup || allowedById;

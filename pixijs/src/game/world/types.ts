@@ -1,7 +1,8 @@
 export type HexSide = 'N' | 'NE' | 'SE' | 'S' | 'SW' | 'NW';
 
 export interface TileTypeDefinition {
-  id: string;
+  id: number;
+  key: string;
   name: string;
   hostKind: 'world' | 'soul';
   style: {

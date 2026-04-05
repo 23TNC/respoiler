@@ -32,8 +32,8 @@ export function generateMockWorld(
   radius = 2,
 ): HexWorldBoard {
   const randomTileIds = tileDefs
-    .filter((tile) => tile.hostKind === 'world' && tile.id !== 'campfire')
-    .map((tile) => tile.id);
+    .filter((tile) => tile.hostKind === 'world' && tile.key !== 'campfire')
+    .map((tile) => tile.key);
   const verbIds = verbDefs.map((verb) => verb.id);
 
   const tiles = new Map<string, HexTile>();
