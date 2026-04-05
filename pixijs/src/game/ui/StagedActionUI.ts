@@ -31,8 +31,6 @@ export class StagedActionUI {
 
   private selectedCard: SelectedCardDetails | null = null;
 
-  private readonly cardsById: Map<number, CardDefinition>;
-
   private readonly getCardByInstanceId: (instanceId: string) => CardDefinition | undefined;
 
   private startBounds: Rectangle | null = null;
@@ -50,10 +48,8 @@ export class StagedActionUI {
   private inputDropFeedback: DropFeedbackState = 'none';
 
   constructor(
-    cardsById: Map<number, CardDefinition>,
     getCardByInstanceId: (instanceId: string) => CardDefinition | undefined,
   ) {
-    this.cardsById = cardsById;
     this.getCardByInstanceId = getCardByInstanceId;
   }
 
@@ -201,7 +197,7 @@ export class StagedActionUI {
     }
 
     const verbCard = this.getCardByInstanceId(stagedAction.verbCardInstanceId);
-    const verbLabel = verbCard?.name ?? stagedAction.verbCardInstanceId;
+    const verbLabel = verbCard?.name ?? stagedAction.queuedVerbLabel ?? stagedAction.verbCardInstanceId;
 
     renderCardTag(this.root, {
       x: 12,
@@ -231,7 +227,7 @@ export class StagedActionUI {
       stagedAction.status === 'queued' && stagedAction.queuedInputCardNames?.length
         ? stagedAction.queuedInputCardNames
         : stagedAction.inputCardInstanceIds
-          .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? this.cardsById.get(Number(instanceId))?.name ?? instanceId)
+          .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? instanceId)
     ).join(', ');
     const stagedText = new Text({
       text: `Staged: ${stagedTitles.length > 0 ? stagedTitles : 'None'}`,
@@ -273,7 +269,7 @@ export class StagedActionUI {
     let chipY = dropZoneY + 32;
     for (let index = 0; index < stagedAction.inputCardInstanceIds.length; index += 1) {
       const instanceId = stagedAction.inputCardInstanceIds[index];
-      const cardData = this.getCardByInstanceId(instanceId) ?? this.cardsById.get(Number(instanceId));
+      const cardData = this.getCardByInstanceId(instanceId);
       const cardName = cardData?.name ?? instanceId;
       const chipColor = cardData?.backgroundColor ?? 0x2a3e5f;
       const chipTextColor = readableTextColor(chipColor);
