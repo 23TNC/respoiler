@@ -242,7 +242,7 @@ export class StagedActionUI {
 
     const statusText = new Text({
       text: `Status: ${stagedAction.status}${stagedAction.error ? ` (${stagedAction.error})` : ''}`,
-      style: { fill: stagedAction.status === 'queued' ? '#95f2a8' : '#a9bfdc', fontSize: 11 },
+      style: { fill: stagedAction.status === 'queued' ? '#95f2a8' : stagedAction.status === 'running' ? '#ffe0a6' : '#a9bfdc', fontSize: 11 },
     });
     statusText.position.set(12, 190);
     this.root.addChild(statusText);
@@ -330,7 +330,7 @@ export class StagedActionUI {
     this.root.addChild(startBtn);
 
     const startText = new Text({
-      text: stagedAction.status === 'queued' ? 'Queued' : 'Start',
+      text: stagedAction.status === 'queued' ? 'Queued' : stagedAction.status === 'running' ? 'Running' : 'Start',
       style: { fill: '#14181f', fontSize: 11, fontWeight: '700' },
     });
     startText.position.set(278, 312);

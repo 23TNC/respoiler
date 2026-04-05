@@ -3,6 +3,7 @@ import { loadStaticData } from '../../data/loader';
 import { loadCardDefinitions } from '../../data/cards/loader';
 import { createSpacetimeClient } from '../../spacetime/client';
 import { deriveRuntimeState } from '../../spacetime/deriveRuntimeState';
+import type { RuntimeStageDetails } from '../../spacetime/deriveRuntimeState';
 import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
@@ -229,23 +230,32 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return staged;
   };
   const getViewedStaged = (): Map<string, StagedTileAction> => getStagedForSoul(viewedSoulId);
+  const toRuntimeDisplayAction = (tileInstanceId: string, details: RuntimeStageDetails): StagedTileAction | null => {
+    if (details.status === 'staged') {
+      return null;
+    }
+    return {
+      stagedActionId: `runtime-${details.status}-${tileInstanceId}`,
+      characterId: CHARACTER_ID,
+      soulId: viewedSoulId,
+      tileId: tileInstanceId,
+      tileInstanceId,
+      verbCardInstanceId: details.techniqueCardInstanceId ?? details.attachmentName ?? 'attached-technique',
+      inputCardInstanceIds: [...details.cardInstanceIds],
+      queuedVerbLabel: details.attachmentName ?? undefined,
+      queuedInputCardNames: [...details.cardNames],
+      repeat: false,
+      status: details.status,
+    };
+  };
   const getDisplayStagedActionForTile = (tileInstanceId: string): StagedTileAction | undefined => {
     const local = getViewedStaged().get(tileInstanceId);
-    const runtimeQueued = runtimeState.runtimeStageDetailsByTileId.get(tileInstanceId);
-    if (runtimeQueued?.status === 'queued') {
-      return {
-        stagedActionId: `queued-runtime-${tileInstanceId}`,
-        characterId: CHARACTER_ID,
-        soulId: viewedSoulId,
-        tileId: tileInstanceId,
-        tileInstanceId,
-        verbCardInstanceId: runtimeQueued.techniqueCardInstanceId ?? runtimeQueued.attachmentName ?? 'attached-technique',
-        inputCardInstanceIds: [...runtimeQueued.cardInstanceIds],
-        queuedVerbLabel: runtimeQueued.attachmentName ?? undefined,
-        queuedInputCardNames: [...runtimeQueued.cardNames],
-        repeat: false,
-        status: 'queued',
-      };
+    const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(tileInstanceId);
+    if (runtimeDetails) {
+      const runtimeDisplay = toRuntimeDisplayAction(tileInstanceId, runtimeDetails);
+      if (runtimeDisplay) {
+        return runtimeDisplay;
+      }
     }
     return local;
   };
@@ -356,23 +366,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const viewedStaged = getViewedStaged();
     const displayStagedByTileInstanceId = new Map<string, StagedTileAction>(viewedStaged);
     for (const [tileId, details] of runtimeState.runtimeStageDetailsByTileId.entries()) {
-      if (details.status !== 'queued') {
+      const runtimeDisplay = toRuntimeDisplayAction(tileId, details);
+      if (!runtimeDisplay) {
         continue;
       }
 
-      displayStagedByTileInstanceId.set(tileId, {
-        stagedActionId: `queued-runtime-${tileId}`,
-        characterId: CHARACTER_ID,
-        soulId: viewedSoulId,
-        tileId,
-        tileInstanceId: tileId,
-        verbCardInstanceId: details.techniqueCardInstanceId ?? details.attachmentName ?? 'attached-technique',
-        inputCardInstanceIds: [...details.cardInstanceIds],
-        queuedVerbLabel: details.attachmentName ?? undefined,
-        queuedInputCardNames: [...details.cardNames],
-        repeat: false,
-        status: 'queued',
-      });
+      displayStagedByTileInstanceId.set(tileId, runtimeDisplay);
     }
 
     const stagedByTileId = new Map<string, {
@@ -382,7 +381,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       cardColor?: number;
       stagedCardNames: string[];
       repeat: boolean;
-      status: 'staged' | 'queued';
+      status: 'staged' | 'queued' | 'running';
     }>(
       Array.from(displayStagedByTileInstanceId.values()).map((staged) => {
         const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name
@@ -480,7 +479,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   const beginDragAttachedAction = (tileKey: string, x: number, y: number): boolean => {
     const staged = getViewedStaged().get(tileKey);
-    if (!staged || staged.status === 'queued') {
+    if (!staged || staged.status !== 'staged') {
       return false;
     }
 
@@ -779,7 +778,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const staged = getViewedStaged().get(selectedTileInstanceId);
-    if (!staged || staged.status === 'queued') {
+    if (!staged || staged.status !== 'staged') {
       return;
     }
 
@@ -880,7 +879,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const staged = getViewedStaged().get(selectedTileInstanceId);
-    if (!staged || staged.status === 'queued') {
+    if (!staged || staged.status !== 'staged') {
       return;
     }
 
@@ -902,7 +901,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     const staged = getViewedStaged().get(selectedTileInstanceId);
-    if (!staged || staged.status === 'queued') {
+    if (!staged || staged.status !== 'staged') {
       return false;
     }
 

@@ -24,7 +24,7 @@ export interface RuntimeStageDetails {
   cardNames: string[];
   cardInstanceIds: string[];
   attachmentName: string | null;
-  status: 'staged' | 'queued';
+  status: 'staged' | 'queued' | 'running';
 }
 
 export interface RuntimeDerivedState {
@@ -52,13 +52,21 @@ function eventTileInstanceId(rawId: bigint | number | string): string {
 }
 
 function tileHostInstanceId(hostType: unknown, hostId: bigint | number | string): string {
-  const kind = hostType && typeof hostType === 'object'
-    ? Object.keys(hostType as Record<string, unknown>)[0]
-    : '';
+  const kind = normalizeEnumTag(hostType);
   if (kind === 'EventTile') {
     return eventTileInstanceId(hostId);
   }
   return worldTileInstanceId(hostId);
+}
+
+function normalizeEnumTag(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>)[0] ?? '';
+  }
+  return '';
 }
 
 function resolveTileDefinition(
@@ -241,10 +249,13 @@ export function deriveRuntimeState(
   }
 
   for (const queue of rows.recipeQueues) {
-    const queueState = queue.state && typeof queue.state === 'object'
-      ? Object.keys(queue.state)[0]
-      : '';
-    if (queueState !== 'Queued') {
+    const queueState = normalizeEnumTag(queue.state);
+    const runtimeStatus = queueState === 'Running'
+      ? 'running'
+      : queueState === 'Queued'
+        ? 'queued'
+        : null;
+    if (!runtimeStatus) {
       continue;
     }
 
@@ -259,7 +270,7 @@ export function deriveRuntimeState(
     const queueCardIds = queueCardIdsByQueueId.get(idToString(queue.queueId)) ?? [];
     existing.cardInstanceIds = queueCardIds;
     existing.cardNames = queueCardIds.map((cardId) => cardNameByInstanceId.get(cardId) ?? cardId);
-    existing.status = 'queued';
+    existing.status = runtimeStatus;
     runtimeStageDetailsByTileId.set(tileId, existing);
   }
 
