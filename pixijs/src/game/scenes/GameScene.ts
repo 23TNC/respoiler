@@ -231,7 +231,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   };
   const getViewedStaged = (): Map<string, StagedTileAction> => getStagedForSoul(viewedSoulId);
   const toRuntimeDisplayAction = (tileInstanceId: string, details: RuntimeStageDetails): StagedTileAction | null => {
-    if (details.status === 'staged') {
+    const hasDisplayContent = Boolean(
+      details.techniqueCardInstanceId
+      || details.attachmentName
+      || details.cardInstanceIds.length > 0
+      || details.cardNames.length > 0,
+    );
+    if (!hasDisplayContent) {
       return null;
     }
     return {
@@ -253,11 +259,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(tileInstanceId);
     if (runtimeDetails) {
       const runtimeDisplay = toRuntimeDisplayAction(tileInstanceId, runtimeDetails);
-      if (runtimeDisplay) {
+      if (runtimeDisplay && runtimeDisplay.status !== 'staged') {
         return runtimeDisplay;
       }
     }
-    return local;
+    return local
+      ?? (runtimeDetails ? toRuntimeDisplayAction(tileInstanceId, runtimeDetails) ?? undefined : undefined);
   };
   const syncTechniqueAttachment = async (soulId: string, tileInstanceId: string, techniqueCardInstanceId: string): Promise<void> => {
     const [hostKind, rawHostId] = tileInstanceId.split(':');
@@ -370,8 +377,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       if (!runtimeDisplay) {
         continue;
       }
-
-      displayStagedByTileInstanceId.set(tileId, runtimeDisplay);
+      if (runtimeDisplay.status === 'queued' || runtimeDisplay.status === 'running') {
+        displayStagedByTileInstanceId.set(tileId, runtimeDisplay);
+        continue;
+      }
+      if (!displayStagedByTileInstanceId.has(tileId)) {
+        displayStagedByTileInstanceId.set(tileId, runtimeDisplay);
+      }
     }
 
     const stagedByTileId = new Map<string, {
