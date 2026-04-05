@@ -7,6 +7,7 @@ import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
 import type { CardDefinition, CardInstanceState } from '../cards/types';
+import { findCardDefinitionByRuntimeCardId, resolveCanonicalCardGroup } from '../cards/classification';
 import { canStageCard, getRecipeCardCategory, type NormalizedStagedCards } from '../recipes/stagingValidation';
 import { HexBoardRenderer } from '../render/HexBoardRenderer';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
@@ -45,7 +46,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     attachments: [],
     stageEntries: [],
     hasAppliedSubscription: false,
-  });
+  }, staticCardData.cardsById);
 
   let playerSoulId = '';
   let viewedSoulId = '';
@@ -447,6 +448,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     };
 
     if (!canStageCard(stagedCards, { category, id: payload.card.id }, staticData.recipes)) {
+      console.info('[DragDrop] rejected input drop due to recipe mismatch', {
+        instanceId: payload.instance.instanceId,
+        cardId: payload.card.id,
+        group: payload.card.group,
+        targetTileInstanceId,
+        stagedActionCardId: stagedCards.action,
+      });
       return { state: 'invalid', reason: 'Drop does not match any recipe.' };
     }
 
@@ -887,7 +895,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   });
 
   spacetimeClient.subscribe((rows) => {
-    runtimeState = deriveRuntimeState(rows);
+    runtimeState = deriveRuntimeState(rows, staticCardData.cardsById);
     const isEmptyDb = isRowsSnapshotEmptyForBootstrap(rows);
     if (!rows.hasAppliedSubscription) {
       // Wait until subscribed data is applied before deciding whether to bootstrap.
@@ -910,8 +918,26 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';
     }
 
-    const techniqueRows = rows.cards.filter((card) => 'Technique' in (card.kind as Record<string, unknown>));
-    const essenceRows = rows.cards.filter((card) => 'Essence' in (card.kind as Record<string, unknown>));
+    const techniqueRows = rows.cards.filter((card) => (
+      resolveCanonicalCardGroup(
+        {
+          instanceId: card.cardId.toString(),
+          cardId: card.name,
+          runtimeKind: card.kind as Record<string, unknown>,
+        },
+        findCardDefinitionByRuntimeCardId(card.name, staticCardData.cardsById),
+      ).group === 'techniques'
+    ));
+    const essenceRows = rows.cards.filter((card) => (
+      resolveCanonicalCardGroup(
+        {
+          instanceId: card.cardId.toString(),
+          cardId: card.name,
+          runtimeKind: card.kind as Record<string, unknown>,
+        },
+        findCardDefinitionByRuntimeCardId(card.name, staticCardData.cardsById),
+      ).group === 'essence'
+    ));
     const viewedInventory = runtimeState.inventoryBySoulId[viewedSoulId];
     const viewedTechniqueCount = viewedInventory?.techniques.length ?? 0;
     const viewedEssenceCount = viewedInventory?.essence.length ?? 0;
