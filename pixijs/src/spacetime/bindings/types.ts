@@ -63,10 +63,16 @@ export const RecipeQueueState = __t.enum("RecipeQueueState", {
 });
 export type RecipeQueueState = __Infer<typeof RecipeQueueState>;
 
+export const Player = __t.object("Player", {
+  playerId: __t.u64(),
+  playerKey: __t.string(),
+});
+export type Player = __Infer<typeof Player>;
+
 export const Soul = __t.object("Soul", {
   soulId: __t.u64(),
   name: __t.string(),
-  playerId: __t.option(__t.identity()),
+  playerId: __t.option(__t.u64()),
   ownerSoulId: __t.option(__t.u64()),
   get subordinateType() {
     return __t.option(SubordinateType);
@@ -107,4 +113,3 @@ export const WorldTile = __t.object("WorldTile", {
   r: __t.i32(),
 });
 export type WorldTile = __Infer<typeof WorldTile>;
-

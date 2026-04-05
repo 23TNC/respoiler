@@ -71,7 +71,8 @@ function resolveTileDefinition(
 }
 
 export function isRowsSnapshotEmptyForBootstrap(rows: SpacetimeRowsSnapshot): boolean {
-  return rows.souls.length === 0
+  return rows.players.length === 0
+    && rows.souls.length === 0
     && rows.cards.length === 0
     && rows.worldTiles.length === 0
     && rows.eventTiles.length === 0
@@ -89,13 +90,15 @@ export function deriveRuntimeState(
   const souls = rows.souls.map((row) => ({
     soulId: idToString(row.soulId),
     name: row.name,
-    playerId: row.playerId?.toHexString(),
+    playerId: row.playerId ? idToString(row.playerId) : undefined,
     ownerSoulId: row.ownerSoulId ? idToString(row.ownerSoulId) : undefined,
     subordinateType: row.subordinateType ? (Object.keys(row.subordinateType)[0] as SoulModel['subordinateType']) : undefined,
   }));
 
   const soulById = new Map(souls.map((soul) => [soul.soulId, soul]));
-  const playerSoul = rows.souls.find((soul) => soul.playerId);
+  const playerSoul = rows.activePlayerId
+    ? rows.souls.find((soul) => soul.playerId?.toString() === rows.activePlayerId)
+    : rows.souls.find((soul) => soul.playerId);
   const playerSoulId = playerSoul ? idToString(playerSoul.soulId) : souls[0]?.soulId ?? null;
 
   const inventoryBySoulId: Record<string, CharacterInventory> = {};

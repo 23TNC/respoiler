@@ -40,6 +40,7 @@ import BootstrapMinimalWorldReducer from "./bootstrap_minimal_world_reducer";
 import DebugDecodeQueueRecipeOnHostReducer from "./debug_decode_queue_recipe_on_host_reducer";
 import DetachTechniqueFromHostReducer from "./detach_technique_from_host_reducer";
 import QueueRecipeOnHostReducer from "./queue_recipe_on_host_reducer";
+import ResolveTestPlayerReducer from "./resolve_test_player_reducer";
 
 // Import all procedure arg schemas
 
@@ -47,6 +48,7 @@ import QueueRecipeOnHostReducer from "./queue_recipe_on_host_reducer";
 import CardRow from "./card_table";
 import CardReservationRow from "./card_reservation_table";
 import EventTileRow from "./event_tile_table";
+import PlayerRow from "./player_table";
 import RecipeQueueRow from "./recipe_queue_table";
 import RecipeQueueCardRow from "./recipe_queue_card_table";
 import SoulRow from "./soul_table";
@@ -90,6 +92,21 @@ const tablesSchema = __schema({
       { name: 'event_tile_event_tile_id_key', constraint: 'unique', columns: ['eventTileId'] },
     ],
   }, EventTileRow),
+  player: __table({
+    name: 'player',
+    indexes: [
+      { name: 'player_id', algorithm: 'btree', columns: [
+        'playerId',
+      ] },
+      { name: 'player_key', algorithm: 'btree', columns: [
+        'playerKey',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_player_id_key', constraint: 'unique', columns: ['playerId'] },
+      { name: 'player_player_key_key', constraint: 'unique', columns: ['playerKey'] },
+    ],
+  }, PlayerRow),
   recipe_queue: __table({
     name: 'recipe_queue',
     indexes: [
@@ -155,6 +172,7 @@ const reducersSchema = __reducers(
   __reducerSchema("debug_decode_queue_recipe_on_host", DebugDecodeQueueRecipeOnHostReducer),
   __reducerSchema("detach_technique_from_host", DetachTechniqueFromHostReducer),
   __reducerSchema("queue_recipe_on_host", QueueRecipeOnHostReducer),
+  __reducerSchema("resolve_test_player", ResolveTestPlayerReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
@@ -210,4 +228,3 @@ export class DbConnection extends __DbConnectionImpl<typeof REMOTE_MODULE> {
     return new SubscriptionBuilder(this);
   };
 }
-

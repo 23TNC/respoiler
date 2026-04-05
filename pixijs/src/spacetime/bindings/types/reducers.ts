@@ -12,6 +12,7 @@ import BootstrapMinimalWorldReducer from "../bootstrap_minimal_world_reducer";
 import DebugDecodeQueueRecipeOnHostReducer from "../debug_decode_queue_recipe_on_host_reducer";
 import DetachTechniqueFromHostReducer from "../detach_technique_from_host_reducer";
 import QueueRecipeOnHostReducer from "../queue_recipe_on_host_reducer";
+import ResolveTestPlayerReducer from "../resolve_test_player_reducer";
 
 export type AttachTechniqueToEventTileParams = __Infer<typeof AttachTechniqueToEventTileReducer>;
 export type AttachTechniqueToWorldTileParams = __Infer<typeof AttachTechniqueToWorldTileReducer>;
@@ -19,4 +20,4 @@ export type BootstrapMinimalWorldParams = __Infer<typeof BootstrapMinimalWorldRe
 export type DebugDecodeQueueRecipeOnHostParams = __Infer<typeof DebugDecodeQueueRecipeOnHostReducer>;
 export type DetachTechniqueFromHostParams = __Infer<typeof DetachTechniqueFromHostReducer>;
 export type QueueRecipeOnHostParams = __Infer<typeof QueueRecipeOnHostReducer>;
-
+export type ResolveTestPlayerParams = __Infer<typeof ResolveTestPlayerReducer>;
