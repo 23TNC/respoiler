@@ -17,3 +17,4 @@ export type AttachTechniqueToWorldTileParams = __Infer<typeof AttachTechniqueToW
 export type BootstrapMinimalWorldParams = __Infer<typeof BootstrapMinimalWorldReducer>;
 export type DetachTechniqueFromHostParams = __Infer<typeof DetachTechniqueFromHostReducer>;
 export type QueueRecipeOnHostParams = __Infer<typeof QueueRecipeOnHostReducer>;
+

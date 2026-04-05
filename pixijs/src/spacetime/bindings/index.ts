@@ -46,8 +46,8 @@ import QueueRecipeOnHostReducer from "./queue_recipe_on_host_reducer";
 import CardRow from "./card_table";
 import CardReservationRow from "./card_reservation_table";
 import EventTileRow from "./event_tile_table";
-import RecipeQueueCardRow from "./recipe_queue_card_table";
 import RecipeQueueRow from "./recipe_queue_table";
+import RecipeQueueCardRow from "./recipe_queue_card_table";
 import SoulRow from "./soul_table";
 import TileTechniqueAttachmentRow from "./tile_technique_attachment_table";
 import WorldTileRow from "./world_tile_table";
@@ -208,3 +208,4 @@ export class DbConnection extends __DbConnectionImpl<typeof REMOTE_MODULE> {
     return new SubscriptionBuilder(this);
   };
 }
+

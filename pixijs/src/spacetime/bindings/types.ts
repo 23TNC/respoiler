@@ -4,7 +4,9 @@
 /* eslint-disable */
 /* tslint:disable */
 import {
+  TypeBuilder as __TypeBuilder,
   t as __t,
+  type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
 
@@ -31,12 +33,6 @@ export const EventTile = __t.object("EventTile", {
 });
 export type EventTile = __Infer<typeof EventTile>;
 
-export const RecipeQueueState = __t.enum("RecipeQueueState", {
-  Queued: __t.unit(),
-  Canceled: __t.unit(),
-});
-export type RecipeQueueState = __Infer<typeof RecipeQueueState>;
-
 export const RecipeQueue = __t.object("RecipeQueue", {
   queueId: __t.u64(),
   recipeId: __t.u32(),
@@ -60,6 +56,13 @@ export const RecipeQueueCard = __t.object("RecipeQueueCard", {
 });
 export type RecipeQueueCard = __Infer<typeof RecipeQueueCard>;
 
+// The tagged union or sum type for the algebraic type `RecipeQueueState`.
+export const RecipeQueueState = __t.enum("RecipeQueueState", {
+  Queued: __t.unit(),
+  Canceled: __t.unit(),
+});
+export type RecipeQueueState = __Infer<typeof RecipeQueueState>;
+
 export const Soul = __t.object("Soul", {
   soulId: __t.u64(),
   name: __t.string(),
@@ -71,6 +74,7 @@ export const Soul = __t.object("Soul", {
 });
 export type Soul = __Infer<typeof Soul>;
 
+// The tagged union or sum type for the algebraic type `SubordinateType`.
 export const SubordinateType = __t.enum("SubordinateType", {
   Control: __t.unit(),
   Influence: __t.unit(),
@@ -78,23 +82,12 @@ export const SubordinateType = __t.enum("SubordinateType", {
 });
 export type SubordinateType = __Infer<typeof SubordinateType>;
 
+// The tagged union or sum type for the algebraic type `TileHostType`.
 export const TileHostType = __t.enum("TileHostType", {
   WorldTile: __t.unit(),
   EventTile: __t.unit(),
 });
 export type TileHostType = __Infer<typeof TileHostType>;
-
-export const TileStageEntry = __t.object("TileStageEntry", {
-  stageEntryId: __t.u64(),
-  soulId: __t.u64(),
-  get hostType() {
-    return TileHostType;
-  },
-  hostId: __t.u64(),
-  cardId: __t.u64(),
-  orderIndex: __t.u32(),
-});
-export type TileStageEntry = __Infer<typeof TileStageEntry>;
 
 export const TileTechniqueAttachment = __t.object("TileTechniqueAttachment", {
   attachmentId: __t.u64(),
@@ -114,3 +107,4 @@ export const WorldTile = __t.object("WorldTile", {
   r: __t.i32(),
 });
 export type WorldTile = __Infer<typeof WorldTile>;
+

@@ -4,20 +4,23 @@
 /* eslint-disable */
 /* tslint:disable */
 import {
+  TypeBuilder as __TypeBuilder,
   t as __t,
+  type AlgebraicTypeType as __AlgebraicTypeType,
+  type Infer as __Infer,
 } from "spacetimedb";
-
 import {
-  RecipeQueueState,
   TileHostType,
+  RecipeQueueState,
 } from "./types";
+
 
 export default __t.row({
   queueId: __t.u64().primaryKey().name("queue_id"),
   recipeId: __t.u32().name("recipe_id"),
   actorSoulId: __t.u64().name("actor_soul_id"),
   get hostType() {
-    return TileHostType;
+    return TileHostType.name("host_type");
   },
   hostId: __t.u64().name("host_id"),
   queuedAtUnixMs: __t.u64().name("queued_at_unix_ms"),

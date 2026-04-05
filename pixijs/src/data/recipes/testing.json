@@ -1,0 +1,232 @@
+[
+  {
+    "action": "Work",
+    "recipes": [
+      {
+        "id": "work forest health",
+        "input":  [ 
+          { 
+            "id": "Forest", 
+            "count": { "value": 1 },
+            "all": [
+              { 
+                "lhs": { 
+                  "lhs": { "value": "Forest" },
+                  "op": "input_val",
+                  "rhs": { "value": "Contested" }
+                  },
+                "op": "eq",
+                "rhs": { "value": "0" }
+              }
+            ]
+          },
+          { 
+            "id": "Health",
+            "count": { "value": 1 },
+            "all": [
+              { 
+                "lhs": { 
+                  "lhs": { "value": "Health" },
+                  "op": "input_val",
+                  "rhs": { "value": "Time" }
+                },
+                "op": "eq",
+                "rhs": { "value": "0" }
+              }
+            ]
+          }        
+        ],
+        "output": [
+          {
+            "id": "Log",
+            "count": {
+              "lhs": { "value": "0" },
+              "op": "rand",
+              "rhs": {
+                "lhs": { "value": "3" },
+                "op": "max",
+                "rhs": {
+                  "lhs": { "value": "Forest" },
+                  "op": "input_val",
+                  "rhs": { "value": "Trees" }
+                }
+              }
+            },
+            "all": [
+              {
+                "lhs": {
+                  "lhs": { "value": "Forest" },
+                  "op": "input_val",
+                  "rhs": { "value": "Trees" }
+                }
+                "op": "ge",
+                "rhs": { "value": "1" }
+              }
+            ],
+            "effects": [
+              {
+                "lhs": {
+                  "lhs": { "value": "Forest" },
+                  "op": "input_ref",
+                  "rhs": { "value": "Trees" }
+                },
+                "op": "apply_sub",
+                "rhs": {
+                  "lhs": { "value": "Log" },
+                  "op": "output_ref",
+                  "rhs": { "value": "Count" }
+                }
+              }
+            ]
+          },
+          {
+            "id": "Food",
+            "count": {
+              "lhs": {
+                "value": "0"
+              },
+              "op": "rand",
+              "rhs": {
+                "lhs": {
+                  "value": "3"
+                },
+                "op": "max",
+                "rhs": {
+                  "lhs": { "value": "Forest" },
+                  "op": "input_val",
+                  "rhs": { "value": "Food" }
+                }
+              }
+            },
+            "all": [
+              {
+                "lhs": {
+                  "lhs": { "value": "Forest" },
+                  "op": "input_val",
+                  "rhs": { "value": "Food" }
+                },
+                "op": "ge",
+                "rhs": {
+                  "value": "1"
+                }
+              }
+            ],
+            "effects": [
+              {
+                "lhs": {
+                  "lhs": {
+                    "value": "Forest"
+                  },
+                  "op": "input_ref",
+                  "rhs": { "value": "Food" }
+                },
+                "op": "apply_sub",
+                "rhs": {
+                  "lhs": { "value": "Food" },
+                  "op": "output_ref",
+                  "rhs": { "value": "Food" }
+                }
+              }
+            ]
+          }
+        ],
+        "effects": [
+          {
+            "lhs": {
+              "lhs": { "value": "Health" },
+              "op": "input_val",
+              "rhs": { "value": "Time" }
+            },
+            "op": "apply_ge",
+            "rhs": { "value": "30" }
+          }
+        ],
+        "time": { "value": "30" }
+      },
+    ],
+  },
+  {
+    "action": "Move",
+    "recipes": [
+      {
+        "id": "move tile character",
+        "input": [
+          {
+            "id": "Tile",
+            "all": [
+              {
+                "lhs": {
+                  "lhs": { "value": "Tile" },
+                  "op": "input_val",
+                  "rhs": { "value": "Pathable" }
+                },
+                "op", "eq",
+                "rhs": { "value": "1" }
+              },
+            ]
+          },
+          {
+            "id": "Character",
+            "all": [
+              {
+                "lhs" {
+                  "lhs": { "value": "Character" },
+                  "op": "input_val",
+                  "rhs": { "value": "actions_running" }
+                },
+                "op": "eq",
+                "rhs": { "value": "0" }
+              },
+              {
+                "lhs": {
+                  "lhs": { "value": "Character" },
+                  "op": "input_val",
+                  "rhs": { "value": "actions_queued" }
+                },
+                "op": "eq",
+                "rhs": { "value": "0" }
+              }
+            ]
+          },
+        ],
+        "output": []
+        "effects": [
+          {
+            "lhs": {
+              "lhs": { "value": "Character" },
+              "op": "input_ref",
+              "rhs": { "value": "Position" }
+            },
+            "op": "apply_eq",
+            "rhs": {
+              "lhs": { "value": "Tile" },
+              "op": "input_val",
+              "rhs": { "value": "Position" }
+            }
+          }
+        ],
+        "time": {
+          "lhs": {
+            "lhs": {
+              "lhs": { "value": "Character" },
+              "op": "input_val",
+              "rhs": { "value": "Position" }
+            },
+            "op": "hex_dist",
+            "rhs": {
+              "lhs": { "value": "Tile" },
+              "op": "input_val",
+              "rhs": { "value": "Position" }
+            }
+          },
+          "op": "div",
+          "rhs": {
+            "lhs": { "value": "Character" },
+            "op": "input_val",
+            "rhs": { "value": "Speed" }
+          }
+        }
+      }
+    ]
+  }
+]
