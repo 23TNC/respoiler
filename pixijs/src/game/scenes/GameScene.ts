@@ -114,23 +114,18 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       }
 
       for (const [tileInstanceId, staged] of stagedForSoul.entries()) {
-        const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(staged.tileId);
-        const hasAuthoritativeAttachment = runtimeDetails?.techniqueCardInstanceId === staged.verbCardInstanceId;
         const verbInstance = runtimeState.cardInstancesById.get(staged.verbCardInstanceId);
-        const isQueuedAndSynced = staged.status === 'queued' && hasAuthoritativeAttachment;
-        if (!isQueuedAndSynced && (!verbInstance || verbInstance.soulId !== soulId)) {
+        if (!verbInstance || verbInstance.soulId !== soulId) {
           removeQueuedActionForTile(staged.tileId, soulId);
           stagedForSoul.delete(tileInstanceId);
           continue;
         }
 
-        if (!isQueuedAndSynced) {
-          const validInputInstanceIds = staged.inputCardInstanceIds.filter((inputInstanceId) => {
-            const inputInstance = runtimeState.cardInstancesById.get(inputInstanceId);
-            return Boolean(inputInstance && inputInstance.soulId === soulId);
-          });
-          staged.inputCardInstanceIds = validInputInstanceIds;
-        }
+        const validInputInstanceIds = staged.inputCardInstanceIds.filter((inputInstanceId) => {
+          const inputInstance = runtimeState.cardInstancesById.get(inputInstanceId);
+          return Boolean(inputInstance && inputInstance.soulId === soulId);
+        });
+        staged.inputCardInstanceIds = validInputInstanceIds;
 
         const localState: CardInstanceState = staged.status === 'queued' ? 'queued' : 'staged';
         cardStateByInstanceId.set(staged.verbCardInstanceId, localState);
@@ -219,9 +214,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return staged;
   };
   const getViewedStaged = (): Map<string, StagedTileAction> => getStagedForSoul(viewedSoulId);
-  const getSyncedAttachedTechniqueId = (tileInstanceId: string): string | null => (
-    runtimeState.runtimeStageDetailsByTileId.get(tileInstanceId)?.techniqueCardInstanceId ?? null
-  );
   const syncTechniqueAttachment = async (soulId: string, tileInstanceId: string, techniqueCardInstanceId: string): Promise<void> => {
     const [hostKind, rawHostId] = tileInstanceId.split(':');
     if ((hostKind !== 'world' && hostKind !== 'event') || !rawHostId) {
@@ -357,25 +349,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     );
 
     for (const [tileId, details] of runtimeState.runtimeStageDetailsByTileId.entries()) {
-      const existing = stagedByTileId.get(tileId);
-      if (existing) {
-        if (details.attachmentName) {
-          existing.verbLabel = details.attachmentName;
-        }
-        if (details.status === 'queued') {
-          existing.status = 'queued';
-        }
-        if (existing.stagedCardNames.length === 0 && details.cardNames.length > 0) {
-          existing.stagedCardNames = details.cardNames;
-        }
+      if (stagedByTileId.has(tileId)) {
         continue;
       }
       stagedByTileId.set(tileId, {
-        verbId: details.techniqueCardInstanceId ?? '',
+        verbId: details.attachmentName ?? '',
         verbLabel: details.attachmentName ?? 'Attached Technique',
         stagedCardNames: details.cardNames,
         repeat: false,
-        status: details.status,
+        status: 'staged',
       });
     }
 
@@ -570,10 +552,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (!tile || (payload.instance.soulId !== viewedSoulId)) {
       return false;
     }
-    const attachedTechniqueId = getSyncedAttachedTechniqueId(tile.id);
-    if (attachedTechniqueId && attachedTechniqueId !== payload.instance.instanceId) {
-      return false;
-    }
 
     const canDrop = canStageCard(
       {
@@ -713,10 +691,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         : null;
       const hoverTile = detailPanelTargetTile ?? (hoverTileInstanceId ? getTileByInstanceId(hoverTileInstanceId) : null);
       if (!hoverTile) {
-        return;
-      }
-      const attachedTechniqueId = getSyncedAttachedTechniqueId(hoverTile.id);
-      if (attachedTechniqueId && attachedTechniqueId !== payload.instance.instanceId) {
         return;
       }
       const canDrop = canStageCard(
