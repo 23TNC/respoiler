@@ -37,6 +37,7 @@ import {
 import AttachTechniqueToEventTileReducer from "./attach_technique_to_event_tile_reducer";
 import AttachTechniqueToWorldTileReducer from "./attach_technique_to_world_tile_reducer";
 import BootstrapMinimalWorldReducer from "./bootstrap_minimal_world_reducer";
+import DebugDecodeQueueRecipeOnHostReducer from "./debug_decode_queue_recipe_on_host_reducer";
 import DetachTechniqueFromHostReducer from "./detach_technique_from_host_reducer";
 import QueueRecipeOnHostReducer from "./queue_recipe_on_host_reducer";
 
@@ -151,6 +152,7 @@ const reducersSchema = __reducers(
   __reducerSchema("attach_technique_to_event_tile", AttachTechniqueToEventTileReducer),
   __reducerSchema("attach_technique_to_world_tile", AttachTechniqueToWorldTileReducer),
   __reducerSchema("bootstrap_minimal_world", BootstrapMinimalWorldReducer),
+  __reducerSchema("debug_decode_queue_recipe_on_host", DebugDecodeQueueRecipeOnHostReducer),
   __reducerSchema("detach_technique_from_host", DetachTechniqueFromHostReducer),
   __reducerSchema("queue_recipe_on_host", QueueRecipeOnHostReducer),
 );
