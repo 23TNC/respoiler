@@ -771,7 +771,7 @@ pub fn queue_recipe_on_host(
         ));
     }
 
-    let now = current_unix_ms();
+    let now = current_unix_ms(ctx);
     info!(
         "[queue_recipe_on_host] before recipe_queue insert actor_soul_id={} recipe_id={} host_type={:?} host_id={} now={}",
         actor_soul_id, recipe_id, host_type, host_id, now
