@@ -2,7 +2,7 @@ import { Application, Container, Graphics, Text } from 'pixi.js';
 import { loadStaticData } from '../../data/loader';
 import { loadCardDefinitions } from '../../data/cards/loader';
 import { createSpacetimeClient } from '../../spacetime/client';
-import { deriveRuntimeState } from '../../spacetime/deriveRuntimeState';
+import { deriveRuntimeState, isRowsSnapshotEmptyForBootstrap } from '../../spacetime/deriveRuntimeState';
 import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
 import type { QueuedAction, StagedTileAction } from '../actions/types';
@@ -44,10 +44,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     eventTiles: [],
     attachments: [],
     stageEntries: [],
+    hasAppliedSubscription: false,
   });
 
   let playerSoulId = '';
   let viewedSoulId = '';
+  let isBootstrapping = false;
+  let hasAttemptedBootstrap = false;
   const worldTiles = new Map<string, HexTile>();
   const hostedTilesBySoulId = new Map<string, SoulHostedTile[]>();
   const cardDefinitionByInstanceId = new Map<string, CardDefinition>();
@@ -877,32 +880,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     clearDrag();
   });
 
-  const seedButton = document.createElement('button');
-  seedButton.textContent = 'Seed SpaceTimeDB test data';
-  seedButton.style.position = 'absolute';
-  seedButton.style.top = '12px';
-  seedButton.style.left = '12px';
-  seedButton.style.zIndex = '2';
-  seedButton.style.padding = '6px 10px';
-  seedButton.style.borderRadius = '8px';
-  seedButton.style.border = '1px solid #90b9ff';
-  seedButton.style.background = '#203a5e';
-  seedButton.style.color = '#eaf2ff';
-  seedButton.style.fontWeight = '700';
-  container.appendChild(seedButton);
-
-  seedButton.addEventListener('click', () => {
-    const seedGuard = sessionStorage.getItem('spacetime-seeded') === '1';
-    if (seedGuard) {
-      return;
-    }
-    void spacetimeClient.seedTestData().then(() => {
-      sessionStorage.setItem('spacetime-seeded', '1');
-      seedButton.textContent = 'Seeded';
-      seedButton.disabled = true;
-    });
-  });
-
   await spacetimeClient.connect({
     uri: 'ws://127.0.0.1:3000',
     databaseName: 'despoiler-dev',
@@ -910,6 +887,23 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
   spacetimeClient.subscribe((rows) => {
     runtimeState = deriveRuntimeState(rows);
+    const isEmptyDb = isRowsSnapshotEmptyForBootstrap(rows);
+    if (!rows.hasAppliedSubscription) {
+      // Wait until subscribed data is applied before deciding whether to bootstrap.
+    } else if (!isEmptyDb) {
+      isBootstrapping = false;
+    } else if (!isBootstrapping && !hasAttemptedBootstrap) {
+      isBootstrapping = true;
+      hasAttemptedBootstrap = true;
+      void spacetimeClient.bootstrapMinimalWorld()
+        .catch((error) => {
+          console.error('SpaceTimeDB minimal bootstrap failed', error);
+          hasAttemptedBootstrap = false;
+        })
+        .finally(() => {
+          isBootstrapping = false;
+        });
+    }
     playerSoulId = runtimeState.playerSoulId ?? '';
     if (!viewedSoulId || !runtimeState.soulById.has(viewedSoulId)) {
       viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';

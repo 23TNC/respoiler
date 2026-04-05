@@ -296,6 +296,53 @@ pub fn seed_test_data(ctx: &ReducerContext) {
 }
 
 #[spacetimedb::reducer]
+pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
+    let has_existing_state = ctx.db.soul().iter().next().is_some()
+        || ctx.db.world_tile().iter().next().is_some()
+        || ctx.db.card().iter().next().is_some()
+        || ctx.db.event_tile().iter().next().is_some()
+        || ctx.db.tile_technique_attachment().iter().next().is_some()
+        || ctx.db.tile_stage_entry().iter().next().is_some();
+
+    if has_existing_state {
+        return;
+    }
+
+    let soul = ctx.db.soul().insert(Soul {
+        soul_id: 0,
+        name: "Bootstrap Soul".to_string(),
+        player_id: Some(ctx.sender()),
+        owner_soul_id: None,
+        subordinate_type: None,
+    });
+
+    let _ = ctx.db.world_tile().insert(WorldTile {
+        tile_id: 0,
+        name: "forest".to_string(),
+        q: 0,
+        r: 0,
+    });
+
+    let _ = ctx.db.card().insert(Card {
+        card_id: 0,
+        soul_id: soul.soul_id,
+        kind: CardKind::Technique,
+        name: "Work".to_string(),
+        bg_color: Some("#f8be6f".to_string()),
+        linked_soul_id: None,
+    });
+
+    let _ = ctx.db.card().insert(Card {
+        card_id: 0,
+        soul_id: soul.soul_id,
+        kind: CardKind::Essence,
+        name: "Health".to_string(),
+        bg_color: Some("#97e3a7".to_string()),
+        linked_soul_id: None,
+    });
+}
+
+#[spacetimedb::reducer]
 pub fn attach_technique_to_world_tile(
     ctx: &ReducerContext,
     soul_id: u64,
