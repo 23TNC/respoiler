@@ -334,7 +334,12 @@ fn find_recipe(recipe_id: u32) -> Result<(u32, RecipeDef), String> {
 }
 
 fn assert_card_unreserved(ctx: &ReducerContext, card_id: u64) -> Result<(), String> {
-    if let Some(existing) = ctx.db.card_reservation().card_id().find(card_id) {
+    if let Some(existing) = ctx
+        .db
+        .card_reservation()
+        .iter()
+        .find(|reservation| reservation.card_id == card_id)
+    {
         return Err(format!(
             "Card {} is already reserved by queue {}",
             card_id, existing.queue_id
@@ -547,6 +552,11 @@ pub fn queue_recipe_on_host(
     technique_card_id: u64,
     input_card_ids: Vec<u64>,
 ) -> Result<(), String> {
+    info!(
+        "[queue_recipe_on_host] entry actor_soul_id={} host_type={:?} host_id={} recipe_id={} technique_card_id={} input_card_ids={:?}",
+        actor_soul_id, host_type, host_id, recipe_id, technique_card_id, input_card_ids
+    );
+
     let _ = require_soul(ctx, actor_soul_id)?;
     if !is_sender_authorized_for_soul(ctx, actor_soul_id) {
         return Err(format!(
@@ -554,6 +564,10 @@ pub fn queue_recipe_on_host(
             actor_soul_id
         ));
     }
+    info!(
+        "[queue_recipe_on_host] checkpoint after soul/auth validation actor_soul_id={}",
+        actor_soul_id
+    );
 
     require_host(ctx, &host_type, host_id)?;
     if host_type == TileHostType::EventTile {
@@ -565,9 +579,17 @@ pub fn queue_recipe_on_host(
             ));
         }
     }
+    info!(
+        "[queue_recipe_on_host] checkpoint after host validation host_type={:?} host_id={}",
+        host_type, host_id
+    );
 
     let attachment = find_attachment_for_host(ctx, actor_soul_id, &host_type, host_id)
         .ok_or_else(|| "No technique attachment exists for this host".to_string())?;
+    info!(
+        "[queue_recipe_on_host] checkpoint after attachment lookup attachment_id={} attached_technique_card_id={}",
+        attachment.attachment_id, attachment.technique_card_id
+    );
     if attachment.technique_card_id != technique_card_id {
         return Err(format!(
             "Submitted technique card {} does not match attached technique {}",
@@ -583,6 +605,10 @@ pub fn queue_recipe_on_host(
         ));
     }
     assert_card_unreserved(ctx, technique_card_id)?;
+    info!(
+        "[queue_recipe_on_host] checkpoint after technique validation technique_card_definition_id={}",
+        technique_card.definition_id
+    );
 
     let mut submitted_definition_counts = HashMap::<u32, u32>::new();
     let host_definition = host_definition_id(ctx, &host_type, host_id)?;
@@ -615,6 +641,11 @@ pub fn queue_recipe_on_host(
             .and_modify(|count| *count += 1)
             .or_insert(1);
     }
+    info!(
+        "[queue_recipe_on_host] checkpoint after input-card validation input_card_count={} submitted_definition_counts={:?}",
+        unique_inputs.len(),
+        submitted_definition_counts
+    );
 
     let (required_action_definition, recipe) = find_recipe(recipe_id)?;
     if required_action_definition != technique_card.definition_id {
@@ -632,6 +663,10 @@ pub fn queue_recipe_on_host(
             .and_modify(|existing| *existing += count)
             .or_insert(count);
     }
+    info!(
+        "[queue_recipe_on_host] checkpoint after recipe validation required_action_definition={} required_definition_counts={:?}",
+        required_action_definition, required_definition_counts
+    );
 
     if required_definition_counts != submitted_definition_counts {
         return Err(format!(
@@ -641,6 +676,10 @@ pub fn queue_recipe_on_host(
     }
 
     let now = current_unix_ms();
+    info!(
+        "[queue_recipe_on_host] before recipe_queue insert actor_soul_id={} recipe_id={} host_type={:?} host_id={} now={}",
+        actor_soul_id, recipe_id, host_type, host_id, now
+    );
     let queue_row = ctx.db.recipe_queue().insert(RecipeQueue {
         queue_id: 0,
         recipe_id,
@@ -651,20 +690,58 @@ pub fn queue_recipe_on_host(
         started_at_unix_ms: None,
         state: RecipeQueueState::Queued,
     });
+    info!(
+        "[queue_recipe_on_host] after recipe_queue insert queue_id={}",
+        queue_row.queue_id
+    );
 
     for card_id in std::iter::once(technique_card_id).chain(input_card_ids.into_iter()) {
+        info!(
+            "[queue_recipe_on_host] before recipe_queue_card insert queue_id={} card_id={}",
+            queue_row.queue_id, card_id
+        );
         ctx.db.recipe_queue_card().insert(RecipeQueueCard {
             queue_card_id: 0,
             queue_id: queue_row.queue_id,
             card_id,
         });
+        info!(
+            "[queue_recipe_on_host] after recipe_queue_card insert queue_id={} card_id={}",
+            queue_row.queue_id, card_id
+        );
 
+        assert_card_unreserved(ctx, card_id)?;
+        info!(
+            "[queue_recipe_on_host] before card_reservation insert queue_id={} card_id={}",
+            queue_row.queue_id, card_id
+        );
         ctx.db.card_reservation().insert(CardReservation {
             card_id,
             queue_id: queue_row.queue_id,
             reserved_at_unix_ms: now,
         });
+        info!(
+            "[queue_recipe_on_host] after card_reservation insert queue_id={} card_id={}",
+            queue_row.queue_id, card_id
+        );
     }
 
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn debug_decode_queue_recipe_on_host(
+    _ctx: &ReducerContext,
+    actor_soul_id: u64,
+    host_type: TileHostType,
+    host_id: u64,
+    recipe_id: u32,
+    technique_card_id: u64,
+    input_card_ids: Vec<u64>,
+) -> Result<(), String> {
+    info!(
+        "[debug_decode_queue_recipe_on_host] decoded actor_soul_id={} host_type={:?} host_id={} recipe_id={} technique_card_id={} input_card_ids={:?}",
+        actor_soul_id, host_type, host_id, recipe_id, technique_card_id, input_card_ids
+    );
     Ok(())
 }
