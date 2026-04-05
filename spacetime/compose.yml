@@ -1,24 +1,11 @@
 services:
-  shell:
-    image: clockworklabs/spacetime:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./keys:/etc/spacetimedb
-      - ./data:/home/spacetime/.local/share/spacetime/data
-      - ./server:/workspace/server
-      - ../pixijs:/workspace/pixijs
-    working_dir: /workspace/server
-    entrypoint: ["/bin/bash"]
-    stdin_open: true
-    tty: true
-
   start:
     image: clockworklabs/spacetime:latest
     ports:
       - "3000:3000"
     volumes:
       - ./keys:/etc/spacetimedb
+      - ./config:/home/spacetime/.config/spacetime
       - ./data:/home/spacetime/.local/share/spacetime/data
       - ./server:/workspace/server
       - ../pixijs:/workspace/pixijs
