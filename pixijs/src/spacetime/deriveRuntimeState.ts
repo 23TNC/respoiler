@@ -76,7 +76,6 @@ export function isRowsSnapshotEmptyForBootstrap(rows: SpacetimeRowsSnapshot): bo
     && rows.worldTiles.length === 0
     && rows.eventTiles.length === 0
     && rows.attachments.length === 0
-    && rows.stageEntries.length === 0
     && rows.recipeQueues.length === 0
     && rows.recipeQueueCards.length === 0
     && rows.cardReservations.length === 0;
@@ -211,16 +210,6 @@ export function deriveRuntimeState(
     const tileId = tileHostInstanceId(attachment.hostType, attachment.hostId);
     const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null };
     existing.attachmentName = cardNameByInstanceId.get(idToString(attachment.techniqueCardId)) ?? null;
-    runtimeStageDetailsByTileId.set(tileId, existing);
-  }
-
-  for (const stage of rows.stageEntries) {
-    const tileId = tileHostInstanceId(stage.hostType, stage.hostId);
-    const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null };
-    const stagedName = cardNameByInstanceId.get(idToString(stage.cardId));
-    if (stagedName) {
-      existing.cardNames.push(stagedName);
-    }
     runtimeStageDetailsByTileId.set(tileId, existing);
   }
 

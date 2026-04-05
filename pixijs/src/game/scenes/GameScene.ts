@@ -43,7 +43,6 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     worldTiles: [],
     eventTiles: [],
     attachments: [],
-    stageEntries: [],
     recipeQueues: [],
     recipeQueueCards: [],
     cardReservations: [],
@@ -187,6 +186,27 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return staged;
   };
   const getViewedStaged = (): Map<string, StagedTileAction> => getStagedForSoul(viewedSoulId);
+  const syncTechniqueAttachment = async (soulId: string, tileInstanceId: string, techniqueCardInstanceId: string): Promise<void> => {
+    const [hostKind, rawHostId] = tileInstanceId.split(':');
+    if ((hostKind !== 'world' && hostKind !== 'event') || !rawHostId) {
+      throw new Error(`Invalid tile target "${tileInstanceId}"`);
+    }
+
+    if (hostKind === 'world') {
+      await spacetimeClient.attachTechniqueToWorldTile(
+        BigInt(soulId),
+        BigInt(techniqueCardInstanceId),
+        BigInt(rawHostId),
+      );
+      return;
+    }
+
+    await spacetimeClient.attachTechniqueToEventTile(
+      BigInt(soulId),
+      BigInt(techniqueCardInstanceId),
+      BigInt(rawHostId),
+    );
+  };
 
   const returnCardsToInventory = (action: Pick<StagedTileAction, 'verbCardInstanceId' | 'inputCardInstanceIds'>): void => {
     cardStateByInstanceId.set(action.verbCardInstanceId, 'in_inventory');
@@ -549,6 +569,13 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     cardStateByInstanceId.set(payload.instance.instanceId, 'staged');
     setSelectedTileInstanceId(staged.tileInstanceId);
     inspectedTarget = { type: 'tile', tileInstanceId: staged.tileInstanceId };
+    void syncTechniqueAttachment(staged.soulId, staged.tileInstanceId, staged.verbCardInstanceId).catch((error: unknown) => {
+      const activeStaged = getViewedStaged().get(staged.tileInstanceId);
+      if (activeStaged) {
+        activeStaged.error = error instanceof Error ? error.message : 'Failed to sync attached technique.';
+      }
+      render();
+    });
     return true;
   };
 

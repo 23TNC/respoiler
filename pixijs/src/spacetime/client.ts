@@ -6,7 +6,6 @@ export interface SpacetimeRowsSnapshot {
   worldTiles: ReturnType<DbConnection['db']['world_tile']['iter']> extends Iterable<infer T> ? T[] : never[];
   eventTiles: ReturnType<DbConnection['db']['event_tile']['iter']> extends Iterable<infer T> ? T[] : never[];
   attachments: ReturnType<DbConnection['db']['tile_technique_attachment']['iter']> extends Iterable<infer T> ? T[] : never[];
-  stageEntries: ReturnType<DbConnection['db']['tile_stage_entry']['iter']> extends Iterable<infer T> ? T[] : never[];
   recipeQueues: ReturnType<DbConnection['db']['recipe_queue']['iter']> extends Iterable<infer T> ? T[] : never[];
   recipeQueueCards: ReturnType<DbConnection['db']['recipe_queue_card']['iter']> extends Iterable<infer T> ? T[] : never[];
   cardReservations: ReturnType<DbConnection['db']['card_reservation']['iter']> extends Iterable<infer T> ? T[] : never[];
@@ -25,7 +24,6 @@ const SUBSCRIPTION_SQL = [
   'SELECT * FROM world_tile',
   'SELECT * FROM event_tile',
   'SELECT * FROM tile_technique_attachment',
-  'SELECT * FROM tile_stage_entry',
   'SELECT * FROM recipe_queue',
   'SELECT * FROM recipe_queue_card',
   'SELECT * FROM card_reservation',
@@ -126,13 +124,6 @@ export class SpacetimeClient {
     await this.connection.reducers.attachTechniqueToEventTile({ soulId, techniqueCardId, eventTileId });
   }
 
-  async stageCardOnHost(soulId: bigint, hostType: 'WorldTile' | 'EventTile', hostId: bigint, cardId: bigint): Promise<void> {
-    if (!this.connection) {
-      return;
-    }
-    await this.connection.reducers.stageCardOnHost({ soulId, hostType: { tag: hostType }, hostId, cardId });
-  }
-
   async queueRecipeOnHost(
     actorSoulId: bigint,
     hostType: 'WorldTile' | 'EventTile',
@@ -177,7 +168,6 @@ export class SpacetimeClient {
     wire(db.world_tile);
     wire(db.event_tile);
     wire(db.tile_technique_attachment);
-    wire(db.tile_stage_entry);
     wire(db.recipe_queue);
     wire(db.recipe_queue_card);
     wire(db.card_reservation);
@@ -191,7 +181,6 @@ export class SpacetimeClient {
         worldTiles: [],
         eventTiles: [],
         attachments: [],
-        stageEntries: [],
         recipeQueues: [],
         recipeQueueCards: [],
         cardReservations: [],
@@ -205,7 +194,6 @@ export class SpacetimeClient {
       worldTiles: Array.from(this.connection.db.world_tile.iter()),
       eventTiles: Array.from(this.connection.db.event_tile.iter()),
       attachments: Array.from(this.connection.db.tile_technique_attachment.iter()),
-      stageEntries: Array.from(this.connection.db.tile_stage_entry.iter()),
       recipeQueues: Array.from(this.connection.db.recipe_queue.iter()),
       recipeQueueCards: Array.from(this.connection.db.recipe_queue_card.iter()),
       cardReservations: Array.from(this.connection.db.card_reservation.iter()),

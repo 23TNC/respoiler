@@ -39,8 +39,6 @@ import AttachTechniqueToWorldTileReducer from "./attach_technique_to_world_tile_
 import BootstrapMinimalWorldReducer from "./bootstrap_minimal_world_reducer";
 import DetachTechniqueFromHostReducer from "./detach_technique_from_host_reducer";
 import QueueRecipeOnHostReducer from "./queue_recipe_on_host_reducer";
-import StageCardOnHostReducer from "./stage_card_on_host_reducer";
-import UnstageCardFromHostReducer from "./unstage_card_from_host_reducer";
 
 // Import all procedure arg schemas
 
@@ -51,7 +49,6 @@ import EventTileRow from "./event_tile_table";
 import RecipeQueueCardRow from "./recipe_queue_card_table";
 import RecipeQueueRow from "./recipe_queue_table";
 import SoulRow from "./soul_table";
-import TileStageEntryRow from "./tile_stage_entry_table";
 import TileTechniqueAttachmentRow from "./tile_technique_attachment_table";
 import WorldTileRow from "./world_tile_table";
 
@@ -125,17 +122,6 @@ const tablesSchema = __schema({
       { name: 'soul_soul_id_key', constraint: 'unique', columns: ['soulId'] },
     ],
   }, SoulRow),
-  tile_stage_entry: __table({
-    name: 'tile_stage_entry',
-    indexes: [
-      { name: 'stage_entry_id', algorithm: 'btree', columns: [
-        'stageEntryId',
-      ] },
-    ],
-    constraints: [
-      { name: 'tile_stage_entry_stage_entry_id_key', constraint: 'unique', columns: ['stageEntryId'] },
-    ],
-  }, TileStageEntryRow),
   tile_technique_attachment: __table({
     name: 'tile_technique_attachment',
     indexes: [
@@ -167,8 +153,6 @@ const reducersSchema = __reducers(
   __reducerSchema("bootstrap_minimal_world", BootstrapMinimalWorldReducer),
   __reducerSchema("detach_technique_from_host", DetachTechniqueFromHostReducer),
   __reducerSchema("queue_recipe_on_host", QueueRecipeOnHostReducer),
-  __reducerSchema("stage_card_on_host", StageCardOnHostReducer),
-  __reducerSchema("unstage_card_from_host", UnstageCardFromHostReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
