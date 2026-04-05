@@ -14,7 +14,7 @@ export interface RenderedTileActionBadge {
   cardColor?: number;
   stagedCardNames: string[];
   repeat: boolean;
-  status: 'staged' | 'queued';
+  status: 'staged' | 'queued' | 'running';
 }
 
 export type DropFeedbackState = 'none' | 'valid' | 'invalid';
@@ -101,11 +101,15 @@ export class HexBoardRenderer {
 
       let lineY = titleText.height + 1;
       if (staged) {
-        const statusIndicator = staged.status === 'queued' ? 'q' : 's';
+        const statusIndicator = staged.status === 'queued'
+          ? 'Q'
+          : staged.status === 'running'
+            ? 'R'
+            : 'S';
         const stagedCardsLabel = staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None';
         const metaText = new Text(`${statusIndicator}: ${stagedCardsLabel}`, {
           fontSize: 9,
-          fill: staged.status === 'queued' ? '#9af3b1' : '#ffd999',
+          fill: staged.status === 'queued' ? '#9af3b1' : staged.status === 'running' ? '#ffe0a6' : '#ffd999',
           fontWeight: '700',
         });
         metaText.anchor.set(0.5, 0);

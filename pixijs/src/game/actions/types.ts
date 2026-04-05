@@ -9,7 +9,7 @@ export interface StagedTileAction {
   queuedVerbLabel?: string;
   queuedInputCardNames?: string[];
   repeat: boolean;
-  status: 'staged' | 'queued';
+  status: 'staged' | 'queued' | 'running';
   error?: string;
 }
 
