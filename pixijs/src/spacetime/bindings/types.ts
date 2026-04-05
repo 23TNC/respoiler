@@ -20,7 +20,6 @@ export const EventTile = __t.object("EventTile", {
   eventTileId: __t.u64(),
   soulId: __t.u64(),
   definitionId: __t.u32(),
-  label: __t.string(),
   displayOrder: __t.u32(),
 });
 export type EventTile = __Infer<typeof EventTile>;

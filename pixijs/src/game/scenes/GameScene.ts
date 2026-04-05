@@ -137,6 +137,21 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   fixedUiLayer.addChild(hostedTilesUI.root);
 
   let selectedTileInstanceId: string | null = null;
+  const setSelectedTileInstanceId = (next: string | null): void => {
+    if (selectedTileInstanceId === next) {
+      return;
+    }
+    selectedTileInstanceId = next;
+    if (!next) {
+      return;
+    }
+    const [selectionKind, runtimeId] = next.split(':');
+    if (selectionKind === 'world') {
+      console.info('[Selection] world tile selected', { tileId: runtimeId });
+    } else if (selectionKind === 'event') {
+      console.info('[Selection] event tile selected', { eventTileId: runtimeId });
+    }
+  };
   let lastCardClick: { instanceId: string; atMs: number } | null = null;
   let inspectedTarget:
     | { type: 'tile'; tileInstanceId: string }
@@ -529,7 +544,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     getViewedStaged().set(staged.tileInstanceId, staged);
     cardStateByInstanceId.set(payload.instance.instanceId, 'staged');
-    selectedTileInstanceId = staged.tileInstanceId;
+    setSelectedTileInstanceId(staged.tileInstanceId);
     inspectedTarget = { type: 'tile', tileInstanceId: staged.tileInstanceId };
     return true;
   };
@@ -589,12 +604,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const feedback = getInputDropFeedback(payload, targetTileInstanceId);
     if (feedback.state !== 'valid') {
       staged.error = feedback.reason;
-      selectedTileInstanceId = targetTileInstanceId;
+      setSelectedTileInstanceId(targetTileInstanceId);
       inspectedTarget = { type: 'tile', tileInstanceId: targetTileInstanceId };
       return false;
     }
 
-    selectedTileInstanceId = targetTileInstanceId;
+    setSelectedTileInstanceId(targetTileInstanceId);
     inspectedTarget = { type: 'tile', tileInstanceId: targetTileInstanceId };
     return tryAddInputCardToStaged(payload, staged);
   };
@@ -770,7 +785,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
     if (characterBoard.isPointInReturnToPlayer(x, y)) {
       viewedSoulId = playerSoulId;
-      selectedTileInstanceId = null;
+      setSelectedTileInstanceId(null);
       inspectedTarget = null;
       render();
       return;
@@ -841,7 +856,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
               && (now - lastCardClick.atMs) <= 350
             ) {
               viewedSoulId = pointerDown.cardPayload.instance.linkedSoulId;
-              selectedTileInstanceId = null;
+              setSelectedTileInstanceId(null);
               inspectedTarget = null;
               lastCardClick = null;
               render();
@@ -851,7 +866,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
             lastCardClick = { instanceId: pointerDown.cardPayload.instance.instanceId, atMs: now };
             render();
           } else if (pointerDown.tileInstanceId && getTileByInstanceId(pointerDown.tileInstanceId)) {
-            selectedTileInstanceId = pointerDown.tileInstanceId;
+            setSelectedTileInstanceId(pointerDown.tileInstanceId);
             inspectedTarget = { type: 'tile', tileInstanceId: pointerDown.tileInstanceId };
             render();
           }

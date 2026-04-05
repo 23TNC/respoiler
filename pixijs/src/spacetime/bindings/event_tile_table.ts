@@ -11,6 +11,5 @@ export default __t.row({
   eventTileId: __t.u64().primaryKey().name("event_tile_id"),
   soulId: __t.u64().name("soul_id"),
   definitionId: __t.u32().name("definition_id"),
-  label: __t.string(),
   displayOrder: __t.u32().name("display_order"),
 });
