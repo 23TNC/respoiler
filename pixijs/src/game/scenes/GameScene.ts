@@ -126,7 +126,8 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
       for (const [tileInstanceId, staged] of stagedForSoul.entries()) {
         const verbInstance = runtimeState.cardInstancesById.get(staged.verbCardInstanceId);
-        if (!verbInstance || verbInstance.soulId !== soulId) {
+        const missingVerbAllowedWhileQueued = staged.status === 'queued' && !verbInstance;
+        if ((!verbInstance || verbInstance.soulId !== soulId) && !missingVerbAllowedWhileQueued) {
           removeQueuedActionForTile(staged.tileId, soulId);
           stagedForSoul.delete(tileInstanceId);
           continue;
@@ -134,7 +135,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
 
         const validInputInstanceIds = staged.inputCardInstanceIds.filter((inputInstanceId) => {
           const inputInstance = runtimeState.cardInstancesById.get(inputInstanceId);
-          return Boolean(inputInstance && inputInstance.soulId === soulId);
+          if (!inputInstance) {
+            return staged.status === 'queued';
+          }
+          return inputInstance.soulId === soulId;
         });
         staged.inputCardInstanceIds = validInputInstanceIds;
 
@@ -340,7 +344,9 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       status: 'staged' | 'queued';
     }>(
       Array.from(viewedStaged.values()).map((staged) => {
-        const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name ?? staged.verbCardInstanceId;
+        const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name
+          ?? staged.queuedVerbLabel
+          ?? staged.verbCardInstanceId;
         const stagedTile = getTileByInstanceId(staged.tileInstanceId);
         return [
           staged.tileId,
@@ -349,9 +355,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
             verbLabel,
             tileLabel: staticData.tileTypeByKey.get(stagedTile?.tileType ?? '')?.name,
             cardColor: getCardByInstanceId(staged.verbCardInstanceId)?.backgroundColor,
-            stagedCardNames: staged.inputCardInstanceIds.map(
+            stagedCardNames: (
+              staged.status === 'queued' && staged.queuedInputCardNames?.length
+                ? staged.queuedInputCardNames
+                : staged.inputCardInstanceIds.map(
               (instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId,
-            ),
+            )),
             repeat: staged.repeat,
             status: staged.status,
           },
@@ -368,7 +377,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
         verbLabel: details.attachmentName ?? 'Attached Technique',
         stagedCardNames: details.cardNames,
         repeat: false,
-        status: 'staged',
+        status: details.status,
       });
     }
 
@@ -816,6 +825,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       BigInt(staged.verbCardInstanceId),
       staged.inputCardInstanceIds.map((id) => BigInt(id)),
     ).then(() => {
+      staged.queuedVerbLabel = verbCard.name;
+      staged.queuedInputCardNames = staged.inputCardInstanceIds.map(
+        (instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId,
+      );
       const queued = toQueuedAction(staged);
       queuedTechniques.push(queued);
       staged.status = 'queued';

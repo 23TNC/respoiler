@@ -101,7 +101,7 @@ export class HexBoardRenderer {
 
       let lineY = titleText.height + 1;
       if (staged) {
-        const statusIndicator = staged.status === 'queued' ? 'Q' : 'S';
+        const statusIndicator = staged.status === 'queued' ? 'q' : 's';
         const stagedCardsLabel = staged.stagedCardNames.length > 0 ? staged.stagedCardNames.join(', ') : 'None';
         const metaText = new Text(`${statusIndicator}: ${stagedCardsLabel}`, {
           fontSize: 9,

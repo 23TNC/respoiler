@@ -22,6 +22,7 @@ function createEmptyInventory(): CharacterInventory {
 export interface RuntimeStageDetails {
   cardNames: string[];
   attachmentName: string | null;
+  status: 'staged' | 'queued';
 }
 
 export interface RuntimeDerivedState {
@@ -205,14 +206,43 @@ export function deriveRuntimeState(
   }
 
   const cardNameByInstanceId = new Map(
-    Array.from(cardDefinitionsByInstanceId.entries()).map(([instanceId, def]) => [instanceId, def.name]),
+    rows.cards.map((card) => {
+      const instanceId = idToString(card.cardId);
+      const definitionId = Number(card.definitionId);
+      const cardDefinition = findCardDefinitionByRuntimeCardId(definitionId, cardDefinitionsById);
+      return [instanceId, cardDefinition?.name ?? instanceId] as const;
+    }),
   );
   const runtimeStageDetailsByTileId = new Map<string, RuntimeStageDetails>();
 
   for (const attachment of rows.attachments) {
     const tileId = tileHostInstanceId(attachment.hostType, attachment.hostId);
-    const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null };
+    const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null, status: 'staged' as const };
     existing.attachmentName = cardNameByInstanceId.get(idToString(attachment.techniqueCardId)) ?? null;
+    runtimeStageDetailsByTileId.set(tileId, existing);
+  }
+
+  const queueCardIdsByQueueId = new Map<string, string[]>();
+  for (const queueCard of rows.recipeQueueCards) {
+    const queueId = idToString(queueCard.queueId);
+    const list = queueCardIdsByQueueId.get(queueId) ?? [];
+    list.push(idToString(queueCard.cardId));
+    queueCardIdsByQueueId.set(queueId, list);
+  }
+
+  for (const queue of rows.recipeQueues) {
+    const queueState = queue.state && typeof queue.state === 'object'
+      ? Object.keys(queue.state)[0]
+      : '';
+    if (queueState !== 'Queued') {
+      continue;
+    }
+
+    const tileId = tileHostInstanceId(queue.hostType, queue.hostId);
+    const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null, status: 'staged' as const };
+    const queueCardIds = queueCardIdsByQueueId.get(idToString(queue.queueId)) ?? [];
+    existing.cardNames = queueCardIds.map((cardId) => cardNameByInstanceId.get(cardId) ?? cardId);
+    existing.status = 'queued';
     runtimeStageDetailsByTileId.set(tileId, existing);
   }
 

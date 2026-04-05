@@ -6,6 +6,8 @@ export interface StagedTileAction {
   tileInstanceId: string;
   verbCardInstanceId: string;
   inputCardInstanceIds: string[];
+  queuedVerbLabel?: string;
+  queuedInputCardNames?: string[];
   repeat: boolean;
   status: 'staged' | 'queued';
   error?: string;
