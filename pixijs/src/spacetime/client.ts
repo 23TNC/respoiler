@@ -139,6 +139,21 @@ export class SpacetimeClient {
     await this.connection.reducers.attachTechniqueToEventTile({ soulId, techniqueCardId, eventTileId });
   }
 
+  async detachTechniqueFromHost(
+    soulId: bigint,
+    hostType: 'WorldTile' | 'EventTile',
+    hostId: bigint,
+  ): Promise<void> {
+    if (!this.connection) {
+      return;
+    }
+    await this.connection.reducers.detachTechniqueFromHost({
+      soulId,
+      hostType: { tag: hostType },
+      hostId,
+    });
+  }
+
   async queueRecipeOnHost(
     actorSoulId: bigint,
     hostType: 'WorldTile' | 'EventTile',

@@ -288,6 +288,23 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     );
   };
 
+  const hasRuntimeQueuedState = (tileInstanceId: string): boolean => {
+    const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(tileInstanceId);
+    return runtimeDetails?.status === 'queued' || runtimeDetails?.status === 'running';
+  };
+
+  const detachTechniqueAttachment = async (soulId: string, tileInstanceId: string): Promise<void> => {
+    const [hostKind, rawHostId] = tileInstanceId.split(':');
+    if ((hostKind !== 'world' && hostKind !== 'event') || !rawHostId) {
+      throw new Error(`Invalid tile target "${tileInstanceId}"`);
+    }
+    await spacetimeClient.detachTechniqueFromHost(
+      BigInt(soulId),
+      hostKind === 'world' ? 'WorldTile' : 'EventTile',
+      BigInt(rawHostId),
+    );
+  };
+
   const returnCardsToInventory = (action: Pick<StagedTileAction, 'verbCardInstanceId' | 'inputCardInstanceIds'>): void => {
     cardStateByInstanceId.set(action.verbCardInstanceId, 'in_inventory');
     for (const inputId of action.inputCardInstanceIds) {
@@ -360,6 +377,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     returnCardsToInventory(existing);
     removeQueuedActionForTile(existing.tileId, soulId);
     stagedForSoul.delete(tileInstanceId);
+
+    if (existing.status === 'staged' && !hasRuntimeQueuedState(tileInstanceId)) {
+      void detachTechniqueAttachment(soulId, tileInstanceId).catch((error: unknown) => {
+        console.error('[Stage] failed to detach technique attachment', { tileInstanceId, soulId, error });
+      });
+    }
   };
 
   const render = (): void => {
@@ -505,6 +528,11 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     staged.error = undefined;
     staged.status = 'staged';
     draggingDetachedAction = staged;
+    if (!hasRuntimeQueuedState(tileKey)) {
+      void detachTechniqueAttachment(viewedSoulId, tileKey).catch((error: unknown) => {
+        console.error('[Stage] failed to detach technique attachment during drag', { tileKey, error });
+      });
+    }
 
     beginDrag(
       {
