@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import AttachTechniqueToEventTileReducer from "./attach_technique_to_event_tile_reducer";
 import AttachTechniqueToWorldTileReducer from "./attach_technique_to_world_tile_reducer";
+import BootstrapMinimalWorldReducer from "./bootstrap_minimal_world_reducer";
 import DetachTechniqueFromHostReducer from "./detach_technique_from_host_reducer";
 import SeedTestDataReducer from "./seed_test_data_reducer";
 import StageCardOnHostReducer from "./stage_card_on_host_reducer";
@@ -127,6 +128,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("attach_technique_to_event_tile", AttachTechniqueToEventTileReducer),
   __reducerSchema("attach_technique_to_world_tile", AttachTechniqueToWorldTileReducer),
+  __reducerSchema("bootstrap_minimal_world", BootstrapMinimalWorldReducer),
   __reducerSchema("detach_technique_from_host", DetachTechniqueFromHostReducer),
   __reducerSchema("seed_test_data", SeedTestDataReducer),
   __reducerSchema("stage_card_on_host", StageCardOnHostReducer),
@@ -186,4 +188,3 @@ export class DbConnection extends __DbConnectionImpl<typeof REMOTE_MODULE> {
     return new SubscriptionBuilder(this);
   };
 }
-

@@ -29,6 +29,22 @@ export interface RuntimeDerivedState {
   runtimeStageDetailsByTileId: Map<string, RuntimeStageDetails>;
 }
 
+const KNOWN_WORLD_TILE_TYPES = new Set(['campfire', 'plains', 'forest', 'water', 'ruins']);
+
+function deriveWorldTileTypeId(rawName: string): string {
+  const normalized = rawName.trim().toLowerCase().replace(/\s+/g, '-');
+  return KNOWN_WORLD_TILE_TYPES.has(normalized) ? normalized : 'campfire';
+}
+
+export function isRowsSnapshotEmptyForBootstrap(rows: SpacetimeRowsSnapshot): boolean {
+  return rows.souls.length === 0
+    && rows.cards.length === 0
+    && rows.worldTiles.length === 0
+    && rows.eventTiles.length === 0
+    && rows.attachments.length === 0
+    && rows.stageEntries.length === 0;
+}
+
 function idToString(value: bigint | number | string): string {
   return value.toString();
 }
@@ -118,7 +134,7 @@ export function deriveRuntimeState(rows: SpacetimeRowsSnapshot): RuntimeDerivedS
       id: idToString(tile.tileId),
       q: tile.q,
       r: tile.r,
-      tileType: 'campfire',
+      tileType: deriveWorldTileTypeId(tile.name),
       improvement: null,
       visibleSides: ['N', 'NE', 'SE', 'S', 'SW', 'NW'],
       hiddenPresenceCount: 0,

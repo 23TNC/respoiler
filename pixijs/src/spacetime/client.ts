@@ -7,6 +7,7 @@ export interface SpacetimeRowsSnapshot {
   eventTiles: ReturnType<DbConnection['db']['event_tile']['iter']> extends Iterable<infer T> ? T[] : never[];
   attachments: ReturnType<DbConnection['db']['tile_technique_attachment']['iter']> extends Iterable<infer T> ? T[] : never[];
   stageEntries: ReturnType<DbConnection['db']['tile_stage_entry']['iter']> extends Iterable<infer T> ? T[] : never[];
+  hasAppliedSubscription: boolean;
 }
 
 export interface SpacetimeClientConfig {
@@ -31,7 +32,8 @@ export class SpacetimeClient {
 
   private listeners = new Set<(rows: SpacetimeRowsSnapshot) => void>();
 
-  private seedRequested = false;
+  private bootstrapRequested = false;
+  private hasAppliedSubscription = false;
 
   get isConnected(): boolean {
     return this.connection?.isActive ?? false;
@@ -68,10 +70,12 @@ export class SpacetimeClient {
       });
 
     this.connection = builder.build();
+    this.hasAppliedSubscription = false;
 
     this.subscriptionHandle = this.connection
       .subscriptionBuilder()
       .onApplied(() => {
+        this.hasAppliedSubscription = true;
         this.notify();
       })
       .onError((_ctx) => {
@@ -85,17 +89,18 @@ export class SpacetimeClient {
     this.subscriptionHandle = null;
     this.connection?.disconnect();
     this.connection = null;
+    this.hasAppliedSubscription = false;
   }
 
-  async seedTestData(): Promise<void> {
-    if (!this.connection || this.seedRequested) {
+  async bootstrapMinimalWorld(): Promise<void> {
+    if (!this.connection || this.bootstrapRequested) {
       return;
     }
-    this.seedRequested = true;
+    this.bootstrapRequested = true;
     try {
-      await this.connection.reducers.seedTestData({});
+      await this.connection.reducers.bootstrapMinimalWorld({});
     } finally {
-      this.seedRequested = false;
+      this.bootstrapRequested = false;
     }
   }
 
@@ -153,6 +158,7 @@ export class SpacetimeClient {
         eventTiles: [],
         attachments: [],
         stageEntries: [],
+        hasAppliedSubscription: false,
       };
     }
 
@@ -163,6 +169,7 @@ export class SpacetimeClient {
       eventTiles: Array.from(this.connection.db.event_tile.iter()),
       attachments: Array.from(this.connection.db.tile_technique_attachment.iter()),
       stageEntries: Array.from(this.connection.db.tile_stage_entry.iter()),
+      hasAppliedSubscription: this.hasAppliedSubscription,
     };
   }
 
