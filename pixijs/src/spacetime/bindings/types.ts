@@ -16,6 +16,13 @@ export const Card = __t.object("Card", {
 });
 export type Card = __Infer<typeof Card>;
 
+export const CardReservation = __t.object("CardReservation", {
+  cardId: __t.u64(),
+  queueId: __t.u64(),
+  reservedAtUnixMs: __t.u64(),
+});
+export type CardReservation = __Infer<typeof CardReservation>;
+
 export const EventTile = __t.object("EventTile", {
   eventTileId: __t.u64(),
   soulId: __t.u64(),
@@ -23,6 +30,35 @@ export const EventTile = __t.object("EventTile", {
   displayOrder: __t.u32(),
 });
 export type EventTile = __Infer<typeof EventTile>;
+
+export const RecipeQueueState = __t.enum("RecipeQueueState", {
+  Queued: __t.unit(),
+  Canceled: __t.unit(),
+});
+export type RecipeQueueState = __Infer<typeof RecipeQueueState>;
+
+export const RecipeQueue = __t.object("RecipeQueue", {
+  queueId: __t.u64(),
+  recipeId: __t.u32(),
+  actorSoulId: __t.u64(),
+  get hostType() {
+    return TileHostType;
+  },
+  hostId: __t.u64(),
+  queuedAtUnixMs: __t.u64(),
+  startedAtUnixMs: __t.option(__t.u64()),
+  get state() {
+    return RecipeQueueState;
+  },
+});
+export type RecipeQueue = __Infer<typeof RecipeQueue>;
+
+export const RecipeQueueCard = __t.object("RecipeQueueCard", {
+  queueCardId: __t.u64(),
+  queueId: __t.u64(),
+  cardId: __t.u64(),
+});
+export type RecipeQueueCard = __Infer<typeof RecipeQueueCard>;
 
 export const Soul = __t.object("Soul", {
   soulId: __t.u64(),

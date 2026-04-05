@@ -76,7 +76,10 @@ export function isRowsSnapshotEmptyForBootstrap(rows: SpacetimeRowsSnapshot): bo
     && rows.worldTiles.length === 0
     && rows.eventTiles.length === 0
     && rows.attachments.length === 0
-    && rows.stageEntries.length === 0;
+    && rows.stageEntries.length === 0
+    && rows.recipeQueues.length === 0
+    && rows.recipeQueueCards.length === 0
+    && rows.cardReservations.length === 0;
 }
 
 export function deriveRuntimeState(
@@ -104,9 +107,15 @@ export function deriveRuntimeState(
     inventoryBySoulId[soul.soulId] = createEmptyInventory();
   }
 
+  const reservedCardIds = new Set(rows.cardReservations.map((reservation) => idToString(reservation.cardId)));
+
   for (const card of rows.cards) {
-    const soulId = idToString(card.soulId);
     const instanceId = idToString(card.cardId);
+    if (reservedCardIds.has(instanceId)) {
+      continue;
+    }
+
+    const soulId = idToString(card.soulId);
     const cardId = Number(card.definitionId);
     const cardDefinition = findCardDefinitionByRuntimeCardId(cardId, cardDefinitionsById);
     const resolvedGroup = resolveCanonicalCardGroup(

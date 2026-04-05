@@ -1,5 +1,8 @@
 use log::info;
+use serde::Deserialize;
 use spacetimedb::{Identity, ReducerContext, SpacetimeType, Table};
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const CARD_WORK: u32 = 1;
 const CARD_STUDY: u32 = 2;
@@ -42,6 +45,12 @@ pub struct Card {
     pub soul_id: u64,
     pub definition_id: u32,
     pub linked_soul_id: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, SpacetimeType)]
+pub enum RecipeQueueState {
+    Queued,
+    Canceled,
 }
 
 #[spacetimedb::table(accessor = world_tile, public)]
@@ -87,6 +96,61 @@ pub struct TileStageEntry {
     pub order_index: u32,
 }
 
+#[spacetimedb::table(accessor = recipe_queue, public)]
+pub struct RecipeQueue {
+    #[primary_key]
+    #[auto_inc]
+    pub queue_id: u64,
+    pub recipe_id: u32,
+    pub actor_soul_id: u64,
+    pub host_type: TileHostType,
+    pub host_id: u64,
+    pub queued_at_unix_ms: u64,
+    pub started_at_unix_ms: Option<u64>,
+    pub state: RecipeQueueState,
+}
+
+#[spacetimedb::table(accessor = recipe_queue_card, public)]
+pub struct RecipeQueueCard {
+    #[primary_key]
+    #[auto_inc]
+    pub queue_card_id: u64,
+    pub queue_id: u64,
+    pub card_id: u64,
+}
+
+#[spacetimedb::table(accessor = card_reservation, public)]
+pub struct CardReservation {
+    #[primary_key]
+    pub card_id: u64,
+    pub queue_id: u64,
+    pub reserved_at_unix_ms: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecipeFileDef {
+    action_card_id: u32,
+    recipes: Vec<RecipeDef>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RecipeDef {
+    id: u32,
+    input: Vec<RecipeInputBinding>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RecipeInputBinding {
+    id: u32,
+    count: Option<RecipeExpr>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RecipeExpr {
+    value: Option<serde_json::Value>,
+}
+
 fn is_technique_definition(definition_id: u32) -> bool {
     matches!(definition_id, CARD_WORK | CARD_STUDY)
 }
@@ -97,6 +161,14 @@ fn require_card(ctx: &ReducerContext, card_id: u64) -> Result<Card, String> {
         .card_id()
         .find(card_id)
         .ok_or_else(|| format!("Card {} not found", card_id))
+}
+
+fn require_soul(ctx: &ReducerContext, soul_id: u64) -> Result<Soul, String> {
+    ctx.db
+        .soul()
+        .soul_id()
+        .find(soul_id)
+        .ok_or_else(|| format!("Soul {} not found", soul_id))
 }
 
 fn require_world_tile(ctx: &ReducerContext, tile_id: u64) -> Result<WorldTile, String> {
@@ -178,6 +250,79 @@ fn require_host(ctx: &ReducerContext, host_type: &TileHostType, host_id: u64) ->
         TileHostType::EventTile => {
             let _ = require_event_tile(ctx, host_id)?;
         }
+    }
+    Ok(())
+}
+
+fn host_definition_id(ctx: &ReducerContext, host_type: &TileHostType, host_id: u64) -> Result<u32, String> {
+    match host_type {
+        TileHostType::WorldTile => Ok(require_world_tile(ctx, host_id)?.definition_id),
+        TileHostType::EventTile => Ok(require_event_tile(ctx, host_id)?.definition_id),
+    }
+}
+
+fn is_sender_authorized_for_soul(ctx: &ReducerContext, actor_soul_id: u64) -> bool {
+    let sender = ctx.sender();
+    let souls: Vec<Soul> = ctx.db.soul().iter().collect();
+    let soul_by_id: HashMap<u64, &Soul> = souls.iter().map(|soul| (soul.soul_id, soul)).collect();
+
+    let mut cursor = Some(actor_soul_id);
+    while let Some(soul_id) = cursor {
+        let Some(soul) = soul_by_id.get(&soul_id) else {
+            return false;
+        };
+        if soul.player_id.as_ref() == Some(&sender) {
+            return true;
+        }
+        cursor = soul.owner_soul_id;
+    }
+
+    false
+}
+
+fn current_unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn parse_constant_count(expr: &Option<RecipeExpr>) -> Result<u32, String> {
+    let Some(expr) = expr else {
+        return Ok(1);
+    };
+    let Some(value) = &expr.value else {
+        return Err("Only constant numeric recipe input counts are currently supported".to_string());
+    };
+    let Some(count) = value.as_u64() else {
+        return Err("Recipe input count must be an unsigned integer".to_string());
+    };
+    if count == 0 {
+        return Err("Recipe input count must be >= 1".to_string());
+    }
+    Ok(count as u32)
+}
+
+fn find_recipe(recipe_id: u32) -> Result<(u32, RecipeDef), String> {
+    let raw = include_str!("../static/recipes/base.recipes.json");
+    let files: Vec<RecipeFileDef> =
+        serde_json::from_str(raw).map_err(|error| format!("Failed parsing recipe JSON: {error}"))?;
+
+    for file in files {
+        if let Some(recipe) = file.recipes.into_iter().find(|candidate| candidate.id == recipe_id) {
+            return Ok((file.action_card_id, recipe));
+        }
+    }
+
+    Err(format!("Unknown recipe id {}", recipe_id))
+}
+
+fn assert_card_unreserved(ctx: &ReducerContext, card_id: u64) -> Result<(), String> {
+    if let Some(existing) = ctx.db.card_reservation().card_id().find(card_id) {
+        return Err(format!(
+            "Card {} is already reserved by queue {}",
+            card_id, existing.queue_id
+        ));
     }
     Ok(())
 }
@@ -448,4 +593,121 @@ pub fn unstage_card_from_host(
             .stage_entry_id()
             .delete(&stage_entry_id);
     }
+}
+
+#[spacetimedb::reducer]
+pub fn queue_recipe_on_host(
+    ctx: &ReducerContext,
+    actor_soul_id: u64,
+    host_type: TileHostType,
+    host_id: u64,
+    recipe_id: u32,
+    technique_card_id: u64,
+    input_card_ids: Vec<u64>,
+) -> Result<(), String> {
+    let _ = require_soul(ctx, actor_soul_id)?;
+    if !is_sender_authorized_for_soul(ctx, actor_soul_id) {
+        return Err(format!(
+            "Sender is not authorized to queue recipes for soul {}",
+            actor_soul_id
+        ));
+    }
+
+    require_host(ctx, &host_type, host_id)?;
+    if host_type == TileHostType::EventTile {
+        let event_tile = require_event_tile(ctx, host_id)?;
+        if event_tile.soul_id != actor_soul_id {
+            return Err(format!(
+                "Event tile {} belongs to soul {}, not {}",
+                host_id, event_tile.soul_id, actor_soul_id
+            ));
+        }
+    }
+
+    let technique_card = validate_technique_card(ctx, technique_card_id)?;
+    if technique_card.soul_id != actor_soul_id {
+        return Err(format!(
+            "Technique card {} belongs to soul {}, not {}",
+            technique_card_id, technique_card.soul_id, actor_soul_id
+        ));
+    }
+    assert_card_unreserved(ctx, technique_card_id)?;
+
+    let mut submitted_definition_counts = HashMap::<u32, u32>::new();
+    let host_definition = host_definition_id(ctx, &host_type, host_id)?;
+    submitted_definition_counts
+        .entry(host_definition)
+        .and_modify(|count| *count += 1)
+        .or_insert(1);
+
+    let mut unique_inputs = std::collections::HashSet::new();
+    for card_id in &input_card_ids {
+        if !unique_inputs.insert(*card_id) {
+            return Err(format!("Input card {} is duplicated in queue request", card_id));
+        }
+        if *card_id == technique_card_id {
+            return Err("Technique card cannot be included in input_card_ids".to_string());
+        }
+        let card = require_card(ctx, *card_id)?;
+        if card.soul_id != actor_soul_id {
+            return Err(format!(
+                "Input card {} belongs to soul {}, not {}",
+                card.card_id, card.soul_id, actor_soul_id
+            ));
+        }
+        assert_card_unreserved(ctx, *card_id)?;
+        submitted_definition_counts
+            .entry(card.definition_id)
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+    }
+
+    let (required_action_definition, recipe) = find_recipe(recipe_id)?;
+    if required_action_definition != technique_card.definition_id {
+        return Err(format!(
+            "Recipe {} expects action card definition {}, got {}",
+            recipe_id, required_action_definition, technique_card.definition_id
+        ));
+    }
+
+    let mut required_definition_counts = HashMap::<u32, u32>::new();
+    for input in &recipe.input {
+        let count = parse_constant_count(&input.count)?;
+        required_definition_counts.insert(input.id, count);
+    }
+
+    if required_definition_counts != submitted_definition_counts {
+        return Err(format!(
+            "Submitted cards do not satisfy recipe {} requirements",
+            recipe_id
+        ));
+    }
+
+    let now = current_unix_ms();
+    let queue_row = ctx.db.recipe_queue().insert(RecipeQueue {
+        queue_id: 0,
+        recipe_id,
+        actor_soul_id,
+        host_type: host_type.clone(),
+        host_id,
+        queued_at_unix_ms: now,
+        started_at_unix_ms: None,
+        state: RecipeQueueState::Queued,
+    });
+
+    for card_id in std::iter::once(technique_card_id).chain(input_card_ids.into_iter()) {
+        ctx.db.recipe_queue_card().insert(RecipeQueueCard {
+            queue_card_id: 0,
+            queue_id: queue_row.queue_id,
+            card_id,
+        });
+
+        ctx.db.card_reservation().insert(CardReservation {
+            card_id,
+            queue_id: queue_row.queue_id,
+            reserved_at_unix_ms: now,
+        });
+    }
+
+    Ok(())
 }
