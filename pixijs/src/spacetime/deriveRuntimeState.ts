@@ -40,6 +40,36 @@ function idToString(value: bigint | number | string): string {
   return value.toString();
 }
 
+function worldTileInstanceId(rawId: bigint | number | string): string {
+  return `world:${idToString(rawId)}`;
+}
+
+function eventTileInstanceId(rawId: bigint | number | string): string {
+  return `event:${idToString(rawId)}`;
+}
+
+function tileHostInstanceId(hostType: unknown, hostId: bigint | number | string): string {
+  const kind = hostType && typeof hostType === 'object'
+    ? Object.keys(hostType as Record<string, unknown>)[0]
+    : '';
+  if (kind === 'EventTile') {
+    return eventTileInstanceId(hostId);
+  }
+  return worldTileInstanceId(hostId);
+}
+
+function resolveTileDefinition(
+  tileTypeById: ReadonlyMap<number, TileTypeDefinition> | undefined,
+  definitionId: number,
+  context: 'world' | 'event',
+): TileTypeDefinition | undefined {
+  const tileDef = tileTypeById?.get(definitionId);
+  if (!tileDef && context === 'event') {
+    console.warn('[RuntimeTiles] missing event tile definition', { definitionId });
+  }
+  return tileDef;
+}
+
 export function isRowsSnapshotEmptyForBootstrap(rows: SpacetimeRowsSnapshot): boolean {
   return rows.souls.length === 0
     && rows.cards.length === 0
@@ -116,12 +146,12 @@ export function deriveRuntimeState(
 
   const worldTilesByAxialKey = new Map<string, HexTile>();
   for (const tile of rows.worldTiles) {
-    const tileDef = tileTypeById?.get(Number(tile.definitionId));
+    const tileDef = resolveTileDefinition(tileTypeById, Number(tile.definitionId), 'world');
     if (!tileDef) {
       continue;
     }
     const asHexTile: HexTile = {
-      id: idToString(tile.tileId),
+      id: worldTileInstanceId(tile.tileId),
       q: tile.q,
       r: tile.r,
       tileType: tileDef.key,
@@ -139,15 +169,21 @@ export function deriveRuntimeState(
   for (const eventTile of rows.eventTiles) {
     const soulId = idToString(eventTile.soulId);
     const list = hostedTilesBySoulId[soulId] ?? [];
-    const tileDef = tileTypeById?.get(Number(eventTile.definitionId));
+    const definitionId = Number(eventTile.definitionId);
+    const tileDef = resolveTileDefinition(tileTypeById, definitionId, 'event');
     if (!tileDef) {
       continue;
     }
+    console.info('[RuntimeTiles] resolved event tile definition', {
+      eventTileId: idToString(eventTile.eventTileId),
+      definitionId,
+      tileKey: tileDef.key,
+    });
 
     list.push({
-      id: idToString(eventTile.eventTileId),
+      id: eventTileInstanceId(eventTile.eventTileId),
       tileType: tileDef.key,
-      eventLabel: eventTile.label,
+      eventLabel: tileDef.name,
       activeVerbs: [],
     });
     hostedTilesBySoulId[soulId] = list;
@@ -163,14 +199,14 @@ export function deriveRuntimeState(
   const runtimeStageDetailsByTileId = new Map<string, RuntimeStageDetails>();
 
   for (const attachment of rows.attachments) {
-    const tileId = idToString(attachment.hostId);
+    const tileId = tileHostInstanceId(attachment.hostType, attachment.hostId);
     const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null };
     existing.attachmentName = cardNameByInstanceId.get(idToString(attachment.techniqueCardId)) ?? null;
     runtimeStageDetailsByTileId.set(tileId, existing);
   }
 
   for (const stage of rows.stageEntries) {
-    const tileId = idToString(stage.hostId);
+    const tileId = tileHostInstanceId(stage.hostType, stage.hostId);
     const existing = runtimeStageDetailsByTileId.get(tileId) ?? { cardNames: [], attachmentName: null };
     const stagedName = cardNameByInstanceId.get(idToString(stage.cardId));
     if (stagedName) {

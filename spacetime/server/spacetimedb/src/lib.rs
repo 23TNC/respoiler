@@ -61,7 +61,6 @@ pub struct EventTile {
     pub event_tile_id: u64,
     pub soul_id: u64,
     pub definition_id: u32,
-    pub label: String,
     pub display_order: u32,
 }
 
@@ -292,13 +291,12 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
         .db
         .event_tile()
         .iter()
-        .any(|tile| tile.soul_id == player_soul.soul_id && tile.label == "Bootstrap Watch");
+        .any(|tile| tile.soul_id == player_soul.soul_id && tile.definition_id == TILE_SCOUT_REFLECTION);
     if !has_player_event_tile {
         let _ = ctx.db.event_tile().insert(EventTile {
             event_tile_id: 0,
             soul_id: player_soul.soul_id,
             definition_id: TILE_SCOUT_REFLECTION,
-            label: "Bootstrap Watch".to_string(),
             display_order: 0,
         });
     }
@@ -307,13 +305,12 @@ pub fn bootstrap_minimal_world(ctx: &ReducerContext) {
         .db
         .event_tile()
         .iter()
-        .any(|tile| tile.soul_id == subordinate_soul.soul_id && tile.label == "Worker Post");
+        .any(|tile| tile.soul_id == subordinate_soul.soul_id && tile.definition_id == TILE_DESPAIR_CHECK);
     if !has_subordinate_event_tile {
         let _ = ctx.db.event_tile().insert(EventTile {
             event_tile_id: 0,
             soul_id: subordinate_soul.soul_id,
             definition_id: TILE_DESPAIR_CHECK,
-            label: "Worker Post".to_string(),
             display_order: 0,
         });
     }
