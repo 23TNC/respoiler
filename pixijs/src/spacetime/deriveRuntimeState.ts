@@ -9,13 +9,15 @@ import { axialKey } from '../game/hex/coords';
 import type { HexTile, TileTypeDefinition } from '../game/world/types';
 import type { SpacetimeRowsSnapshot } from './client';
 
-const EMPTY_INVENTORY: CharacterInventory = {
-  techniques: [],
-  essence: [],
-  sundries: [],
-  reveries: [],
-  souls: [],
-};
+function createEmptyInventory(): CharacterInventory {
+  return {
+    techniques: [],
+    essence: [],
+    sundries: [],
+    reveries: [],
+    souls: [],
+  };
+}
 
 export interface RuntimeStageDetails {
   cardNames: string[];
@@ -69,7 +71,7 @@ export function deriveRuntimeState(
   const cardInstancesById = new Map<string, CardInstance>();
 
   for (const soul of souls) {
-    inventoryBySoulId[soul.soulId] = { ...EMPTY_INVENTORY };
+    inventoryBySoulId[soul.soulId] = createEmptyInventory();
   }
 
   for (const card of rows.cards) {
@@ -107,7 +109,7 @@ export function deriveRuntimeState(
     cardDefinitionsByInstanceId.set(instanceId, cardDefinition);
     cardInstancesById.set(instanceId, cardInstance);
 
-    const inventory = inventoryBySoulId[soulId] ?? { ...EMPTY_INVENTORY };
+    const inventory = inventoryBySoulId[soulId] ?? createEmptyInventory();
     inventory[group].push(cardInstance);
     inventoryBySoulId[soulId] = inventory;
   }

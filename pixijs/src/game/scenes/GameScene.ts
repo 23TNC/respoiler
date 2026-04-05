@@ -920,18 +920,37 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     const viewedInventory = runtimeState.inventoryBySoulId[viewedSoulId];
     const viewedTechniqueCount = viewedInventory?.techniques.length ?? 0;
     const viewedEssenceCount = viewedInventory?.essence.length ?? 0;
+    const viewedSundriesCount = viewedInventory?.sundries.length ?? 0;
+    const viewedReveriesCount = viewedInventory?.reveries.length ?? 0;
+    const viewedSoulsCount = viewedInventory?.souls.length ?? 0;
+    const viewedDerivedCardCount = viewedTechniqueCount
+      + viewedEssenceCount
+      + viewedSundriesCount
+      + viewedReveriesCount
+      + viewedSoulsCount;
+    const localCachedCardInstances = runtimeState.cardInstancesById.size;
     const inventorySignature = [
       rows.cards.length,
+      localCachedCardInstances,
       viewedSoulId,
+      viewedDerivedCardCount,
       viewedTechniqueCount,
       viewedEssenceCount,
+      viewedSundriesCount,
+      viewedReveriesCount,
+      viewedSoulsCount,
     ].join('|');
     if (inventorySignature !== lastLoggedInventorySignature) {
       console.info('[CharacterBoard] subscription sync', {
-        totalCards: rows.cards.length,
+        runtimeRowsCards: rows.cards.length,
+        localCachedCardInstances,
         viewedSoulId,
+        viewedDerivedCardCount,
         viewedTechniques: viewedTechniqueCount,
         viewedEssences: viewedEssenceCount,
+        viewedSundries: viewedSundriesCount,
+        viewedReveries: viewedReveriesCount,
+        viewedSouls: viewedSoulsCount,
       });
       lastLoggedInventorySignature = inventorySignature;
     }
