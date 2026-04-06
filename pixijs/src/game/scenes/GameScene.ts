@@ -6,7 +6,7 @@ import { deriveRuntimeState } from '../../spacetime/deriveRuntimeState';
 import type { RuntimeStageDetails } from '../../spacetime/deriveRuntimeState';
 import { axialKey } from '../hex/coords';
 import { toQueuedAction, validateStagedAction } from '../actions/validators';
-import type { QueuedAction, StagedTileAction } from '../actions/types';
+import type { DisplayTileAction, QueuedAction, StagedTileAction } from '../actions/types';
 import type { CardDefinition, CardInstanceState } from '../cards/types';
 import { canStageCard, getMatchingRecipes, getRecipeCardCategory, type NormalizedStagedCards } from '../recipes/stagingValidation';
 import { HexBoardRenderer } from '../render/HexBoardRenderer';
@@ -18,6 +18,13 @@ import { renderCardTag } from '../ui/cardVisual';
 import { StagedActionUI } from '../ui/StagedActionUI';
 import { uiSoundEffects } from '../ui/soundEffects';
 import { isHexTile, type BoardTile, type HexTile, type SoulHostedTile } from '../world/types';
+import {
+  getRawHostIdFromTileInstanceId,
+  getSoulIdFromEventTileInstanceId,
+  getTileHostKindFromInstanceId,
+  isEventTileInstanceId,
+  isWorldTileInstanceId,
+} from '../world/tileInstanceId';
 
 export async function startGameScene(container: HTMLElement): Promise<void> {
   const DRAG_THRESHOLD_PX = 8;
@@ -177,7 +184,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const hostedTilesUI = new SoulHostedTilesUI(
     getViewedHostedTiles,
     staticData.tileTypeByKey,
-    (tileId) => getDisplayStagedActionForTile(tileId),
+    (tileId) => getDisplayTileActionsForViewedSoul().get(tileId),
     (tileId) => tileId === selectedTileInstanceId,
   );
   fixedUiLayer.addChild(hostedTilesUI.root);
@@ -191,11 +198,15 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     if (!next) {
       return;
     }
-    const [selectionKind, runtimeId] = next.split(':');
-    if (selectionKind === 'world') {
+    const hostKind = getTileHostKindFromInstanceId(next);
+    const runtimeId = getRawHostIdFromTileInstanceId(next);
+    if (hostKind === 'world') {
       console.info('[Selection] world tile selected', { tileId: runtimeId });
-    } else if (selectionKind === 'event') {
-      console.info('[Selection] event tile selected', { eventTileId: runtimeId });
+    } else if (hostKind === 'event') {
+      console.info('[Selection] event tile selected', {
+        soulId: getSoulIdFromEventTileInstanceId(next),
+        eventTileId: runtimeId,
+      });
     }
   };
   let lastCardClick: { instanceId: string; atMs: number } | null = null;
@@ -203,6 +214,35 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     | { type: 'tile'; tileInstanceId: string }
     | { type: 'card'; payload: DragCardPayload }
     | null = null;
+  const clearTileSelectionState = (): void => {
+    setSelectedTileInstanceId(null);
+    inspectedTarget = null;
+  };
+  const switchViewedSoul = (nextSoulId: string): void => {
+    if (viewedSoulId === nextSoulId) {
+      return;
+    }
+    viewedSoulId = nextSoulId;
+    clearTileSelectionState();
+  };
+  const validateSelectionForViewedSoul = (): void => {
+    if (!selectedTileInstanceId) {
+      return;
+    }
+    if (isWorldTileInstanceId(selectedTileInstanceId)) {
+      return;
+    }
+    if (isEventTileInstanceId(selectedTileInstanceId)) {
+      const visibleHostedTileIds = new Set(getViewedHostedTiles().map((tile) => tile.id));
+      if (!visibleHostedTileIds.has(selectedTileInstanceId)) {
+        clearTileSelectionState();
+      }
+      return;
+    }
+    if (!getTileByInstanceId(selectedTileInstanceId)) {
+      clearTileSelectionState();
+    }
+  };
   const stagedBySoulId = new Map<string, Map<string, StagedTileAction>>();
   const queuedTechniques: QueuedAction[] = [];
   let lastLoggedInventorySignature = '';
@@ -224,23 +264,12 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
   const parseTileInstanceTarget = (
     tileInstanceId: string,
   ): { hostKind: 'world' | 'event'; hostId: string } | null => {
-    const parts = tileInstanceId.split(':');
-    const hostKind = parts[0];
-    const hostId = parts[parts.length - 1];
-    if ((hostKind !== 'world' && hostKind !== 'event') || !hostId) {
+    const hostKind = getTileHostKindFromInstanceId(tileInstanceId);
+    const hostId = getRawHostIdFromTileInstanceId(tileInstanceId);
+    if (!hostKind || !hostId) {
       return null;
     }
     return { hostKind, hostId };
-  };
-  const isTileVisibleForViewedSoul = (tileInstanceId: string, details?: RuntimeStageDetails): boolean => {
-    if (tileInstanceId.startsWith('world:')) {
-      return true;
-    }
-    const hostSoulId = details?.hostSoulId;
-    if (hostSoulId) {
-      return hostSoulId === viewedSoulId;
-    }
-    return getViewedHostedTiles().some((tile) => tile.id === tileInstanceId);
   };
   const getStagedForSoul = (soulId: string): Map<string, StagedTileAction> => {
     let staged = stagedBySoulId.get(soulId);
@@ -251,7 +280,23 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     return staged;
   };
   const getViewedStaged = (): Map<string, StagedTileAction> => getStagedForSoul(viewedSoulId);
-  const toRuntimeDisplayAction = (tileInstanceId: string, details: RuntimeStageDetails): StagedTileAction | null => {
+  const toLocalDisplayAction = (staged: StagedTileAction): DisplayTileAction => {
+    const techniqueCard = getCardByInstanceId(staged.verbCardInstanceId);
+    return {
+      tileInstanceId: staged.tileInstanceId,
+      soulId: staged.soulId,
+      source: 'local',
+      status: staged.status,
+      techniqueInstanceId: staged.verbCardInstanceId,
+      techniqueName: techniqueCard?.name ?? staged.queuedVerbLabel ?? staged.verbCardInstanceId,
+      techniqueColor: techniqueCard?.backgroundColor ?? null,
+      inputInstanceIds: [...staged.inputCardInstanceIds],
+      inputNames: staged.inputCardInstanceIds.map((instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId),
+      repeat: staged.repeat,
+      error: staged.error,
+    };
+  };
+  const toRuntimeDisplayAction = (tileInstanceId: string, details: RuntimeStageDetails): DisplayTileAction | null => {
     const hasDisplayContent = Boolean(
       details.techniqueCardInstanceId
       || details.attachmentName
@@ -262,32 +307,55 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       return null;
     }
     return {
-      stagedActionId: `runtime-${details.status}-${tileInstanceId}`,
-      characterId: CHARACTER_ID,
-      soulId: details.hostSoulId ?? viewedSoulId,
-      tileId: tileInstanceId,
       tileInstanceId,
-      verbCardInstanceId: details.techniqueCardInstanceId ?? 'attached-technique',
-      inputCardInstanceIds: [...details.cardInstanceIds],
-      queuedVerbLabel: details.techniqueCardName ?? details.attachmentName ?? undefined,
-      queuedInputCardNames: [...details.cardNames],
-      repeat: false,
+      soulId: details.hostSoulId,
+      source: 'runtime',
       status: details.status,
+      techniqueInstanceId: details.techniqueCardInstanceId,
+      techniqueName: details.techniqueCardName ?? details.attachmentName,
+      techniqueColor: details.techniqueCardColor,
+      inputInstanceIds: [...details.cardInstanceIds],
+      inputNames: [...details.cardNames],
+      repeat: false,
     };
   };
-  const getDisplayStagedActionForTile = (tileInstanceId: string): StagedTileAction | undefined => {
-    const local = getViewedStaged().get(tileInstanceId);
+  const getDisplayTileActionForTile = (
+    tileInstanceId: string,
+    localStagedByTile: Map<string, StagedTileAction>,
+  ): DisplayTileAction | undefined => {
     const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(tileInstanceId);
-    if (runtimeDetails && isTileVisibleForViewedSoul(tileInstanceId, runtimeDetails)) {
-      const runtimeDisplay = toRuntimeDisplayAction(tileInstanceId, runtimeDetails);
-      if (runtimeDisplay && runtimeDisplay.status !== 'staged') {
-        return runtimeDisplay;
+    if (runtimeDetails && (runtimeDetails.status === 'queued' || runtimeDetails.status === 'running')) {
+      return toRuntimeDisplayAction(tileInstanceId, runtimeDetails) ?? undefined;
+    }
+    const localStaged = localStagedByTile.get(tileInstanceId);
+    if (localStaged) {
+      return toLocalDisplayAction(localStaged);
+    }
+    if (runtimeDetails) {
+      return toRuntimeDisplayAction(tileInstanceId, runtimeDetails) ?? undefined;
+    }
+    return undefined;
+  };
+  const getDisplayTileActionsForViewedSoul = (): Map<string, DisplayTileAction> => {
+    const displayByTile = new Map<string, DisplayTileAction>();
+    const viewedStaged = getViewedStaged();
+
+    for (const tile of worldTiles.values()) {
+      const display = getDisplayTileActionForTile(tile.id, viewedStaged);
+      if (display) {
+        displayByTile.set(tile.id, display);
       }
     }
-    return local
-      ?? (runtimeDetails && isTileVisibleForViewedSoul(tileInstanceId, runtimeDetails)
-        ? toRuntimeDisplayAction(tileInstanceId, runtimeDetails) ?? undefined
-        : undefined);
+
+    const viewedHostedTiles = getViewedHostedTiles();
+    for (const tile of viewedHostedTiles) {
+      const display = getDisplayTileActionForTile(tile.id, viewedStaged);
+      if (display) {
+        displayByTile.set(tile.id, display);
+      }
+    }
+
+    return displayByTile;
   };
   const syncTechniqueAttachment = async (soulId: string, tileInstanceId: string, techniqueCardInstanceId: string): Promise<void> => {
     const target = parseTileInstanceTarget(tileInstanceId);
@@ -416,24 +484,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       tile.selected = tile.id === selectedTileInstanceId;
     }
 
-    const viewedStaged = getViewedStaged();
-    const displayStagedByTileInstanceId = new Map<string, StagedTileAction>(viewedStaged);
-    for (const [tileId, details] of runtimeState.runtimeStageDetailsByTileId.entries()) {
-      if (!isTileVisibleForViewedSoul(tileId, details)) {
-        continue;
-      }
-      const runtimeDisplay = toRuntimeDisplayAction(tileId, details);
-      if (!runtimeDisplay) {
-        continue;
-      }
-      if (runtimeDisplay.status === 'queued' || runtimeDisplay.status === 'running') {
-        displayStagedByTileInstanceId.set(tileId, runtimeDisplay);
-        continue;
-      }
-      if (!displayStagedByTileInstanceId.has(tileId)) {
-        displayStagedByTileInstanceId.set(tileId, runtimeDisplay);
-      }
-    }
+    const displayTileActionsByTileInstanceId = getDisplayTileActionsForViewedSoul();
 
     const stagedByTileId = new Map<string, {
       verbId: string;
@@ -444,31 +495,25 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
       repeat: boolean;
       status: 'staged' | 'queued' | 'running';
     }>(
-      Array.from(displayStagedByTileInstanceId.values()).map((staged) => {
-        const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(staged.tileInstanceId);
-        const verbLabel = getCardByInstanceId(staged.verbCardInstanceId)?.name
-          ?? staged.queuedVerbLabel
+      Array.from(displayTileActionsByTileInstanceId.values()).map((displayAction) => {
+        const runtimeDetails = runtimeState.runtimeStageDetailsByTileId.get(displayAction.tileInstanceId);
+        const verbLabel = displayAction.techniqueName
           ?? runtimeDetails?.techniqueCardName
           ?? runtimeDetails?.techniqueCardKey
-          ?? staged.verbCardInstanceId;
-        const stagedTile = getTileByInstanceId(staged.tileInstanceId);
+          ?? displayAction.techniqueInstanceId
+          ?? 'Attached Technique';
+        const stagedTile = getTileByInstanceId(displayAction.tileInstanceId);
         return [
-          staged.tileId,
+          displayAction.tileInstanceId,
           {
-            verbId: String(getCardByInstanceId(staged.verbCardInstanceId)?.id ?? ''),
+            verbId: String(getCardByInstanceId(displayAction.techniqueInstanceId ?? '')?.id ?? ''),
             verbLabel,
             tileLabel: staticData.tileTypeByKey.get(stagedTile?.tileType ?? '')?.name,
-            cardColor: getCardByInstanceId(staged.verbCardInstanceId)?.backgroundColor
-              ?? runtimeDetails?.techniqueCardColor
+            cardColor: displayAction.techniqueColor
               ?? undefined,
-            stagedCardNames: (
-              staged.status === 'queued' && staged.queuedInputCardNames?.length
-                ? staged.queuedInputCardNames
-                : staged.inputCardInstanceIds.map(
-                  (instanceId) => getCardByInstanceId(instanceId)?.name ?? instanceId,
-                )),
-            repeat: staged.repeat,
-            status: staged.status,
+            stagedCardNames: [...displayAction.inputNames],
+            repeat: displayAction.repeat,
+            status: displayAction.status,
           },
         ] as const;
       }),
@@ -491,7 +536,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
               tile: selectedTile,
               tileType: staticData.tileTypeByKey.get(selectedTile.tileType),
               availableVerbs: selectedTile.activeVerbs.map((verbId) => staticData.verbById.get(verbId)).filter((verb): verb is NonNullable<typeof verb> => Boolean(verb)),
-              stagedAction: displayStagedByTileInstanceId.get(inspectedTileInstanceId ?? '') ?? null,
+              stagedAction: displayTileActionsByTileInstanceId.get(inspectedTileInstanceId ?? '') ?? null,
             }
           : null,
       );
@@ -1026,9 +1071,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     if (characterBoard.isPointInReturnToPlayer(x, y)) {
-      viewedSoulId = playerSoulId;
-      setSelectedTileInstanceId(null);
-      inspectedTarget = null;
+      switchViewedSoul(playerSoulId);
       render();
       return;
     }
@@ -1097,9 +1140,7 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
               && lastCardClick.instanceId === pointerDown.cardPayload.instance.instanceId
               && (now - lastCardClick.atMs) <= 350
             ) {
-              viewedSoulId = pointerDown.cardPayload.instance.linkedSoulId;
-              setSelectedTileInstanceId(null);
-              inspectedTarget = null;
+              switchViewedSoul(pointerDown.cardPayload.instance.linkedSoulId);
               lastCardClick = null;
               render();
               pointerDown = null;
@@ -1157,11 +1198,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     runtimeState = deriveRuntimeState(rows, staticCardData.cardsById, staticData.tileTypeById);
     playerSoulId = runtimeState.playerSoulId ?? '';
     if (!viewedSoulId || !runtimeState.soulById.has(viewedSoulId)) {
-      viewedSoulId = playerSoulId || runtimeState.souls[0]?.soulId || '';
+      switchViewedSoul(playerSoulId || runtimeState.souls[0]?.soulId || '');
     }
     if (previousViewedSoulId && previousViewedSoulId !== viewedSoulId) {
-      setSelectedTileInstanceId(null);
-      inspectedTarget = null;
+      clearTileSelectionState();
     }
 
     const viewedInventory = runtimeState.inventoryBySoulId[viewedSoulId];
@@ -1203,16 +1243,10 @@ export async function startGameScene(container: HTMLElement): Promise<void> {
     }
 
     updateRuntimeCollections();
-    if (
-      selectedTileInstanceId
-      && (
-        !getTileByInstanceId(selectedTileInstanceId)
-        || (selectedTileInstanceId.startsWith('event:') && !getViewedHostedTiles().some((tile) => tile.id === selectedTileInstanceId))
-      )
-    ) {
-      setSelectedTileInstanceId(null);
-      inspectedTarget = null;
+    if (selectedTileInstanceId && !getTileByInstanceId(selectedTileInstanceId)) {
+      clearTileSelectionState();
     }
+    validateSelectionForViewedSoul();
     layoutUi();
     render();
   });

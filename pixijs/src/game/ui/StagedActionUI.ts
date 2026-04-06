@@ -1,6 +1,6 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { getCompatibilityHint } from '../actions/compatibility';
-import type { StagedTileAction } from '../actions/types';
+import type { DisplayTileAction } from '../actions/types';
 import { CARD_GROUP_LABEL, type CardDefinition } from '../cards/types';
 import type { DropFeedbackState } from '../render/HexBoardRenderer';
 import type { BoardTile, TileTypeDefinition, VerbDefinition } from '../world/types';
@@ -16,7 +16,7 @@ export interface SelectedTileDetails {
   tile: BoardTile;
   tileType?: TileTypeDefinition;
   availableVerbs: VerbDefinition[];
-  stagedAction: StagedTileAction | null;
+  stagedAction: DisplayTileAction | null;
 }
 
 export interface SelectedCardDetails {
@@ -66,7 +66,7 @@ export class StagedActionUI {
     this.render();
   }
 
-  setStagedAction(staged: StagedTileAction | null): void {
+  setStagedAction(staged: DisplayTileAction | null): void {
     if (!this.selectedTile) {
       return;
     }
@@ -196,15 +196,18 @@ export class StagedActionUI {
       return;
     }
 
-    const verbCard = this.getCardByInstanceId(stagedAction.verbCardInstanceId);
-    const verbLabel = verbCard?.name ?? stagedAction.queuedVerbLabel ?? stagedAction.verbCardInstanceId;
+    const techniqueInstanceId = stagedAction.techniqueInstanceId ?? 'attached-technique';
+    const verbCard = stagedAction.source === 'local'
+      ? this.getCardByInstanceId(techniqueInstanceId)
+      : undefined;
+    const verbLabel = verbCard?.name ?? stagedAction.techniqueName ?? techniqueInstanceId;
 
     renderCardTag(this.root, {
       x: 12,
       y: 114,
       card: verbCard ?? {
         id: -1,
-        key: stagedAction.verbCardInstanceId,
+        key: techniqueInstanceId,
         name: verbLabel,
         group: 'techniques',
         backgroundColor: 0xf6e9c5,
@@ -223,12 +226,7 @@ export class StagedActionUI {
     hintText.position.set(12, 160);
     this.root.addChild(hintText);
 
-    const stagedTitles = (
-      stagedAction.status === 'queued' && stagedAction.queuedInputCardNames?.length
-        ? stagedAction.queuedInputCardNames
-        : stagedAction.inputCardInstanceIds
-          .map((instanceId) => this.getCardByInstanceId(instanceId)?.name ?? instanceId)
-    ).join(', ');
+    const stagedTitles = stagedAction.inputNames.join(', ');
     const stagedText = new Text({
       text: `Staged: ${stagedTitles.length > 0 ? stagedTitles : 'None'}`,
       style: { fill: '#d5e5ff', fontSize: 11, fontWeight: '700' },
@@ -259,7 +257,7 @@ export class StagedActionUI {
     this.inputDropBounds = new Rectangle(this.root.position.x + 12, this.root.position.y + dropZoneY, 336, 104);
 
     const slotText = new Text({
-      text: stagedAction.inputCardInstanceIds.length > 0 ? 'Staged inputs' : 'Drop compatible cards here',
+      text: stagedAction.inputInstanceIds.length > 0 ? 'Staged inputs' : 'Drop compatible cards here',
       style: { fill: '#d5e5ff', fontSize: 12 },
     });
     slotText.position.set(18, dropZoneY + 8);
@@ -267,11 +265,11 @@ export class StagedActionUI {
 
     let chipX = 18;
     let chipY = dropZoneY + 32;
-    for (let index = 0; index < stagedAction.inputCardInstanceIds.length; index += 1) {
-      const instanceId = stagedAction.inputCardInstanceIds[index];
+    for (let index = 0; index < stagedAction.inputInstanceIds.length; index += 1) {
+      const instanceId = stagedAction.inputInstanceIds[index];
       const cardData = this.getCardByInstanceId(instanceId);
-      const cardName = cardData?.name ?? instanceId;
-      const chipColor = cardData?.backgroundColor ?? 0x2a3e5f;
+      const cardName = stagedAction.inputNames[index] ?? cardData?.name ?? instanceId;
+      const chipColor = cardData?.backgroundColor ?? stagedAction.techniqueColor ?? 0x2a3e5f;
       const chipTextColor = readableTextColor(chipColor);
       const chipTextWidth = Math.max(32, cardName.length * 6);
       const chipWidth = Math.min(132, chipTextWidth + 26);

@@ -1,5 +1,5 @@
 import { Container, Graphics, Rectangle, Text } from 'pixi.js';
-import type { StagedTileAction } from '../actions/types';
+import type { DisplayTileAction } from '../actions/types';
 import type { SoulHostedTileModel } from '../characters/types';
 import type { TileTypeDefinition } from '../world/types';
 
@@ -16,7 +16,7 @@ export class SoulHostedTilesUI {
   constructor(
     private readonly getViewedHostedTiles: () => SoulHostedTileModel[],
     private readonly tileTypeById: Map<string, TileTypeDefinition>,
-    private readonly getStagedForTile: (tileId: string) => StagedTileAction | undefined,
+    private readonly getDisplayActionForTile: (tileId: string) => DisplayTileAction | undefined,
     private readonly isSelectedTile: (tileId: string) => boolean,
   ) {}
 
@@ -78,7 +78,7 @@ export class SoulHostedTilesUI {
     const listBottom = height - 6;
     hostedTiles.forEach((tile, index) => {
       const tileType = this.tileTypeById.get(tile.tileType);
-      const staged = this.getStagedForTile(tile.id);
+      const staged = this.getDisplayActionForTile(tile.id);
       const y = listBottom - (index + 1) * 38;
       const selected = this.isSelectedTile(tile.id);
 
@@ -97,7 +97,7 @@ export class SoulHostedTilesUI {
       this.root.addChild(name);
 
       const status = new Text({
-        text: staged ? `${staged.status.toUpperCase()} • ${staged.inputCardInstanceIds.length} inputs` : 'Ready',
+        text: staged ? `${staged.status.toUpperCase()} • ${staged.inputInstanceIds.length} inputs` : 'Ready',
         style: { fill: staged?.status === 'queued' ? '#95f2a8' : '#9ac4ff', fontSize: 10 },
       });
       status.position.set(width - 120, y + 9);
