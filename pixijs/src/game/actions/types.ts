@@ -13,6 +13,20 @@ export interface StagedTileAction {
   error?: string;
 }
 
+export interface DisplayTileAction {
+  tileInstanceId: string;
+  soulId: string | null;
+  source: 'local' | 'runtime';
+  status: 'staged' | 'queued' | 'running';
+  techniqueInstanceId: string | null;
+  techniqueName: string | null;
+  techniqueColor: number | null;
+  inputInstanceIds: string[];
+  inputNames: string[];
+  repeat: boolean;
+  error?: string;
+}
+
 export interface QueuedAction {
   actionId: string;
   characterId: string;

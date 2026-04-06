@@ -7,6 +7,7 @@ import {
 } from '../game/cards/classification';
 import { axialKey } from '../game/hex/coords';
 import type { HexTile, TileTypeDefinition } from '../game/world/types';
+import { eventTileInstanceId, worldTileInstanceId } from '../game/world/tileInstanceId';
 import type { SpacetimeRowsSnapshot } from './client';
 
 function createEmptyInventory(): CharacterInventory {
@@ -48,22 +49,10 @@ function idToString(value: bigint | number | string): string {
   return value.toString();
 }
 
-function worldTileInstanceId(rawId: bigint | number | string): string {
-  return `world:${idToString(rawId)}`;
-}
-
-function eventTileInstanceId(rawId: bigint | number | string, soulId?: bigint | number | string | null): string {
-  const normalizedRawId = idToString(rawId);
-  if (soulId === undefined || soulId === null) {
-    return `event:${normalizedRawId}`;
-  }
-  return `event:${idToString(soulId)}:${normalizedRawId}`;
-}
-
 function tileHostInstanceId(hostType: unknown, hostId: bigint | number | string): string {
   const kind = normalizeEnumTag(hostType);
   if (kind === 'EventTile') {
-    return eventTileInstanceId(hostId);
+    return `event:unknown:${idToString(hostId)}`;
   }
   return worldTileInstanceId(hostId);
 }
@@ -230,7 +219,7 @@ export function deriveRuntimeState(
       continue;
     }
 
-    const tileId = eventTileInstanceId(eventTile.eventTileId, soulId);
+    const tileId = eventTileInstanceId(soulId, eventTile.eventTileId);
     list.push({
       id: tileId,
       tileType: tileDef.key,
@@ -264,7 +253,7 @@ export function deriveRuntimeState(
     }
     return {
       soulId: fallbackSoulId,
-      tileId: eventTileInstanceId(rawId, fallbackSoulId),
+      tileId: eventTileInstanceId(fallbackSoulId ?? 'unknown', rawId),
     };
   };
   const runtimeStageDetailsByTileId = new Map<string, RuntimeStageDetails>();
