@@ -12,5 +12,5 @@ import {
 
 export default __t.row({
   playerId: __t.u64().primaryKey().name("player_id"),
-  playerKey: __t.string().unique().name("player_key"),
+  playerKey: __t.string().name("player_key"),
 });

@@ -33,6 +33,19 @@ export const EventTile = __t.object("EventTile", {
 });
 export type EventTile = __Infer<typeof EventTile>;
 
+export const Player = __t.object("Player", {
+  playerId: __t.u64(),
+  playerKey: __t.string(),
+});
+export type Player = __Infer<typeof Player>;
+
+export const PlayerSession = __t.object("PlayerSession", {
+  sessionIdentity: __t.identity(),
+  playerId: __t.u64(),
+  resolvedAtUnixMs: __t.u64(),
+});
+export type PlayerSession = __Infer<typeof PlayerSession>;
+
 export const RecipeQueue = __t.object("RecipeQueue", {
   queueId: __t.u64(),
   recipeId: __t.u32(),
@@ -62,12 +75,6 @@ export const RecipeQueueState = __t.enum("RecipeQueueState", {
   Canceled: __t.unit(),
 });
 export type RecipeQueueState = __Infer<typeof RecipeQueueState>;
-
-export const Player = __t.object("Player", {
-  playerId: __t.u64(),
-  playerKey: __t.string(),
-});
-export type Player = __Infer<typeof Player>;
 
 export const Soul = __t.object("Soul", {
   soulId: __t.u64(),
@@ -113,3 +120,4 @@ export const WorldTile = __t.object("WorldTile", {
   r: __t.i32(),
 });
 export type WorldTile = __Infer<typeof WorldTile>;
+
