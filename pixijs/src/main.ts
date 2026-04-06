@@ -1,8 +1,9 @@
-import { startGameClient } from './game/bootstrap/startGameClient';
+import './style.css';
+import { startGameScene } from './game/scenes/GameScene';
 
 const root = document.getElementById('app');
 if (!root) {
   throw new Error('Missing #app container');
 }
 
-void startGameClient(root);
+void startGameScene(root);
