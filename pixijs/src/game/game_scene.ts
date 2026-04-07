@@ -23,6 +23,32 @@ type GameSceneConfig = {
 export class GameScene extends Container {
   private static readonly PANEL_HEADER_HEIGHT = 34;
   private static readonly PANEL_PADDING = 10;
+  private static readonly LAYOUT = {
+    margin: 16,
+    columnGap: 12,
+    rowGap: 12,
+    topHeader: {
+      outerPadding: 16,
+      panelHeight: 28,
+      reservedHeight: 44,
+      cornerRadius: 8,
+    },
+    leftEvents: {
+      widthRatio: 0.11,
+      minWidth: 112,
+      maxWidth: 180,
+    },
+    rightDetails: {
+      widthRatio: 0.25,
+      minWidth: 260,
+      maxWidth: 420,
+    },
+    bottomInventory: {
+      heightRatio: 0.35,
+      minHeight: 220,
+      maxHeight: 320,
+    },
+  } as const;
 
   private readonly dataStore = new GameDataStore();
   private readonly eventRenderer = new EventColumnRenderer();
@@ -131,13 +157,28 @@ export class GameScene extends Container {
   }
 
   private layoutContainers(): void {
-    const margin = 16;
-    const headerHeight = 84;
-    const bottomHeight = Math.min(190, Math.max(160, Math.floor(this.heightPx * 0.26)));
-    const usableHeight = Math.max(220, this.heightPx - headerHeight - bottomHeight - margin * 2);
-    const leftWidth = Math.max(160, Math.floor(this.widthPx * 0.2));
-    const rightWidth = Math.max(260, Math.floor(this.widthPx * 0.24));
-    const centerWidth = Math.max(320, this.widthPx - leftWidth - rightWidth - margin * 4);
+    const { margin, rowGap, columnGap } = GameScene.LAYOUT;
+    const headerHeight = GameScene.LAYOUT.topHeader.reservedHeight;
+    const contentWidth = Math.max(360, this.widthPx - margin * 2);
+
+    const bottomHeight = this.clamp(
+      Math.floor(this.heightPx * GameScene.LAYOUT.bottomInventory.heightRatio),
+      GameScene.LAYOUT.bottomInventory.minHeight,
+      GameScene.LAYOUT.bottomInventory.maxHeight,
+    );
+    const usableHeight = Math.max(220, this.heightPx - headerHeight - bottomHeight - margin - rowGap);
+
+    const leftWidth = this.clamp(
+      Math.floor(contentWidth * GameScene.LAYOUT.leftEvents.widthRatio),
+      GameScene.LAYOUT.leftEvents.minWidth,
+      GameScene.LAYOUT.leftEvents.maxWidth,
+    );
+    const rightWidth = this.clamp(
+      Math.floor(contentWidth * GameScene.LAYOUT.rightDetails.widthRatio),
+      GameScene.LAYOUT.rightDetails.minWidth,
+      GameScene.LAYOUT.rightDetails.maxWidth,
+    );
+    const centerWidth = Math.max(280, contentWidth - leftWidth - rightWidth - columnGap * 2);
 
     this.background.clear();
     this.background.rect(0, 0, this.widthPx, this.heightPx).fill(0x101215);
@@ -148,7 +189,7 @@ export class GameScene extends Container {
     this.boardRegionHeight = usableHeight;
     this.detailsRegionWidth = rightWidth;
     this.detailsRegionHeight = usableHeight;
-    this.inventoryRegionWidth = this.widthPx - margin * 2;
+    this.inventoryRegionWidth = contentWidth;
     this.inventoryRegionHeight = bottomHeight;
 
     this.drawFrame(this.eventFrame, this.eventRegionWidth, this.eventRegionHeight, "Events");
@@ -157,9 +198,9 @@ export class GameScene extends Container {
     this.drawFrame(this.inventoryFrame, this.inventoryRegionWidth, this.inventoryRegionHeight, "Inventory");
 
     this.eventRegion.position.set(margin, headerHeight);
-    this.boardRegion.position.set(margin * 2 + leftWidth, headerHeight);
-    this.detailsRegion.position.set(margin * 3 + leftWidth + centerWidth, headerHeight);
-    this.inventoryRegion.position.set(margin, headerHeight + usableHeight + margin);
+    this.boardRegion.position.set(margin + leftWidth + columnGap, headerHeight);
+    this.detailsRegion.position.set(margin + leftWidth + columnGap + centerWidth + columnGap, headerHeight);
+    this.inventoryRegion.position.set(margin, headerHeight + usableHeight + rowGap);
 
     this.eventRenderer.container.position.set(this.eventRegionWidth * 0.5, this.eventRegionHeight - 24);
     this.boardRenderer.container.position.set(this.boardRegionWidth * 0.5, this.boardRegionHeight * 0.5);
@@ -171,6 +212,10 @@ export class GameScene extends Container {
       GameScene.PANEL_PADDING,
       GameScene.PANEL_HEADER_HEIGHT + GameScene.PANEL_PADDING,
     );
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
   }
 
   private drawFrame(target: Graphics, width: number, height: number, label: string): void {
@@ -269,16 +314,20 @@ export class GameScene extends Container {
       existing.destroy();
     }
 
+    const { outerPadding, panelHeight, cornerRadius } = GameScene.LAYOUT.topHeader;
     const header = new Container({ label: "viewed-self-header" });
     const panel = new Graphics();
-    panel.roundRect(16, 16, this.widthPx - 32, 54, 8).fill(0x1d2730);
-    panel.roundRect(16, 16, this.widthPx - 32, 54, 8).stroke({ color: 0x4d687a, width: 1 });
+    panel.roundRect(outerPadding, outerPadding, this.widthPx - outerPadding * 2, panelHeight, cornerRadius).fill(0x1d2730);
+    panel
+      .roundRect(outerPadding, outerPadding, this.widthPx - outerPadding * 2, panelHeight, cornerRadius)
+      .stroke({ color: 0x4d687a, width: 1 });
 
     const title = new Text({
       text: `${label}  •  Observer ${this.observerCardId}  •  Viewed ${this.viewedCardId}`,
-      style: { fill: 0xe8e8e8, fontSize: 14 },
+      style: { fill: 0xe8e8e8, fontSize: 13 },
     });
-    title.position.set(30, 34);
+    title.anchor.set(0, 0.5);
+    title.position.set(outerPadding + 12, outerPadding + panelHeight * 0.5);
 
     header.addChild(panel, title);
     this.addChild(header);
