@@ -80,6 +80,24 @@ export const deriveActionState = (
   return "staged";
 };
 
+
+const toInventoryCategory = (cardType: number): CardCategory | undefined => {
+  switch (cardType) {
+    case 1:
+      return "action";
+    case 2:
+      return "skill";
+    case 3:
+      return "item";
+    case 4:
+      return "memory";
+    case 5:
+      return "soul";
+    default:
+      return undefined;
+  }
+};
+
 export const deriveGameViewModel = (
   snapshot: GameViewSnapshot,
   observerCardId: EntityId,
@@ -128,20 +146,19 @@ export const deriveGameViewModel = (
   for (const trackedCard of trackedOwnedCards) {
     if (trackedCard.card.cardId === viewedCardId) {
       viewedSelfCard = trackedCard;
+    }
+
+    const category = toInventoryCategory(trackedCard.card.cardType);
+    if (!category) {
+      console.warn("[ui-debug] unknown card_type encountered", {
+        cardId: trackedCard.card.cardId,
+        cardType: trackedCard.card.cardType,
+      });
       continue;
     }
 
-    const tracker = trackedCard.tracker;
-    if (tracker && tracker.linkedTileId !== ZERO_ID) {
-      continue;
-    }
-
-    const category = trackedCard.card.cardType as CardCategory;
-    if (inventories[category]) {
-      inventories[category].push(trackedCard);
-    }
+    inventories[category].push(trackedCard);
   }
-
 
   if (!viewedSelfCard) {
     const selfCard = snapshot.cards.find((card) => card.cardId === viewedCardId);

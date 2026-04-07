@@ -1,7 +1,8 @@
 import { Application } from "pixi.js";
-import { GameScene, type GameDataSource } from "./game";
+import { GameScene } from "./game";
 import { getSpacetimeConnection, initSpacetimeClient } from "./spacetime";
 import { initPlayerRootSubscription } from "./spacetime/playerRootSubscription";
+import { ViewedCardsDataSource } from "./spacetime/viewedCardsDataSource";
 
 const ROOT_ID = "app";
 
@@ -36,11 +37,18 @@ async function boot(): Promise<void> {
   document.body.style.background = "#0f1115";
   root.appendChild(app.canvas);
 
+  const viewedCardsDataSource = new ViewedCardsDataSource(connection);
+
   const scene = new GameScene({
     width: window.innerWidth,
     height: window.innerHeight,
     playerId: 1n,
-    dataSource: createGameDataSource(),
+    dataSource: viewedCardsDataSource,
+    onViewedCardIdChange: (viewedCardId) => {
+      viewedCardsDataSource.setViewedCardId(
+        typeof viewedCardId === "bigint" ? viewedCardId : BigInt(viewedCardId),
+      );
+    },
   });
   app.stage.addChild(scene);
 
@@ -65,6 +73,7 @@ async function boot(): Promise<void> {
   const shutdown = (): void => {
     window.removeEventListener("resize", onResize);
     disposePlayerRootSubscription?.();
+    viewedCardsDataSource.dispose();
     scene.destroy({ children: true });
     app.destroy(true, { children: true, texture: true });
   };
@@ -72,17 +81,3 @@ async function boot(): Promise<void> {
   window.addEventListener("beforeunload", shutdown, { once: true });
 }
 
-function createGameDataSource(): GameDataSource {
-  return {
-    getSnapshot: () => ({
-      players: [],
-      cards: [],
-      cardTrackers: [],
-      actionTrackers: [],
-      tiles: [],
-      tileTrackers: [],
-      eventTrackers: [],
-      slotTrackers: [],
-    }),
-  };
-}
