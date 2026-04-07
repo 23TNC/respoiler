@@ -16,7 +16,7 @@ export class EventColumnRenderer {
   render(params: EventColumnRenderParams): void {
     this.container.removeChildren();
 
-    const spacing = 82;
+    const spacing = 72;
     const startY = 0;
     for (let i = 0; i < params.tiles.length; i += 1) {
       const tile = params.tiles[i];
@@ -24,7 +24,7 @@ export class EventColumnRenderer {
         id: tile.tile.tileId,
         label: `E${i + 1}`,
         color: 0x8d6a9f,
-        radius: 30,
+        radius: 26,
         selected: params.selectedTileId === tile.tile.tileId,
         onSelect: params.onTileSelect,
       });
