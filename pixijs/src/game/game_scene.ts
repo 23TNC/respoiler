@@ -17,6 +17,7 @@ type GameSceneConfig = {
   playerId: EntityId;
   definitionLookup?: DefinitionLookup;
   dataSource?: GameDataSource;
+  onViewedCardIdChange?: (viewedCardId: EntityId) => void;
 };
 
 export class GameScene extends Container {
@@ -91,6 +92,7 @@ export class GameScene extends Container {
   private selection?: ViewModelSelection;
 
   private disposeSource?: () => void;
+  private readonly onViewedCardIdChange?: (viewedCardId: EntityId) => void;
 
   constructor(config: GameSceneConfig) {
     super();
@@ -98,6 +100,7 @@ export class GameScene extends Container {
     this.widthPx = config.width;
     this.heightPx = config.height;
     this.definitionLookup = config.definitionLookup;
+    this.onViewedCardIdChange = config.onViewedCardIdChange;
     this.initializeLayout();
 
     this.dataStore.onChange(() => this.renderView());
@@ -124,6 +127,7 @@ export class GameScene extends Container {
     this.viewedCardId = viewedCardId;
     this.selection = undefined;
     this.renderView();
+    this.onViewedCardIdChange?.(viewedCardId);
   }
 
   setObserverCardId(observerCardId: EntityId): void {
