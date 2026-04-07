@@ -13,7 +13,7 @@ export type HexTileViewConfig = {
 export class HexTileView extends Container {
   private readonly background: Graphics;
   private readonly border: Graphics;
-  private readonly label: Text;
+  private readonly labelText: Text;
   private readonly tileId: EntityId;
   private readonly radius: number;
 
@@ -24,16 +24,16 @@ export class HexTileView extends Container {
     this.radius = config.radius;
     this.background = new Graphics();
     this.border = new Graphics();
-    this.label = new Text({
+    this.labelText = new Text({
       text: config.label,
       style: {
         fill: 0xf6f4ea,
         fontSize: 12,
       },
     });
-    this.label.anchor.set(0.5);
+    this.labelText.anchor.set(0.5);
 
-    this.addChild(this.background, this.border, this.label);
+    this.addChild(this.background, this.border, this.labelText);
 
     this.draw(config.color, Boolean(config.selected));
 
@@ -58,7 +58,7 @@ export class HexTileView extends Container {
       width: selected ? 4 : 2,
     });
 
-    this.label.position.set(0, 0);
+    this.labelText.position.set(0, 0);
   }
 
   private computeFlatHexPoints(radius: number): number[] {

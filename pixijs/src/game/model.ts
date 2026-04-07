@@ -168,7 +168,7 @@ export const deriveGameViewModel = (
         attachedCards: attachedCardsByTileId.get(idToKey(tile.tileId)) ?? [],
       };
     })
-    .filter((tile): tile is TrackedTile => Boolean(tile));
+    .filter((tile) => tile !== undefined);
 
   const eventTiles = snapshot.eventTrackers
     .map((eventTracker) => {
@@ -183,7 +183,7 @@ export const deriveGameViewModel = (
         createTime: Number(eventTracker.createTime),
       };
     })
-    .filter((tile): tile is TrackedTile & { createTime: number } => Boolean(tile))
+    .filter((tile) => tile !== undefined)
     .sort((a, b) => a.createTime - b.createTime);
 
   const slotTiles = snapshot.slotTrackers
@@ -203,7 +203,7 @@ export const deriveGameViewModel = (
         r: slotTracker.r,
       };
     })
-    .filter((tile): tile is TrackedTile & { q: number; r: number } => Boolean(tile));
+    .filter((tile) => tile !== undefined);
 
   return {
     observerCardId,

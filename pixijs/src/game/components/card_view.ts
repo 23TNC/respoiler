@@ -15,8 +15,8 @@ export type CardViewConfig = {
 export class CardView extends Container {
   private readonly background: Graphics;
   private readonly outline: Graphics;
-  private readonly label: Text;
-  private readonly subLabel: Text;
+  private readonly titleText: Text;
+  private readonly subtitleText: Text;
   private readonly trackedCard: TrackedCard;
   private dragging = false;
 
@@ -26,19 +26,19 @@ export class CardView extends Container {
     this.trackedCard = config.trackedCard;
     this.background = new Graphics();
     this.outline = new Graphics();
-    this.label = new Text({
+    this.titleText = new Text({
       text: config.trackedCard.definition?.title ?? `Card ${config.trackedCard.card.cardId}`,
       style: { fill: 0x101010, fontSize: 12, wordWrap: true, wordWrapWidth: config.width - 12 },
     });
-    this.subLabel = new Text({
+    this.subtitleText = new Text({
       text: this.buildSubLabel(config.trackedCard),
       style: { fill: 0x2b2b2b, fontSize: 10 },
     });
 
-    this.label.position.set(6, 6);
-    this.subLabel.position.set(6, config.height - 18);
+    this.titleText.position.set(6, 6);
+    this.subtitleText.position.set(6, config.height - 18);
 
-    this.addChild(this.background, this.outline, this.label, this.subLabel);
+    this.addChild(this.background, this.outline, this.titleText, this.subtitleText);
 
     this.draw(config.width, config.height, Boolean(config.selected));
 
