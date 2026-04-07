@@ -14,7 +14,7 @@ fi
 mkdir -p "$PIXI_OUT_DIR"
 
 echo "Generating TypeScript bindings..."
-spacetime generate --lang typescript --out-dir "$PIXI_OUT_DIR"
+spacetime generate --lang typescript --out-dir "$PIXI_OUT_DIR" --module-path "$SPACETIMEDB_DIR"
 
 echo "Done."
 echo "TypeScript bindings: $PIXI_OUT_DIR"
