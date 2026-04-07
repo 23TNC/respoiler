@@ -120,12 +120,14 @@ export class GameScene extends Container {
   }
 
   setViewedCardId(viewedCardId: EntityId): void {
+    console.info("[ui-debug] setViewedCardId called", { viewedCardId });
     this.viewedCardId = viewedCardId;
     this.selection = undefined;
     this.renderView();
   }
 
   setObserverCardId(observerCardId: EntityId): void {
+    console.info("[ui-debug] setObserverCardId called", { observerCardId });
     this.observerCardId = observerCardId;
     this.renderView();
   }
