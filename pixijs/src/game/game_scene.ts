@@ -48,6 +48,10 @@ export class GameScene extends Container {
       minHeight: 220,
       maxHeight: 320,
     },
+    inventoryAux: {
+      heightMultiplierFromTopBanner: 2,
+      minHeight: 56,
+    },
   } as const;
 
   private readonly dataStore = new GameDataStore();
@@ -60,11 +64,13 @@ export class GameScene extends Container {
   private readonly eventFrame = new Graphics();
   private readonly boardFrame = new Graphics();
   private readonly detailsFrame = new Graphics();
+  private readonly inventoryAuxFrame = new Graphics();
   private readonly inventoryFrame = new Graphics();
 
   private readonly eventRegion = new Container();
   private readonly boardRegion = new Container();
   private readonly detailsRegion = new Container();
+  private readonly inventoryAuxRegion = new Container();
   private readonly inventoryRegion = new Container();
 
   private widthPx: number;
@@ -75,6 +81,8 @@ export class GameScene extends Container {
   private boardRegionHeight = 0;
   private detailsRegionWidth = 0;
   private detailsRegionHeight = 0;
+  private inventoryAuxRegionWidth = 0;
+  private inventoryAuxRegionHeight = 0;
   private inventoryRegionWidth = 0;
   private inventoryRegionHeight = 0;
   private readonly definitionLookup?: DefinitionLookup;
@@ -146,12 +154,14 @@ export class GameScene extends Container {
     this.eventRegion.addChild(this.eventFrame, this.eventRenderer.container);
     this.boardRegion.addChild(this.boardFrame, this.boardRenderer.container);
     this.detailsRegion.addChild(this.detailsFrame, this.detailsRenderer.container);
+    this.inventoryAuxRegion.addChild(this.inventoryAuxFrame);
     this.inventoryRegion.addChild(this.inventoryFrame, this.inventoryRenderer.container);
     this.addChild(
       this.background,
       this.eventRegion,
       this.boardRegion,
       this.detailsRegion,
+      this.inventoryAuxRegion,
       this.inventoryRegion,
     );
   }
@@ -159,14 +169,20 @@ export class GameScene extends Container {
   private layoutContainers(): void {
     const { margin, rowGap, columnGap } = GameScene.LAYOUT;
     const headerHeight = GameScene.LAYOUT.topHeader.reservedHeight;
+    const middleTop = headerHeight + rowGap;
     const contentWidth = Math.max(360, this.widthPx - margin * 2);
 
-    const bottomHeight = this.clamp(
+    const inventoryHeight = this.clamp(
       Math.floor(this.heightPx * GameScene.LAYOUT.bottomInventory.heightRatio),
       GameScene.LAYOUT.bottomInventory.minHeight,
       GameScene.LAYOUT.bottomInventory.maxHeight,
     );
-    const usableHeight = Math.max(220, this.heightPx - headerHeight - bottomHeight - margin - rowGap);
+    const inventoryAuxHeight = Math.max(
+      GameScene.LAYOUT.inventoryAux.minHeight,
+      GameScene.LAYOUT.topHeader.panelHeight * GameScene.LAYOUT.inventoryAux.heightMultiplierFromTopBanner,
+    );
+    const bottomRegionHeight = inventoryAuxHeight + rowGap + inventoryHeight;
+    const usableHeight = Math.max(220, this.heightPx - middleTop - bottomRegionHeight - margin - rowGap);
 
     const leftWidth = this.clamp(
       Math.floor(contentWidth * GameScene.LAYOUT.leftEvents.widthRatio),
@@ -189,18 +205,25 @@ export class GameScene extends Container {
     this.boardRegionHeight = usableHeight;
     this.detailsRegionWidth = rightWidth;
     this.detailsRegionHeight = usableHeight;
+    this.inventoryAuxRegionWidth = contentWidth;
+    this.inventoryAuxRegionHeight = inventoryAuxHeight;
     this.inventoryRegionWidth = contentWidth;
-    this.inventoryRegionHeight = bottomHeight;
+    this.inventoryRegionHeight = inventoryHeight;
 
     this.drawFrame(this.eventFrame, this.eventRegionWidth, this.eventRegionHeight, "Events");
     this.drawFrame(this.boardFrame, this.boardRegionWidth, this.boardRegionHeight, "World Board");
     this.drawFrame(this.detailsFrame, this.detailsRegionWidth, this.detailsRegionHeight, "Details");
-    this.drawFrame(this.inventoryFrame, this.inventoryRegionWidth, this.inventoryRegionHeight, "Inventory");
+    this.drawFrame(this.inventoryAuxFrame, this.inventoryAuxRegionWidth, this.inventoryAuxRegionHeight);
+    this.drawFrame(this.inventoryFrame, this.inventoryRegionWidth, this.inventoryRegionHeight);
 
-    this.eventRegion.position.set(margin, headerHeight);
-    this.boardRegion.position.set(margin + leftWidth + columnGap, headerHeight);
-    this.detailsRegion.position.set(margin + leftWidth + columnGap + centerWidth + columnGap, headerHeight);
-    this.inventoryRegion.position.set(margin, headerHeight + usableHeight + rowGap);
+    this.eventRegion.position.set(margin, middleTop);
+    this.boardRegion.position.set(margin + leftWidth + columnGap, middleTop);
+    this.detailsRegion.position.set(margin + leftWidth + columnGap + centerWidth + columnGap, middleTop);
+    this.inventoryAuxRegion.position.set(margin, middleTop + usableHeight + rowGap);
+    this.inventoryRegion.position.set(
+      margin,
+      middleTop + usableHeight + rowGap + inventoryAuxHeight + rowGap,
+    );
 
     this.eventRenderer.container.position.set(this.eventRegionWidth * 0.5, this.eventRegionHeight - 24);
     this.boardRenderer.container.position.set(this.boardRegionWidth * 0.5, this.boardRegionHeight * 0.5);
@@ -210,7 +233,7 @@ export class GameScene extends Container {
     );
     this.inventoryRenderer.container.position.set(
       GameScene.PANEL_PADDING,
-      GameScene.PANEL_HEADER_HEIGHT + GameScene.PANEL_PADDING,
+      GameScene.PANEL_PADDING,
     );
   }
 
@@ -218,14 +241,18 @@ export class GameScene extends Container {
     return Math.min(max, Math.max(min, value));
   }
 
-  private drawFrame(target: Graphics, width: number, height: number, label: string): void {
+  private drawFrame(target: Graphics, width: number, height: number, label?: string): void {
     target.clear();
     target.roundRect(0, 0, width, height, 8).fill(0x161a1f);
     target.roundRect(0, 0, width, height, 8).stroke({ color: 0x425468, width: 1 });
 
-    const existingLabel = target.parent?.getChildByLabel(`${label}-label`);
-    if (existingLabel) {
+    const existingLabels = target.parent?.children.filter((child) => child.label?.endsWith("-label")) ?? [];
+    for (const existingLabel of existingLabels) {
       existingLabel.destroy();
+    }
+
+    if (!label) {
+      return;
     }
 
     const title = new Text({
@@ -278,10 +305,7 @@ export class GameScene extends Container {
       inventories: viewModel.inventories,
       selectedCardId: this.selection?.type === "card" ? this.selection.id : undefined,
       width: Math.max(120, this.inventoryRegionWidth - GameScene.PANEL_PADDING * 2),
-      height: Math.max(
-        80,
-        this.inventoryRegionHeight - GameScene.PANEL_HEADER_HEIGHT - GameScene.PANEL_PADDING * 2,
-      ),
+      height: Math.max(80, this.inventoryRegionHeight - GameScene.PANEL_PADDING * 2),
       onSelect: (cardId) => {
         this.selection = { type: "card", id: cardId };
         this.renderView();
