@@ -11,9 +11,9 @@ import {
 } from "spacetimedb";
 
 export default {
-  tileId: __t.u64(),
+  tileId: __t.u32(),
   q: __t.i32(),
   r: __t.i32(),
   z: __t.i32(),
-  linkedTileId: __t.u64(),
+  linkedTileId: __t.u32(),
 };

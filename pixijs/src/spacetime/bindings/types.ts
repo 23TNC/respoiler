@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export const ActionTracker = __t.object("ActionTracker", {
-  cardId: __t.u64(),
-  recipeDefinitionId: __t.u64(),
+  cardId: __t.u32(),
+  recipeDefinitionId: __t.u16(),
   recipeLock: __t.bool(),
   magneticInputs: __t.string(),
   queuedAt: __t.i64(),
@@ -22,63 +22,63 @@ export const ActionTracker = __t.object("ActionTracker", {
 export type ActionTracker = __Infer<typeof ActionTracker>;
 
 export const Card = __t.object("Card", {
-  cardId: __t.u64(),
-  definitionId: __t.u64(),
-  cardType: __t.string(),
-  ownerCardId: __t.u64(),
+  cardId: __t.u32(),
+  definitionId: __t.u16(),
+  cardType: __t.u16(),
+  ownerCardId: __t.u32(),
 });
 export type Card = __Infer<typeof Card>;
 
 export const CardTracker = __t.object("CardTracker", {
-  cardId: __t.u64(),
-  linkedTileId: __t.u64(),
+  cardId: __t.u32(),
+  linkedTileId: __t.u32(),
   positionLock: __t.bool(),
   positionHold: __t.bool(),
 });
 export type CardTracker = __Infer<typeof CardTracker>;
 
 export const EventTracker = __t.object("EventTracker", {
-  tileId: __t.u64(),
-  cardId: __t.u64(),
+  tileId: __t.u32(),
+  cardId: __t.u32(),
   createTime: __t.i64(),
 });
 export type EventTracker = __Infer<typeof EventTracker>;
 
 export const Player = __t.object("Player", {
-  playerId: __t.u64(),
-  cardId: __t.u64(),
+  playerId: __t.u32(),
+  cardId: __t.u32(),
 });
 export type Player = __Infer<typeof Player>;
 
 export const SlotTracker = __t.object("SlotTracker", {
-  tileId: __t.u64(),
-  cardId: __t.u64(),
+  tileId: __t.u32(),
+  cardId: __t.u32(),
   q: __t.i32(),
   r: __t.i32(),
 });
 export type SlotTracker = __Infer<typeof SlotTracker>;
 
 export const SoulAlignment = __t.object("SoulAlignment", {
-  cardId: __t.u64(),
-  factionId: __t.u64(),
-  groupId: __t.u64(),
+  cardId: __t.u32(),
+  factionId: __t.u32(),
+  groupId: __t.u32(),
   permissions: __t.u64(),
 });
 export type SoulAlignment = __Infer<typeof SoulAlignment>;
 
 export const Tile = __t.object("Tile", {
-  tileId: __t.u64(),
-  definitionId: __t.u64(),
-  tileType: __t.string(),
+  tileId: __t.u32(),
+  definitionId: __t.u16(),
+  tileType: __t.u16(),
 });
 export type Tile = __Infer<typeof Tile>;
 
 export const TileTracker = __t.object("TileTracker", {
-  tileId: __t.u64(),
+  tileId: __t.u32(),
   q: __t.i32(),
   r: __t.i32(),
   z: __t.i32(),
-  linkedTileId: __t.u64(),
+  linkedTileId: __t.u32(),
 });
 export type TileTracker = __Infer<typeof TileTracker>;
 

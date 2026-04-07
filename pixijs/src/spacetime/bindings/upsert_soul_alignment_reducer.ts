@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default {
-  cardId: __t.u64(),
-  factionId: __t.u64(),
-  groupId: __t.u64(),
+  cardId: __t.u32(),
+  factionId: __t.u32(),
+  groupId: __t.u32(),
   permissions: __t.u64(),
 };

@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  cardId: __t.u64().primaryKey().name("card_id"),
-  linkedTileId: __t.u64().name("linked_tile_id"),
+  cardId: __t.u32().primaryKey().name("card_id"),
+  linkedTileId: __t.u32().name("linked_tile_id"),
   positionLock: __t.bool().name("position_lock"),
   positionHold: __t.bool().name("position_hold"),
 });

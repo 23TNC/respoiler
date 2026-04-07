@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  tileId: __t.u64().primaryKey().name("tile_id"),
-  cardId: __t.u64().name("card_id"),
+  tileId: __t.u32().primaryKey().name("tile_id"),
+  cardId: __t.u32().name("card_id"),
   q: __t.i32(),
   r: __t.i32(),
 });

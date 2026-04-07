@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  tileId: __t.u64(),
-  cardId: __t.u64(),
+  tileId: __t.u32(),
+  cardId: __t.u32(),
   createTime: __t.i64(),
 };

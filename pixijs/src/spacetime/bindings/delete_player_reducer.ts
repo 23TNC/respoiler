@@ -11,5 +11,5 @@ import {
 } from "spacetimedb";
 
 export default {
-  playerId: __t.u64(),
+  playerId: __t.u32(),
 };

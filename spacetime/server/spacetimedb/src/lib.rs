@@ -1,16 +1,21 @@
 use spacetimedb::{reducer, table, ReducerContext, SpacetimeType, Table};
 
-#[derive(SpacetimeType)]
-pub enum CardType {
-    Technique,
-    Essence,
-}
+
+// Tile 1
+// Event 2
+// Slot 3
+
+// Discipline   1
+// Faculty      2
+// Requisite    3
+// Reverie      4
+// Soul         5
 
 #[derive(SpacetimeType)]
 pub enum TileType {
     Tile,
     Event,
-    Slot,
+    Slot
 }
 
 // Stores a player and the root card that represents that player.
@@ -36,8 +41,8 @@ pub struct SoulAlignment {
 pub struct Tile {
     #[primary_key]
     pub tile_id: u32,
-    pub definition_id: u32,
-    pub tile_type: TileType,
+    pub definition_id: u16,
+    pub tile_type: u16,
 }
 
 // Tracks world-positioned tiles and optional links to other tiles.
@@ -75,8 +80,8 @@ pub struct SlotTracker {
 pub struct Card {
     #[primary_key]
     pub card_id: u32,
-    pub definition_id: u32,
-    pub card_type: CardType,
+    pub definition_id: u16,
+    pub card_type: u16,
     pub owner_card_id: u32,
 }
 
@@ -95,7 +100,7 @@ pub struct CardTracker {
 pub struct ActionTracker {
     #[primary_key]
     pub card_id: u32,
-    pub recipe_definition_id: u32,
+    pub recipe_definition_id: u16,
     pub recipe_lock: bool,
     pub magnetic_inputs: String,
     pub queued_at: i64,
@@ -247,8 +252,8 @@ pub fn delete_soul_alignment(ctx: &ReducerContext, card_id: u32) -> Result<(), S
 pub fn create_tile(
     ctx: &ReducerContext,
     tile_id: u32,
-    definition_id: u32,
-    tile_type: TileType,
+    definition_id: u16,
+    tile_type: u16,
 ) -> Result<(), String> {
     validate_nonzero_id("tile_id", tile_id)?;
 
@@ -269,8 +274,8 @@ pub fn create_tile(
 pub fn update_tile(
     ctx: &ReducerContext,
     tile_id: u32,
-    definition_id: u32,
-    tile_type: TileType,
+    definition_id: u16,
+    tile_type: u16,
 ) -> Result<(), String> {
     validate_nonzero_id("tile_id", tile_id)?;
 
@@ -420,8 +425,8 @@ pub fn delete_slot_tracker(ctx: &ReducerContext, tile_id: u32) -> Result<(), Str
 pub fn create_card(
     ctx: &ReducerContext,
     card_id: u32,
-    definition_id: u32,
-    card_type: CardType,
+    definition_id: u16,
+    card_type: u16,
     owner_card_id: u32,
 ) -> Result<(), String> {
     validate_nonzero_id("card_id", card_id)?;
@@ -445,8 +450,8 @@ pub fn create_card(
 pub fn update_card(
     ctx: &ReducerContext,
     card_id: u32,
-    definition_id: u32,
-    card_type: CardType,
+    definition_id: u16,
+    card_type: u16,
     owner_card_id: u32,
 ) -> Result<(), String> {
     validate_nonzero_id("card_id", card_id)?;
@@ -584,7 +589,7 @@ pub fn delete_card_tracker(ctx: &ReducerContext, card_id: u32) -> Result<(), Str
 pub fn upsert_action_tracker(
     ctx: &ReducerContext,
     card_id: u32,
-    recipe_definition_id: u32,
+    recipe_definition_id: u16,
     recipe_lock: bool,
     magnetic_inputs: String,
     queued_at: i64,
@@ -623,7 +628,7 @@ pub fn upsert_action_tracker(
 pub fn update_action_recipe(
     ctx: &ReducerContext,
     card_id: u32,
-    recipe_definition_id: u32,
+    recipe_definition_id: u16,
     recipe_lock: bool,
     magnetic_inputs: String,
 ) -> Result<(), String> {

@@ -11,6 +11,6 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  playerId: __t.u64().primaryKey().name("player_id"),
-  cardId: __t.u64().name("card_id"),
+  playerId: __t.u32().primaryKey().name("player_id"),
+  cardId: __t.u32().name("card_id"),
 });

@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  cardId: __t.u64().primaryKey().name("card_id"),
-  recipeDefinitionId: __t.u64().name("recipe_definition_id"),
+  cardId: __t.u32().primaryKey().name("card_id"),
+  recipeDefinitionId: __t.u16().name("recipe_definition_id"),
   recipeLock: __t.bool().name("recipe_lock"),
   magneticInputs: __t.string().name("magnetic_inputs"),
   queuedAt: __t.i64().name("queued_at"),

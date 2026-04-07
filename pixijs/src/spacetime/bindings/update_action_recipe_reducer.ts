@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default {
-  cardId: __t.u64(),
-  recipeDefinitionId: __t.u64(),
+  cardId: __t.u32(),
+  recipeDefinitionId: __t.u16(),
   recipeLock: __t.bool(),
   magneticInputs: __t.string(),
 };

@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  cardId: __t.u64(),
+  cardId: __t.u32(),
   queuedAt: __t.i64(),
   startedAt: __t.i64(),
   completedAt: __t.i64(),

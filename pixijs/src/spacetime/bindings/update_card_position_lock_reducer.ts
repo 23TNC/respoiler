@@ -11,6 +11,6 @@ import {
 } from "spacetimedb";
 
 export default {
-  cardId: __t.u64(),
+  cardId: __t.u32(),
   positionLock: __t.bool(),
 };

@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default {
-  cardId: __t.u64(),
-  definitionId: __t.u64(),
-  cardType: __t.string(),
-  ownerCardId: __t.u64(),
+  cardId: __t.u32(),
+  definitionId: __t.u16(),
+  cardType: __t.u16(),
+  ownerCardId: __t.u32(),
 };

@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  cardId: __t.u64().primaryKey().name("card_id"),
-  factionId: __t.u64().name("faction_id"),
-  groupId: __t.u64().name("group_id"),
+  cardId: __t.u32().primaryKey().name("card_id"),
+  factionId: __t.u32().name("faction_id"),
+  groupId: __t.u32().name("group_id"),
   permissions: __t.u64(),
 });
