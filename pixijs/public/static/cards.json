@@ -1,136 +1,23 @@
 [
   {
     "name": "Human",
-    "group": "Soul",
-    "backgroundColor": "#a8e0e6",
-    "key": "human",
+    "card_type": 5,
+    "topColor": "#a8e0e6",
+    "bottomColor": "#ecd6aa",
     "id": 1
   }
   {
     "name": "Work",
-    "group": "Action",
-    "backgroundColor": "#f8be6f",
-    "key": "work",
+    "card_type": 1,
+    "topColor": "#97e3a7",
+    "bottomColor": "#ecd6aa",
     "id": 2
-  },
-  
-  {
-    "name": "Study",
-    "group": "Action",
-    "backgroundColor": "#f3d27f",
-    "key": "study",
-    "id": 3
-  },
-  {
-    "name": "Dream",
-    "group": "Action",
-    "backgroundColor": "#d9b6ff",
-    "key": "dream",
-    "id": 4
-  },
-  {
-    "name": "Move",
-    "group": "Action",
-    "backgroundColor": "#8fd7ff",
-    "key": "move",
-    "id": 5
-  },
-  {
-    "name": "Attack",
-    "group": "Action",
-    "backgroundColor": "#f79d8d",
-    "key": "attack",
-    "id": 6
-  },
-  {
-    "name": "Defend",
-    "group": "Action",
-    "backgroundColor": "#9dd6a1",
-    "key": "defend",
-    "id": 7
-  },
-  {
-    "name": "Explore",
-    "group": "Action",
-    "backgroundColor": "#8ed8c8",
-    "key": "explore",
-    "id": 8
   },
   {
     "name": "Health",
-    "group": "Skill",
-    "backgroundColor": "#97e3a7",
-    "key": "health",
+    "card_type": 2,
+    "topColor": "#e67373",
+    "bottomColor": "#ecd6aa",
     "id": 9
   },
-  {
-    "name": "Passion",
-    "group": "Skill",
-    "backgroundColor": "#ffb8c4",
-    "key": "passion",
-    "id": 10
-  },
-  {
-    "name": "Reason",
-    "group": "Skill",
-    "backgroundColor": "#b9c8ff",
-    "key": "reason",
-    "id": 11
-  },
-  {
-    "name": "Axe",
-    "group": "sundries",
-    "backgroundColor": "#ffcc97",
-    "key": "axe",
-    "id": 12
-  },
-  {
-    "name": "Logs",
-    "group": "sundries",
-    "backgroundColor": "#cda27f",
-    "key": "logs",
-    "id": 13
-  },
-  {
-    "name": "Food",
-    "group": "sundries",
-    "backgroundColor": "#ffe08f",
-    "key": "food",
-    "id": 14
-  },
-  {
-    "name": "Dread",
-    "group": "reveries",
-    "backgroundColor": "#cf9cff",
-    "key": "dread",
-    "id": 15
-  },
-  {
-    "name": "Wound",
-    "group": "reveries",
-    "backgroundColor": "#f5a0a0",
-    "key": "wound",
-    "id": 16
-  },
-  {
-    "name": "Known Forest",
-    "group": "reveries",
-    "backgroundColor": "#a5d5a1",
-    "key": "known-forest",
-    "id": 17
-  },
-  {
-    "name": "Grudge",
-    "group": "reveries",
-    "backgroundColor": "#d6a5b7",
-    "key": "grudge",
-    "id": 18
-  },
-  {
-    "name": "Follower",
-    "group": "Soul",
-    "backgroundColor": "#a8e0e6",
-    "key": "follower",
-    "id": 19
-  }
 ]
