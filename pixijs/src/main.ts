@@ -1,5 +1,6 @@
 import { Application } from "pixi.js";
 import { GameScene } from "./game";
+import { CardDefinitionStore } from "./game/data/card_definition_store";
 import { getSpacetimeConnection, initSpacetimeClient } from "./spacetime";
 import { initPlayerRootSubscription } from "./spacetime/playerRootSubscription";
 import { ViewedCardsDataSource } from "./spacetime/viewedCardsDataSource";
@@ -39,10 +40,18 @@ async function boot(): Promise<void> {
 
   const viewedCardsDataSource = new ViewedCardsDataSource(connection);
 
+  let cardDefinitionStore: CardDefinitionStore | undefined;
+  try {
+    cardDefinitionStore = await CardDefinitionStore.load();
+  } catch (error) {
+    console.warn("[ui-debug] failed to load static card definitions", error);
+  }
+
   const scene = new GameScene({
     width: window.innerWidth,
     height: window.innerHeight,
     playerId: 1n,
+    definitionLookup: cardDefinitionStore?.getLookup(),
     dataSource: viewedCardsDataSource,
     onViewedCardIdChange: (viewedCardId) => {
       viewedCardsDataSource.setViewedCardId(

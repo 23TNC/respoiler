@@ -71,7 +71,7 @@ export class DetailsPanelRenderer {
       }
       lines.push(`Attached cards: ${tile.attachedCards.length}`);
       tile.attachedCards.slice(0, 6).forEach((trackedCard) => {
-        lines.push(`  • ${trackedCard.definition?.title ?? trackedCard.card.cardType} (${trackedCard.actionState})`);
+        lines.push(`  • ${trackedCard.definition?.name ?? trackedCard.card.cardType} (${trackedCard.actionState})`);
       });
       return lines;
     }
@@ -84,7 +84,7 @@ export class DetailsPanelRenderer {
 
     lines.push(`Card #${card.card.cardId}`);
     lines.push(`Type: ${card.card.cardType}`);
-    lines.push(`Title: ${card.definition?.title ?? "Unknown definition"}`);
+    lines.push(`Name: ${card.definition?.name ?? "Unknown definition"}`);
     lines.push(`Action state: ${card.actionState}`);
     lines.push(`Position lock: ${card.tracker?.positionLock ? "yes" : "no"}`);
     lines.push(`Position hold: ${card.tracker?.positionHold ? "yes" : "no"}`);

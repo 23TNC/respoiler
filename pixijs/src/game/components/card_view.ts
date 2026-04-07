@@ -14,8 +14,11 @@ export type CardViewConfig = {
 };
 
 export class CardView extends Container {
-  private readonly background: Graphics;
-  private readonly artRegionBackground: Graphics;
+  private readonly colorRegions: Container;
+  private readonly roundedMask: Graphics;
+  private readonly topRegion: Graphics;
+  private readonly bottomRegion: Graphics;
+  private readonly splitLine: Graphics;
   private readonly outline: Graphics;
   private readonly titleText: Text;
   private readonly trackedCard: TrackedCard;
@@ -25,11 +28,14 @@ export class CardView extends Container {
     super();
 
     this.trackedCard = config.trackedCard;
-    this.background = new Graphics();
-    this.artRegionBackground = new Graphics();
+    this.colorRegions = new Container();
+    this.roundedMask = new Graphics();
+    this.topRegion = new Graphics();
+    this.bottomRegion = new Graphics();
+    this.splitLine = new Graphics();
     this.outline = new Graphics();
     this.titleText = new Text({
-      text: config.trackedCard.definition?.title ?? `Card ${config.trackedCard.card.cardId}`,
+      text: config.trackedCard.definition?.name ?? `Card ${config.trackedCard.card.cardId}`,
       style: {
         fill: 0x101010,
         fontSize: 12,
@@ -40,7 +46,10 @@ export class CardView extends Container {
     });
     this.titleText.anchor.set(0.5);
 
-    this.addChild(this.background, this.artRegionBackground, this.outline, this.titleText);
+    this.colorRegions.addChild(this.topRegion, this.bottomRegion);
+    this.colorRegions.mask = this.roundedMask;
+
+    this.addChild(this.colorRegions, this.roundedMask, this.splitLine, this.outline, this.titleText);
 
     this.draw(config.width, config.height, Boolean(config.selected));
 
@@ -80,22 +89,28 @@ export class CardView extends Container {
   }
 
   private draw(width: number, height: number, selected: boolean): void {
-    const isAction = this.trackedCard.card.cardType === "action";
-    const fillColor = isAction ? 0xc9b7ff : 0xf0f0f0;
+    const fallbackTopColor = 0x6f7d88;
+    const fallbackBottomColor = 0x3a4652;
+    const topColor = this.trackedCard.definition?.topColor ?? fallbackTopColor;
+    const bottomColor = this.trackedCard.definition?.bottomColor ?? fallbackBottomColor;
+
     const artRegionHeight = height * CARD_ART_REGION_RATIO;
     const nameRegionHeight = height * CARD_NAME_REGION_RATIO;
 
-    this.background.clear();
-    this.background.roundRect(0, 0, width, height, UI_LAYOUT.card.cornerRadius).fill(fillColor);
+    this.roundedMask.clear();
+    this.roundedMask.roundRect(0, 0, width, height, UI_LAYOUT.card.cornerRadius).fill(0xffffff);
 
-    this.artRegionBackground.clear();
-    this.artRegionBackground
-      .roundRect(0, 0, width, artRegionHeight, UI_LAYOUT.card.cornerRadius)
-      .fill({ color: 0xffffff, alpha: 0.14 });
-    this.artRegionBackground
+    this.topRegion.clear();
+    this.topRegion.rect(0, 0, width, artRegionHeight).fill(topColor);
+
+    this.bottomRegion.clear();
+    this.bottomRegion.rect(0, artRegionHeight, width, height - artRegionHeight).fill(bottomColor);
+
+    this.splitLine.clear();
+    this.splitLine
       .moveTo(UI_LAYOUT.card.cornerRadius * 0.5, artRegionHeight)
       .lineTo(width - UI_LAYOUT.card.cornerRadius * 0.5, artRegionHeight)
-      .stroke({ color: 0x212121, alpha: 0.2, width: 1 });
+      .stroke({ color: 0x212121, alpha: 0.22, width: 1 });
 
     this.outline.clear();
     this.outline.roundRect(0, 0, width, height, UI_LAYOUT.card.cornerRadius).stroke({
@@ -103,6 +118,7 @@ export class CardView extends Container {
       width: selected ? 3 : 1,
     });
 
+    this.titleText.text = this.trackedCard.definition?.name ?? `Card ${this.trackedCard.card.cardId}`;
     this.titleText.style.wordWrapWidth = width - UI_LAYOUT.card.textPadding * 2;
     this.titleText.position.set(width * 0.5, artRegionHeight + nameRegionHeight * 0.5);
 

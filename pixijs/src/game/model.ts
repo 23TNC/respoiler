@@ -13,8 +13,9 @@ export type CardCategory = "action" | "skill" | "item" | "memory" | "soul";
 export type EntityId = bigint | number;
 
 export type DefinitionInfo = {
-  title: string;
-  color?: number;
+  name: string;
+  topColor: number;
+  bottomColor: number;
 };
 
 export type DefinitionLookup = (definitionId: EntityId) => DefinitionInfo | undefined;

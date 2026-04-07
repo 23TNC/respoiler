@@ -320,7 +320,7 @@ export class GameScene extends Container {
       height: Math.max(80, this.detailsRegionHeight - GameScene.PANEL_HEADER_HEIGHT - GameScene.PANEL_PADDING * 2),
     });
 
-    this.renderViewedSelfHeader(viewModel.viewedSelfCard?.definition?.title ?? "Viewed Soul");
+    this.renderViewedSelfHeader(viewModel.viewedSelfCard?.definition?.name ?? "Viewed Soul");
   }
 
   private renderViewedSelfHeader(label: string): void {
