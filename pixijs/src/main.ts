@@ -1,6 +1,7 @@
 import { Application } from "pixi.js";
 import { GameScene, type GameDataSource } from "./game";
 import { initSpacetimeClient } from "./spacetime";
+import { initPlayerRootSubscription } from "./spacetime/playerRootSubscription";
 
 const ROOT_ID = "app";
 
@@ -12,7 +13,7 @@ async function boot(): Promise<void> {
     throw new Error(`Missing root container #${ROOT_ID}`);
   }
 
-  initSpacetimeClient();
+  const connection = initSpacetimeClient();
 
   const app = new Application();
   await app.init({
@@ -46,8 +47,19 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", onResize);
   onResize();
 
+  const disposePlayerRootSubscription = connection
+    ? initPlayerRootSubscription({
+        connection,
+        onIdsResolved: ({ observerId, viewedId }) => {
+          scene.setObserverCardId(observerId);
+          scene.setViewedCardId(viewedId);
+        },
+      })
+    : undefined;
+
   const shutdown = (): void => {
     window.removeEventListener("resize", onResize);
+    disposePlayerRootSubscription?.();
     scene.destroy({ children: true });
     app.destroy(true, { children: true, texture: true });
   };
