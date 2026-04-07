@@ -1,6 +1,12 @@
 import { Container, Graphics, Text } from "pixi.js";
 import { GameDataStore, type GameDataSource } from "./data/game_data_store";
-import { deriveGameViewModel, idToKey, type DefinitionLookup, type EntityId, type ViewModelSelection } from "./model";
+import {
+  deriveGameViewModel,
+  idToKey,
+  type DefinitionLookup,
+  type EntityId,
+  type ViewModelSelection,
+} from "./model";
 import { DetailsPanelRenderer } from "./renderers/details_panel_renderer";
 import { EventColumnRenderer } from "./renderers/event_column_renderer";
 import { InventoryRenderer } from "./renderers/inventory_renderer";
@@ -21,8 +27,19 @@ export class GameScene extends Container {
   private readonly inventoryRenderer = new InventoryRenderer();
   private readonly detailsRenderer = new DetailsPanelRenderer();
 
-  private readonly widthPx: number;
-  private readonly heightPx: number;
+  private readonly background = new Graphics();
+  private readonly eventFrame = new Graphics();
+  private readonly boardFrame = new Graphics();
+  private readonly detailsFrame = new Graphics();
+  private readonly inventoryFrame = new Graphics();
+
+  private readonly eventRegion = new Container();
+  private readonly boardRegion = new Container();
+  private readonly detailsRegion = new Container();
+  private readonly inventoryRegion = new Container();
+
+  private widthPx: number;
+  private heightPx: number;
   private readonly definitionLookup?: DefinitionLookup;
 
   private readonly rootPlayerId: EntityId;
@@ -41,14 +58,14 @@ export class GameScene extends Container {
     this.rootPlayerId = config.playerId;
 
     this.initializeFromPlayer(config.playerId);
-    this.layoutContainers();
+    this.initializeLayout();
 
     this.dataStore.onChange(() => this.renderView());
     if (config.dataSource) {
       this.disposeSource = this.dataStore.connect(config.dataSource);
     }
 
-    this.renderView();
+    this.resize(config.width, config.height);
   }
 
   destroy(options?: Parameters<Container["destroy"]>[0]): void {
@@ -72,6 +89,13 @@ export class GameScene extends Container {
     this.renderView();
   }
 
+  resize(width: number, height: number): void {
+    this.widthPx = width;
+    this.heightPx = height;
+    this.layoutContainers();
+    this.renderView();
+  }
+
   private initializeFromPlayer(playerId: EntityId): void {
     const player = this.dataStore.getSnapshot().players.find((row) => idToKey(row.playerId) === idToKey(playerId));
     const rootCardId = player?.cardId ?? 0n;
@@ -80,28 +104,65 @@ export class GameScene extends Container {
     this.viewedCardId = rootCardId;
   }
 
+  private initializeLayout(): void {
+    this.eventRegion.addChild(this.eventFrame, this.eventRenderer.container);
+    this.boardRegion.addChild(this.boardFrame, this.boardRenderer.container);
+    this.detailsRegion.addChild(this.detailsFrame, this.detailsRenderer.container);
+    this.inventoryRegion.addChild(this.inventoryFrame, this.inventoryRenderer.container);
+    this.addChild(
+      this.background,
+      this.eventRegion,
+      this.boardRegion,
+      this.detailsRegion,
+      this.inventoryRegion,
+    );
+  }
+
   private layoutContainers(): void {
-    const bg = new Graphics();
-    bg.rect(0, 0, this.widthPx, this.heightPx).fill(0x101215);
-    this.addChild(bg);
+    const margin = 16;
+    const headerHeight = 84;
+    const bottomHeight = Math.min(190, Math.max(160, Math.floor(this.heightPx * 0.26)));
+    const usableHeight = Math.max(220, this.heightPx - headerHeight - bottomHeight - margin * 2);
+    const leftWidth = Math.max(160, Math.floor(this.widthPx * 0.2));
+    const rightWidth = Math.max(260, Math.floor(this.widthPx * 0.24));
+    const centerWidth = Math.max(320, this.widthPx - leftWidth - rightWidth - margin * 4);
 
-    const eventRegion = new Container();
-    eventRegion.position.set(80, this.heightPx - 260);
-    eventRegion.addChild(this.eventRenderer.container);
+    this.background.clear();
+    this.background.rect(0, 0, this.widthPx, this.heightPx).fill(0x101215);
 
-    const boardRegion = new Container();
-    boardRegion.position.set(this.widthPx * 0.42, this.heightPx * 0.44);
-    boardRegion.addChild(this.boardRenderer.container);
+    this.drawFrame(this.eventFrame, leftWidth, usableHeight, "Events");
+    this.drawFrame(this.boardFrame, centerWidth, usableHeight, "World Board");
+    this.drawFrame(this.detailsFrame, rightWidth, usableHeight, "Details");
+    this.drawFrame(this.inventoryFrame, this.widthPx - margin * 2, bottomHeight, "Inventory");
 
-    const detailsRegion = new Container();
-    detailsRegion.position.set(this.widthPx - 320, 20);
-    detailsRegion.addChild(this.detailsRenderer.container);
+    this.eventRegion.position.set(margin, headerHeight);
+    this.boardRegion.position.set(margin * 2 + leftWidth, headerHeight);
+    this.detailsRegion.position.set(margin * 3 + leftWidth + centerWidth, headerHeight);
+    this.inventoryRegion.position.set(margin, headerHeight + usableHeight + margin);
 
-    const inventoryRegion = new Container();
-    inventoryRegion.position.set(24, this.heightPx - 184);
-    inventoryRegion.addChild(this.inventoryRenderer.container);
+    this.eventRenderer.container.position.set(leftWidth * 0.5, usableHeight - 24);
+    this.boardRenderer.container.position.set(centerWidth * 0.5, usableHeight * 0.5);
+    this.detailsRenderer.container.position.set(0, 0);
+    this.inventoryRenderer.container.position.set(0, 0);
+  }
 
-    this.addChild(eventRegion, boardRegion, detailsRegion, inventoryRegion);
+  private drawFrame(target: Graphics, width: number, height: number, label: string): void {
+    target.clear();
+    target.roundRect(0, 0, width, height, 8).fill(0x161a1f);
+    target.roundRect(0, 0, width, height, 8).stroke({ color: 0x425468, width: 1 });
+
+    const existingLabel = target.parent?.getChildByLabel(`${label}-label`);
+    if (existingLabel) {
+      existingLabel.destroy();
+    }
+
+    const title = new Text({
+      text: label,
+      style: { fill: 0xc7d3df, fontSize: 14, fontWeight: "bold" },
+    });
+    title.label = `${label}-label`;
+    title.position.set(10, 10);
+    target.parent?.addChild(title);
   }
 
   private renderView(): void {
@@ -144,7 +205,7 @@ export class GameScene extends Container {
     this.inventoryRenderer.render({
       inventories: viewModel.inventories,
       selectedCardId: this.selection?.type === "card" ? this.selection.id : undefined,
-      width: this.widthPx - 360,
+      width: this.inventoryFrame.width,
       onSelect: (cardId) => {
         this.selection = { type: "card", id: cardId };
         this.renderView();
@@ -163,8 +224,8 @@ export class GameScene extends Container {
     this.detailsRenderer.render({
       viewModel,
       selection: this.selection,
-      width: 300,
-      height: this.heightPx - 220,
+      width: this.detailsFrame.width,
+      height: this.detailsFrame.height,
     });
 
     this.renderViewedSelfHeader(viewModel.viewedSelfCard?.definition?.title ?? "Viewed Soul");
@@ -179,14 +240,14 @@ export class GameScene extends Container {
 
     const header = new Container({ label: "viewed-self-header" });
     const panel = new Graphics();
-    panel.roundRect(24, 16, 320, 54, 8).fill(0x1d2730);
-    panel.roundRect(24, 16, 320, 54, 8).stroke({ color: 0x4d687a, width: 1 });
+    panel.roundRect(16, 16, this.widthPx - 32, 54, 8).fill(0x1d2730);
+    panel.roundRect(16, 16, this.widthPx - 32, 54, 8).stroke({ color: 0x4d687a, width: 1 });
 
     const title = new Text({
       text: `${label}  •  Observer ${this.observerCardId}  •  Viewed ${this.viewedCardId}`,
       style: { fill: 0xe8e8e8, fontSize: 14 },
     });
-    title.position.set(36, 34);
+    title.position.set(30, 34);
 
     header.addChild(panel, title);
     this.addChild(header);
