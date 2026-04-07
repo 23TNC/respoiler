@@ -1,5 +1,6 @@
 import { Application } from "pixi.js";
 import { GameScene, type GameDataSource } from "./game";
+import { initSpacetimeClient } from "./spacetime";
 
 const ROOT_ID = "app";
 
@@ -10,6 +11,8 @@ async function boot(): Promise<void> {
   if (!root) {
     throw new Error(`Missing root container #${ROOT_ID}`);
   }
+
+  initSpacetimeClient();
 
   const app = new Application();
   await app.init({
