@@ -1,5 +1,6 @@
 import { Application } from "pixi.js";
 import { GameScene, type GameDataSource } from "./game";
+import { createLiveGameDataSource } from "./spacetime/live_game_data_source";
 
 const ROOT_ID = "app";
 
@@ -32,7 +33,7 @@ async function boot(): Promise<void> {
     width: window.innerWidth,
     height: window.innerHeight,
     playerId: 1n,
-    dataSource: createGameDataSource(),
+    dataSource: createGameDataSource(1n),
   });
   app.stage.addChild(scene);
 
@@ -52,17 +53,11 @@ async function boot(): Promise<void> {
   window.addEventListener("beforeunload", shutdown, { once: true });
 }
 
-function createGameDataSource(): GameDataSource {
-  return {
-    getSnapshot: () => ({
-      players: [],
-      cards: [],
-      cardTrackers: [],
-      actionTrackers: [],
-      tiles: [],
-      tileTrackers: [],
-      eventTrackers: [],
-      slotTrackers: [],
-    }),
-  };
+function createGameDataSource(playerId: bigint): GameDataSource {
+  return createLiveGameDataSource({
+    playerId,
+    uri: import.meta.env.VITE_SPACETIME_URI,
+    moduleName: import.meta.env.VITE_SPACETIME_DB ?? import.meta.env.VITE_SPACETIME_MODULE,
+    token: import.meta.env.VITE_SPACETIME_TOKEN,
+  });
 }

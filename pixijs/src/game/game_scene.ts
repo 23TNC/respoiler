@@ -47,6 +47,9 @@ export class GameScene extends Container {
   private viewedCardId: EntityId = 0n;
   private selection?: ViewModelSelection;
 
+  private dragCardId?: EntityId;
+  private stagedCardTileByCardId = new Map<string, EntityId>();
+
   private disposeSource?: () => void;
 
   constructor(config: GameSceneConfig) {
@@ -57,12 +60,11 @@ export class GameScene extends Container {
     this.definitionLookup = config.definitionLookup;
     this.rootPlayerId = config.playerId;
 
-    this.initializeFromPlayer(config.playerId);
     this.initializeLayout();
 
     this.dataStore.onChange(() => this.renderView());
     if (config.dataSource) {
-      this.disposeSource = this.dataStore.connect(config.dataSource);
+      this.setDataSource(config.dataSource);
     }
 
     this.resize(config.width, config.height);
@@ -75,6 +77,7 @@ export class GameScene extends Container {
 
   setDataSource(dataSource: GameDataSource): void {
     this.disposeSource?.();
+    this.applyInitialIdentity(dataSource);
     this.disposeSource = this.dataStore.connect(dataSource);
   }
 
@@ -96,12 +99,13 @@ export class GameScene extends Container {
     this.renderView();
   }
 
-  private initializeFromPlayer(playerId: EntityId): void {
-    const player = this.dataStore.getSnapshot().players.find((row) => idToKey(row.playerId) === idToKey(playerId));
-    const rootCardId = player?.cardId ?? 0n;
-
-    this.observerCardId = rootCardId;
-    this.viewedCardId = rootCardId;
+  private applyInitialIdentity(dataSource: GameDataSource): void {
+    const initial = dataSource.getIdentityState?.();
+    if (initial && initial.observerCardId !== 0n && initial.viewedCardId !== 0n) {
+      this.observerCardId = initial.observerCardId;
+      this.viewedCardId = initial.viewedCardId;
+      console.info("[game] initial identity from live source", initial);
+    }
   }
 
   private initializeLayout(): void {
@@ -174,6 +178,10 @@ export class GameScene extends Container {
       if (fallbackPlayer) {
         this.observerCardId = fallbackPlayer.cardId;
         this.viewedCardId = fallbackPlayer.cardId;
+        console.info("[game] resolved player -> card", {
+          playerId: fallbackPlayer.playerId.toString(),
+          cardId: fallbackPlayer.cardId.toString(),
+        });
       }
     }
 
@@ -182,7 +190,15 @@ export class GameScene extends Container {
       this.observerCardId,
       this.viewedCardId,
       this.definitionLookup,
+      this.stagedCardTileByCardId,
     );
+
+    console.debug("[game] derived board view", {
+      viewedCardId: this.viewedCardId.toString(),
+      worldTileCount: viewModel.worldTiles.length,
+      eventTileCount: viewModel.eventTiles.length,
+      slotTileCount: viewModel.slotTiles.length,
+    });
 
     this.eventRenderer.render({
       tiles: viewModel.eventTiles,
@@ -191,6 +207,7 @@ export class GameScene extends Container {
         this.selection = { type: "tile", id: tileId };
         this.renderView();
       },
+      onTileDrop: (tileId) => this.tryDropDraggedCard(tileId),
     });
 
     this.boardRenderer.render({
@@ -200,6 +217,7 @@ export class GameScene extends Container {
         this.selection = { type: "tile", id: tileId };
         this.renderView();
       },
+      onTileDrop: (tileId) => this.tryDropDraggedCard(tileId),
     });
 
     this.inventoryRenderer.render({
@@ -211,13 +229,23 @@ export class GameScene extends Container {
         this.renderView();
       },
       onDragStart: (cardId) => {
+        this.dragCardId = cardId;
         this.selection = { type: "card", id: cardId };
       },
       onDragMove: () => {
         // Extension point: live drag ghost / hover highlighting.
       },
-      onDragEnd: () => {
-        // Extension point: dispatch reducer to update card_tracker.linked_tile_id.
+      onDragEnd: (cardId, x, y) => {
+        const tileId = this.boardRenderer.getTileAtGlobalPoint(x, y) ?? this.eventRenderer.getTileAtGlobalPoint(x, y);
+        if (tileId !== undefined) {
+          this.stagedCardTileByCardId.set(idToKey(cardId), tileId);
+          console.info("[game] staged card drop", {
+            cardId: cardId.toString(),
+            tileId: tileId.toString(),
+          });
+        }
+        this.dragCardId = undefined;
+        this.renderView();
       },
     });
 
@@ -229,6 +257,19 @@ export class GameScene extends Container {
     });
 
     this.renderViewedSelfHeader(viewModel.viewedSelfCard?.definition?.title ?? "Viewed Soul");
+  }
+
+  private tryDropDraggedCard(tileId: EntityId): void {
+    if (this.dragCardId === undefined) {
+      return;
+    }
+    this.stagedCardTileByCardId.set(idToKey(this.dragCardId), tileId);
+    console.info("[game] staged card drop", {
+      cardId: this.dragCardId.toString(),
+      tileId: tileId.toString(),
+    });
+    this.dragCardId = undefined;
+    this.renderView();
   }
 
   private renderViewedSelfHeader(label: string): void {

@@ -77,8 +77,7 @@ export class CardView extends Container {
   }
 
   private draw(width: number, height: number, selected: boolean): void {
-    const isAction = this.trackedCard.card.cardType === "action";
-    const fillColor = isAction ? 0xc9b7ff : 0xf0f0f0;
+    const fillColor = this.actionStateColor();
 
     this.background.clear();
     this.background.roundRect(0, 0, width, height, 8).fill(fillColor);
@@ -101,6 +100,32 @@ export class CardView extends Container {
   private buildSubLabel(trackedCard: TrackedCard): string {
     const hold = trackedCard.tracker?.positionHold ? "hold" : "free";
     const lock = trackedCard.tracker?.positionLock ? "lock" : "move";
-    return `${trackedCard.card.cardType} • ${trackedCard.actionState} • ${hold}/${lock}`;
+    return `${trackedCard.card.cardType} • ${this.actionCode(trackedCard.actionState)} • ${hold}/${lock}`;
   }
+  private actionCode(state: TrackedCard["actionState"]): string {
+    if (state === "queued") {
+      return "Q";
+    }
+    if (state === "running") {
+      return "R";
+    }
+    if (state === "complete") {
+      return "C";
+    }
+    return "I";
+  }
+
+  private actionStateColor(): number {
+    if (this.trackedCard.actionState === "queued") {
+      return 0xe3d082;
+    }
+    if (this.trackedCard.actionState === "running") {
+      return 0x90d2a1;
+    }
+    if (this.trackedCard.actionState === "complete") {
+      return 0x9cc6de;
+    }
+    return this.trackedCard.card.cardType === "action" ? 0xc9b7ff : 0xf0f0f0;
+  }
+
 }

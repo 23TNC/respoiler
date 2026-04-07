@@ -5,6 +5,7 @@ import type {
   EventTracker,
   Player,
   SlotTracker,
+  SoulAlignment,
   Tile,
   TileTracker,
 } from "../spacetime/bindings/types";
@@ -39,6 +40,7 @@ export type ViewModelSelection = {
 
 export type GameViewSnapshot = {
   players: Player[];
+  soulAlignments: SoulAlignment[];
   cards: Card[];
   cardTrackers: CardTracker[];
   actionTrackers: ActionTracker[];
@@ -85,6 +87,7 @@ export const deriveGameViewModel = (
   observerCardId: EntityId,
   viewedCardId: EntityId,
   lookupDefinition?: DefinitionLookup,
+  stagedCardTileByCardId?: Map<string, EntityId>,
 ): DerivedGameViewModel => {
   const tileById = new Map(snapshot.tiles.map((tile) => [idToKey(tile.tileId), tile]));
   const trackerByTileId = new Map(snapshot.tileTrackers.map((tracker) => [idToKey(tracker.tileId), tracker]));
@@ -95,7 +98,17 @@ export const deriveGameViewModel = (
   const attachedCardsByTileId = new Map<string, TrackedCard[]>();
 
   const trackedOwnedCards: TrackedCard[] = ownedCards.map((card) => {
-    const tracker = cardTrackerByCardId.get(idToKey(card.cardId));
+    const baseTracker = cardTrackerByCardId.get(idToKey(card.cardId));
+    const stagedTileId = stagedCardTileByCardId?.get(idToKey(card.cardId));
+    const tracker = stagedTileId === undefined
+      ? baseTracker
+      : {
+          cardId: card.cardId,
+          linkedTileId: toBigIntId(stagedTileId),
+          positionHold: baseTracker?.positionHold ?? false,
+          positionLock: baseTracker?.positionLock ?? false,
+        };
+
     const trackedCard: TrackedCard = {
       card,
       tracker,
@@ -136,12 +149,11 @@ export const deriveGameViewModel = (
       continue;
     }
 
-    const category = trackedCard.card.cardType as CardCategory;
-    if (inventories[category]) {
+    const category = normalizeCardCategory(trackedCard.card.cardType);
+    if (category) {
       inventories[category].push(trackedCard);
     }
   }
-
 
   if (!viewedSelfCard) {
     const selfCard = snapshot.cards.find((card) => card.cardId === viewedCardId);
@@ -215,3 +227,12 @@ export const deriveGameViewModel = (
     inventories,
   };
 };
+
+const normalizeCardCategory = (cardType: string): CardCategory | undefined => {
+  if (cardType === "action" || cardType === "skill" || cardType === "item" || cardType === "memory" || cardType === "soul") {
+    return cardType;
+  }
+  return undefined;
+};
+
+const toBigIntId = (id: EntityId): bigint => (typeof id === "bigint" ? id : BigInt(id));

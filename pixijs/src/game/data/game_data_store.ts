@@ -3,6 +3,8 @@ import type { GameViewSnapshot } from "../model";
 export type GameDataSource = {
   getSnapshot: () => GameViewSnapshot;
   subscribe?: (onChange: () => void) => () => void;
+  destroy?: () => void;
+  getIdentityState?: () => { observerCardId: bigint | number; viewedCardId: bigint | number };
 };
 
 export class GameDataStore {
@@ -12,6 +14,7 @@ export class GameDataStore {
   constructor(initialSnapshot?: Partial<GameViewSnapshot>) {
     this.snapshot = {
       players: [],
+      soulAlignments: [],
       cards: [],
       cardTrackers: [],
       actionTrackers: [],
@@ -35,12 +38,17 @@ export class GameDataStore {
   connect(dataSource: GameDataSource): () => void {
     this.setSnapshot(dataSource.getSnapshot());
     if (!dataSource.subscribe) {
-      return () => undefined;
+      return () => dataSource.destroy?.();
     }
 
-    return dataSource.subscribe(() => {
+    const unsubscribe = dataSource.subscribe(() => {
       this.setSnapshot(dataSource.getSnapshot());
     });
+
+    return () => {
+      unsubscribe();
+      dataSource.destroy?.();
+    };
   }
 
   onChange(listener: () => void): () => void {

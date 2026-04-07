@@ -8,6 +8,7 @@ export type HexTileViewConfig = {
   radius: number;
   selected?: boolean;
   onSelect?: (tileId: EntityId) => void;
+  onDrop?: (tileId: EntityId) => void;
 };
 
 export class HexTileView extends Container {
@@ -40,6 +41,7 @@ export class HexTileView extends Container {
     this.eventMode = "static";
     this.cursor = "pointer";
     this.on("pointertap", () => config.onSelect?.(this.tileId));
+    this.on("pointerup", () => config.onDrop?.(this.tileId));
   }
 
   setSelected(selected: boolean, color: number): void {
