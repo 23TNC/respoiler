@@ -15,6 +15,7 @@ export class DetailsPanelRenderer {
   render(params: DetailsPanelParams): void {
     this.container.removeChildren();
 
+    const contentPadding = 10;
     const bg = new Graphics();
     bg.roundRect(0, 0, params.width, params.height, 8).fill(0x161616);
     bg.roundRect(0, 0, params.width, params.height, 8).stroke({ color: 0x444444, width: 1 });
@@ -27,16 +28,15 @@ export class DetailsPanelRenderer {
         fill: 0xe2e2e2,
         fontSize: 12,
         wordWrap: true,
-        wordWrapWidth: params.width - 20,
+        wordWrapWidth: params.width - contentPadding * 2,
       },
     });
-    text.position.set(10, 10);
+    text.position.set(contentPadding, contentPadding);
     this.container.addChild(text);
   }
 
   private buildLines(viewModel: DerivedGameViewModel, selection?: ViewModelSelection): string[] {
     const lines: string[] = [
-      "Details",
       `Observer: ${viewModel.observerCardId}`,
       `Viewed: ${viewModel.viewedCardId}`,
       "",

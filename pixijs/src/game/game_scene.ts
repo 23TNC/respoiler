@@ -21,6 +21,9 @@ type GameSceneConfig = {
 };
 
 export class GameScene extends Container {
+  private static readonly PANEL_HEADER_HEIGHT = 34;
+  private static readonly PANEL_PADDING = 10;
+
   private readonly dataStore = new GameDataStore();
   private readonly eventRenderer = new EventColumnRenderer();
   private readonly boardRenderer = new WorldBoardRenderer();
@@ -40,6 +43,14 @@ export class GameScene extends Container {
 
   private widthPx: number;
   private heightPx: number;
+  private eventRegionWidth = 0;
+  private eventRegionHeight = 0;
+  private boardRegionWidth = 0;
+  private boardRegionHeight = 0;
+  private detailsRegionWidth = 0;
+  private detailsRegionHeight = 0;
+  private inventoryRegionWidth = 0;
+  private inventoryRegionHeight = 0;
   private readonly definitionLookup?: DefinitionLookup;
 
   private readonly rootPlayerId: EntityId;
@@ -66,6 +77,7 @@ export class GameScene extends Container {
     }
 
     this.resize(config.width, config.height);
+    this.scheduleInitialLayoutPass();
   }
 
   destroy(options?: Parameters<Container["destroy"]>[0]): void {
@@ -130,20 +142,35 @@ export class GameScene extends Container {
     this.background.clear();
     this.background.rect(0, 0, this.widthPx, this.heightPx).fill(0x101215);
 
-    this.drawFrame(this.eventFrame, leftWidth, usableHeight, "Events");
-    this.drawFrame(this.boardFrame, centerWidth, usableHeight, "World Board");
-    this.drawFrame(this.detailsFrame, rightWidth, usableHeight, "Details");
-    this.drawFrame(this.inventoryFrame, this.widthPx - margin * 2, bottomHeight, "Inventory");
+    this.eventRegionWidth = leftWidth;
+    this.eventRegionHeight = usableHeight;
+    this.boardRegionWidth = centerWidth;
+    this.boardRegionHeight = usableHeight;
+    this.detailsRegionWidth = rightWidth;
+    this.detailsRegionHeight = usableHeight;
+    this.inventoryRegionWidth = this.widthPx - margin * 2;
+    this.inventoryRegionHeight = bottomHeight;
+
+    this.drawFrame(this.eventFrame, this.eventRegionWidth, this.eventRegionHeight, "Events");
+    this.drawFrame(this.boardFrame, this.boardRegionWidth, this.boardRegionHeight, "World Board");
+    this.drawFrame(this.detailsFrame, this.detailsRegionWidth, this.detailsRegionHeight, "Details");
+    this.drawFrame(this.inventoryFrame, this.inventoryRegionWidth, this.inventoryRegionHeight, "Inventory");
 
     this.eventRegion.position.set(margin, headerHeight);
     this.boardRegion.position.set(margin * 2 + leftWidth, headerHeight);
     this.detailsRegion.position.set(margin * 3 + leftWidth + centerWidth, headerHeight);
     this.inventoryRegion.position.set(margin, headerHeight + usableHeight + margin);
 
-    this.eventRenderer.container.position.set(leftWidth * 0.5, usableHeight - 24);
-    this.boardRenderer.container.position.set(centerWidth * 0.5, usableHeight * 0.5);
-    this.detailsRenderer.container.position.set(0, 0);
-    this.inventoryRenderer.container.position.set(0, 0);
+    this.eventRenderer.container.position.set(this.eventRegionWidth * 0.5, this.eventRegionHeight - 24);
+    this.boardRenderer.container.position.set(this.boardRegionWidth * 0.5, this.boardRegionHeight * 0.5);
+    this.detailsRenderer.container.position.set(
+      GameScene.PANEL_PADDING,
+      GameScene.PANEL_HEADER_HEIGHT + GameScene.PANEL_PADDING,
+    );
+    this.inventoryRenderer.container.position.set(
+      GameScene.PANEL_PADDING,
+      GameScene.PANEL_HEADER_HEIGHT + GameScene.PANEL_PADDING,
+    );
   }
 
   private drawFrame(target: Graphics, width: number, height: number, label: string): void {
@@ -205,7 +232,11 @@ export class GameScene extends Container {
     this.inventoryRenderer.render({
       inventories: viewModel.inventories,
       selectedCardId: this.selection?.type === "card" ? this.selection.id : undefined,
-      width: this.inventoryFrame.width,
+      width: Math.max(120, this.inventoryRegionWidth - GameScene.PANEL_PADDING * 2),
+      height: Math.max(
+        80,
+        this.inventoryRegionHeight - GameScene.PANEL_HEADER_HEIGHT - GameScene.PANEL_PADDING * 2,
+      ),
       onSelect: (cardId) => {
         this.selection = { type: "card", id: cardId };
         this.renderView();
@@ -224,8 +255,8 @@ export class GameScene extends Container {
     this.detailsRenderer.render({
       viewModel,
       selection: this.selection,
-      width: this.detailsFrame.width,
-      height: this.detailsFrame.height,
+      width: Math.max(120, this.detailsRegionWidth - GameScene.PANEL_PADDING * 2),
+      height: Math.max(80, this.detailsRegionHeight - GameScene.PANEL_HEADER_HEIGHT - GameScene.PANEL_PADDING * 2),
     });
 
     this.renderViewedSelfHeader(viewModel.viewedSelfCard?.definition?.title ?? "Viewed Soul");
@@ -251,5 +282,16 @@ export class GameScene extends Container {
 
     header.addChild(panel, title);
     this.addChild(header);
+  }
+
+  private scheduleInitialLayoutPass(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      this.layoutContainers();
+      this.renderView();
+    });
   }
 }
