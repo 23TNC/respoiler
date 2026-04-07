@@ -2,7 +2,6 @@ import { Container, Graphics, Text } from "pixi.js";
 import { GameDataStore, type GameDataSource } from "./data/game_data_store";
 import {
   deriveGameViewModel,
-  idToKey,
   type DefinitionLookup,
   type EntityId,
   type ViewModelSelection,
@@ -87,9 +86,8 @@ export class GameScene extends Container {
   private inventoryRegionHeight = 0;
   private readonly definitionLookup?: DefinitionLookup;
 
-  private readonly rootPlayerId: EntityId;
-  private observerCardId: EntityId = 0n;
-  private viewedCardId: EntityId = 0n;
+  private observerCardId?: EntityId;
+  private viewedCardId?: EntityId;
   private selection?: ViewModelSelection;
 
   private disposeSource?: () => void;
@@ -100,9 +98,6 @@ export class GameScene extends Container {
     this.widthPx = config.width;
     this.heightPx = config.height;
     this.definitionLookup = config.definitionLookup;
-    this.rootPlayerId = config.playerId;
-
-    this.initializeFromPlayer(config.playerId);
     this.initializeLayout();
 
     this.dataStore.onChange(() => this.renderView());
@@ -140,14 +135,6 @@ export class GameScene extends Container {
     this.heightPx = height;
     this.layoutContainers();
     this.renderView();
-  }
-
-  private initializeFromPlayer(playerId: EntityId): void {
-    const player = this.dataStore.getSnapshot().players.find((row) => idToKey(row.playerId) === idToKey(playerId));
-    const rootCardId = player?.cardId ?? 0n;
-
-    this.observerCardId = rootCardId;
-    this.viewedCardId = rootCardId;
   }
 
   private initializeLayout(): void {
@@ -266,22 +253,19 @@ export class GameScene extends Container {
 
   private renderView(): void {
     const snapshot = this.dataStore.getSnapshot();
-
-    if (this.observerCardId === 0n || this.viewedCardId === 0n) {
-      const rootPlayer = snapshot.players.find((player) => idToKey(player.playerId) === idToKey(this.rootPlayerId));
-      const fallbackPlayer = rootPlayer ?? snapshot.players[0];
-      if (fallbackPlayer) {
-        this.observerCardId = fallbackPlayer.cardId;
-        this.viewedCardId = fallbackPlayer.cardId;
-      }
-    }
+    const resolvedObserverCardId = this.observerCardId ?? 0n;
+    const resolvedViewedCardId = this.viewedCardId ?? 0n;
 
     const viewModel = deriveGameViewModel(
       snapshot,
-      this.observerCardId,
-      this.viewedCardId,
+      resolvedObserverCardId,
+      resolvedViewedCardId,
       this.definitionLookup,
     );
+    console.info("[ui-debug] rendering ids", {
+      observerId: this.observerCardId ?? "-",
+      viewedId: this.viewedCardId ?? "-",
+    });
 
     this.eventRenderer.render({
       tiles: viewModel.eventTiles,
@@ -323,6 +307,8 @@ export class GameScene extends Container {
 
     this.detailsRenderer.render({
       viewModel,
+      observerCardId: this.observerCardId,
+      viewedCardId: this.viewedCardId,
       selection: this.selection,
       width: Math.max(120, this.detailsRegionWidth - GameScene.PANEL_PADDING * 2),
       height: Math.max(80, this.detailsRegionHeight - GameScene.PANEL_HEADER_HEIGHT - GameScene.PANEL_PADDING * 2),
@@ -347,7 +333,7 @@ export class GameScene extends Container {
       .stroke({ color: 0x4d687a, width: 1 });
 
     const title = new Text({
-      text: `${label}  •  Observer ${this.observerCardId}  •  Viewed ${this.viewedCardId}`,
+      text: `${label}  •  Observer ${this.formatIdForDisplay(this.observerCardId)}  •  Viewed ${this.formatIdForDisplay(this.viewedCardId)}`,
       style: { fill: 0xe8e8e8, fontSize: 13 },
     });
     title.anchor.set(0, 0.5);
@@ -366,5 +352,9 @@ export class GameScene extends Container {
       this.layoutContainers();
       this.renderView();
     });
+  }
+
+  private formatIdForDisplay(id: EntityId | undefined): string {
+    return id === undefined ? "-" : id.toString();
   }
 }

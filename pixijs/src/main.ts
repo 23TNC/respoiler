@@ -51,6 +51,7 @@ async function boot(): Promise<void> {
     ? initPlayerRootSubscription({
         connection,
         onIdsResolved: ({ observerId, viewedId }) => {
+          console.info("[ui-debug] ids resolved from player subscription", { observerId, viewedId });
           scene.setObserverCardId(observerId);
           scene.setViewedCardId(viewedId);
         },
