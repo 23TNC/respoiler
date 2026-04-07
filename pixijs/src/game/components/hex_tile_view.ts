@@ -1,0 +1,72 @@
+import { Container, Graphics, Text } from "pixi.js";
+import type { EntityId } from "../model";
+
+export type HexTileViewConfig = {
+  id: EntityId;
+  label: string;
+  color: number;
+  radius: number;
+  selected?: boolean;
+  onSelect?: (tileId: EntityId) => void;
+};
+
+export class HexTileView extends Container {
+  private readonly background: Graphics;
+  private readonly border: Graphics;
+  private readonly label: Text;
+  private readonly tileId: EntityId;
+  private readonly radius: number;
+
+  constructor(config: HexTileViewConfig) {
+    super();
+
+    this.tileId = config.id;
+    this.radius = config.radius;
+    this.background = new Graphics();
+    this.border = new Graphics();
+    this.label = new Text({
+      text: config.label,
+      style: {
+        fill: 0xf6f4ea,
+        fontSize: 12,
+      },
+    });
+    this.label.anchor.set(0.5);
+
+    this.addChild(this.background, this.border, this.label);
+
+    this.draw(config.color, Boolean(config.selected));
+
+    this.eventMode = "static";
+    this.cursor = "pointer";
+    this.on("pointertap", () => config.onSelect?.(this.tileId));
+  }
+
+  setSelected(selected: boolean, color: number): void {
+    this.draw(color, selected);
+  }
+
+  private draw(fillColor: number, selected: boolean): void {
+    const points = this.computeFlatHexPoints(this.radius);
+
+    this.background.clear();
+    this.background.poly(points, true).fill(fillColor);
+
+    this.border.clear();
+    this.border.poly(points, true).stroke({
+      color: selected ? 0xffe58f : 0x2d2d2d,
+      width: selected ? 4 : 2,
+    });
+
+    this.label.position.set(0, 0);
+  }
+
+  private computeFlatHexPoints(radius: number): number[] {
+    const points: number[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const angle = Math.PI / 3 * i;
+      points.push(radius * Math.cos(angle), radius * Math.sin(angle));
+    }
+    return points;
+  }
+}
