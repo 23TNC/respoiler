@@ -15,6 +15,10 @@ export class DetailsPanelRenderer {
   readonly container = new Container();
 
   render(params: DetailsPanelParams): void {
+    console.info("[ui-debug] details panel render ids", {
+      observerId: params.observerCardId ?? "-",
+      viewedId: params.viewedCardId ?? "-",
+    });
     this.container.removeChildren();
 
     const contentPadding = 10;

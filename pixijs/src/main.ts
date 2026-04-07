@@ -1,6 +1,6 @@
 import { Application } from "pixi.js";
 import { GameScene, type GameDataSource } from "./game";
-import { initSpacetimeClient } from "./spacetime";
+import { getSpacetimeConnection, initSpacetimeClient } from "./spacetime";
 import { initPlayerRootSubscription } from "./spacetime/playerRootSubscription";
 
 const ROOT_ID = "app";
@@ -14,6 +14,10 @@ async function boot(): Promise<void> {
   }
 
   const connection = initSpacetimeClient();
+  console.info("[ui-debug] boot connection status", {
+    hasConnection: connection !== null,
+    isActiveConnection: connection !== null && connection === getSpacetimeConnection(),
+  });
 
   const app = new Application();
   await app.init({

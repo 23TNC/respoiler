@@ -7,6 +7,9 @@ let connection: DbConnection | null = null;
 
 export function initSpacetimeClient(): DbConnection | null {
   if (connection) {
+    console.info("[ui-debug] reusing existing DbConnection instance", {
+      hasConnection: true,
+    });
     return connection;
   }
 
@@ -15,11 +18,16 @@ export function initSpacetimeClient(): DbConnection | null {
     import.meta.env.VITE_SPACETIMEDB_DATABASE ?? DEFAULT_DATABASE_NAME;
 
   try {
+    console.info("[ui-debug] creating DbConnection", {
+      uri,
+      databaseName,
+    });
     connection = DbConnection.builder()
       .withUri(uri)
       .withDatabaseName(databaseName)
       .onConnect(() => {
         console.info("[spacetime] connected");
+        console.info("[ui-debug] DbConnection onConnect fired");
       })
       .onConnectError((_ctx: ErrorContext, error: Error) => {
         console.error("[spacetime] connection failed");
