@@ -1,7 +1,7 @@
 import { DbConnection, type SubscriptionHandle } from "./bindings";
 
 const ROOT_PLAYER_ID = 1n;
-const ROOT_PLAYER_QUERY = "select card_id from player where player_id = 1";
+const ROOT_PLAYER_QUERY = "select * from player where player_id = 1";
 
 type RootViewIds = {
   observerId: bigint;
@@ -19,7 +19,7 @@ export function initPlayerRootSubscription(config: PlayerRootSubscriptionConfig)
 
   console.info("[ui-debug] creating player subscription", {
     query: ROOT_PLAYER_QUERY,
-    expectedQuery: "select card_id from player where player_id = 1",
+    expectedQuery: "select * from player where player_id = 1",
     connectionAttached: connection !== null,
   });
 

@@ -59,3 +59,5 @@ Thumbs.db
 .idea/
 *.swp
 
+# npm
+pixijs/node_modules/*
