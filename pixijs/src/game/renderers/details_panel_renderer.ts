@@ -4,6 +4,8 @@ import { idToKey } from "../model";
 
 type DetailsPanelParams = {
   viewModel: DerivedGameViewModel;
+  observerCardId?: EntityId;
+  viewedCardId?: EntityId;
   selection?: ViewModelSelection;
   width: number;
   height: number;
@@ -21,7 +23,7 @@ export class DetailsPanelRenderer {
     bg.roundRect(0, 0, params.width, params.height, 8).stroke({ color: 0x444444, width: 1 });
     this.container.addChild(bg);
 
-    const lines = this.buildLines(params.viewModel, params.selection);
+    const lines = this.buildLines(params.viewModel, params.observerCardId, params.viewedCardId, params.selection);
     const text = new Text({
       text: lines.join("\n"),
       style: {
@@ -35,10 +37,15 @@ export class DetailsPanelRenderer {
     this.container.addChild(text);
   }
 
-  private buildLines(viewModel: DerivedGameViewModel, selection?: ViewModelSelection): string[] {
+  private buildLines(
+    viewModel: DerivedGameViewModel,
+    observerCardId?: EntityId,
+    viewedCardId?: EntityId,
+    selection?: ViewModelSelection,
+  ): string[] {
     const lines: string[] = [
-      `Observer: ${viewModel.observerCardId}`,
-      `Viewed: ${viewModel.viewedCardId}`,
+      `Observer: ${this.formatIdForDisplay(observerCardId)}`,
+      `Viewed: ${this.formatIdForDisplay(viewedCardId)}`,
       "",
     ];
 
@@ -99,5 +106,9 @@ export class DetailsPanelRenderer {
       ...Object.values(viewModel.inventories).flat(),
     ];
     return allCards.find((trackedCard) => idToKey(trackedCard.card.cardId) === key);
+  }
+
+  private formatIdForDisplay(id: EntityId | undefined): string {
+    return id === undefined ? "-" : id.toString();
   }
 }
