@@ -5,7 +5,7 @@
     "topColor": "#a8e0e6",
     "bottomColor": "#ecd6aa",
     "id": 1
-  }
+  },
   {
     "name": "Work",
     "card_type": 1,
@@ -19,5 +19,5 @@
     "topColor": "#e67373",
     "bottomColor": "#ecd6aa",
     "id": 9
-  },
+  }
 ]
