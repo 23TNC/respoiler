@@ -297,6 +297,30 @@ export class GameScene extends Container {
         this.renderView();
       },
     });
+    if (!viewModel.viewedCardTracker) {
+      console.info("[ui-debug] world hex render skipped", {
+        viewedCardId: resolvedViewedCardId,
+        reason: "missing-card-tracker",
+      });
+    } else if (viewModel.viewedCardTracker.linkedTileId === 0) {
+      console.info("[ui-debug] world hex render skipped", {
+        viewedCardId: resolvedViewedCardId,
+        cardTracker: viewModel.viewedCardTracker,
+        reason: "missing-linked-tile-id",
+      });
+    } else if (!viewModel.viewedTileTracker) {
+      console.info("[ui-debug] world hex render skipped", {
+        viewedCardId: resolvedViewedCardId,
+        cardTracker: viewModel.viewedCardTracker,
+        reason: "missing-tile-tracker",
+      });
+    } else {
+      console.info("[ui-debug] world hex render ready", {
+        viewedCardId: resolvedViewedCardId,
+        cardTracker: viewModel.viewedCardTracker,
+        tileTracker: viewModel.viewedTileTracker,
+      });
+    }
 
     this.inventoryRenderer.render({
       inventories: viewModel.inventories,
