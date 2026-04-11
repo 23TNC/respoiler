@@ -17,9 +17,22 @@ export class ViewedCardsDataSource implements GameDataSource {
   private snapshot: GameViewSnapshot = EMPTY_SNAPSHOT;
   private readonly listeners = new Set<() => void>();
   private activeCardSubscription?: SubscriptionHandle;
+  private activeCardTrackerSubscription?: SubscriptionHandle;
+  private activeTileTrackerSubscription?: SubscriptionHandle;
+  private activeTileSubscription?: SubscriptionHandle;
   private currentViewedCardId?: bigint;
+  private currentLinkedTileId?: bigint;
   private readonly refreshCardsBound = (): void => {
-    this.refreshCards("table-event");
+    this.refreshViewData("table-event");
+  };
+  private readonly refreshCardTrackerBound = (): void => {
+    this.refreshViewData("table-event");
+  };
+  private readonly refreshTileTrackerBound = (): void => {
+    this.refreshViewData("table-event");
+  };
+  private readonly refreshTileBound = (): void => {
+    this.refreshViewData("table-event");
   };
 
   constructor(private readonly connection: DbConnection | null) {}
@@ -45,10 +58,23 @@ export class ViewedCardsDataSource implements GameDataSource {
     }
 
     this.currentViewedCardId = viewedCardId;
+    this.currentLinkedTileId = undefined;
     this.connection.db.card.removeOnInsert(this.refreshCardsBound);
     this.connection.db.card.removeOnUpdate(this.refreshCardsBound);
     this.connection.db.card.removeOnDelete(this.refreshCardsBound);
+    this.connection.db.cardTracker.removeOnInsert(this.refreshCardTrackerBound);
+    this.connection.db.cardTracker.removeOnUpdate(this.refreshCardTrackerBound);
+    this.connection.db.cardTracker.removeOnDelete(this.refreshCardTrackerBound);
+    this.connection.db.tileTracker.removeOnInsert(this.refreshTileTrackerBound);
+    this.connection.db.tileTracker.removeOnUpdate(this.refreshTileTrackerBound);
+    this.connection.db.tileTracker.removeOnDelete(this.refreshTileTrackerBound);
+    this.connection.db.tile.removeOnInsert(this.refreshTileBound);
+    this.connection.db.tile.removeOnUpdate(this.refreshTileBound);
+    this.connection.db.tile.removeOnDelete(this.refreshTileBound);
     this.activeCardSubscription?.unsubscribe();
+    this.activeCardTrackerSubscription?.unsubscribe();
+    this.activeTileTrackerSubscription?.unsubscribe();
+    this.activeTileSubscription?.unsubscribe();
 
     const query = `select * from card where owner_card_id = ${viewedCardId.toString()} or card_id = ${viewedCardId.toString()}`;
     console.info("[ui-debug] creating card subscription", {
@@ -59,24 +85,56 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.connection.db.card.onInsert(this.refreshCardsBound);
     this.connection.db.card.onUpdate(this.refreshCardsBound);
     this.connection.db.card.onDelete(this.refreshCardsBound);
+    this.connection.db.cardTracker.onInsert(this.refreshCardTrackerBound);
+    this.connection.db.cardTracker.onUpdate(this.refreshCardTrackerBound);
+    this.connection.db.cardTracker.onDelete(this.refreshCardTrackerBound);
+    this.connection.db.tileTracker.onInsert(this.refreshTileTrackerBound);
+    this.connection.db.tileTracker.onUpdate(this.refreshTileTrackerBound);
+    this.connection.db.tileTracker.onDelete(this.refreshTileTrackerBound);
+    this.connection.db.tile.onInsert(this.refreshTileBound);
+    this.connection.db.tile.onUpdate(this.refreshTileBound);
+    this.connection.db.tile.onDelete(this.refreshTileBound);
 
     this.activeCardSubscription = this.connection
       .subscriptionBuilder()
       .onApplied(() => {
-        this.refreshCards("initial");
+        this.refreshViewData("initial");
       })
       .subscribe(query);
+
+    const cardTrackerQuery = `select * from card_tracker where card_id = ${viewedCardId.toString()}`;
+    this.activeCardTrackerSubscription = this.connection
+      .subscriptionBuilder()
+      .onApplied(() => {
+        this.refreshViewData("initial");
+      })
+      .subscribe(cardTrackerQuery);
   }
 
   dispose(): void {
     this.connection?.db.card.removeOnInsert(this.refreshCardsBound);
     this.connection?.db.card.removeOnUpdate(this.refreshCardsBound);
     this.connection?.db.card.removeOnDelete(this.refreshCardsBound);
+    this.connection?.db.cardTracker.removeOnInsert(this.refreshCardTrackerBound);
+    this.connection?.db.cardTracker.removeOnUpdate(this.refreshCardTrackerBound);
+    this.connection?.db.cardTracker.removeOnDelete(this.refreshCardTrackerBound);
+    this.connection?.db.tileTracker.removeOnInsert(this.refreshTileTrackerBound);
+    this.connection?.db.tileTracker.removeOnUpdate(this.refreshTileTrackerBound);
+    this.connection?.db.tileTracker.removeOnDelete(this.refreshTileTrackerBound);
+    this.connection?.db.tile.removeOnInsert(this.refreshTileBound);
+    this.connection?.db.tile.removeOnUpdate(this.refreshTileBound);
+    this.connection?.db.tile.removeOnDelete(this.refreshTileBound);
     this.activeCardSubscription?.unsubscribe();
+    this.activeCardTrackerSubscription?.unsubscribe();
+    this.activeTileTrackerSubscription?.unsubscribe();
+    this.activeTileSubscription?.unsubscribe();
     this.activeCardSubscription = undefined;
+    this.activeCardTrackerSubscription = undefined;
+    this.activeTileTrackerSubscription = undefined;
+    this.activeTileSubscription = undefined;
   }
 
-  private refreshCards(reason: "initial" | "table-event"): void {
+  private refreshViewData(reason: "initial" | "table-event"): void {
     if (!this.connection || this.currentViewedCardId === undefined) {
       return;
     }
@@ -87,6 +145,25 @@ export class ViewedCardsDataSource implements GameDataSource {
         card.ownerCardId.toString() === viewedCardId.toString() ||
         card.cardId.toString() === viewedCardId.toString(),
     );
+
+    const cardTrackers = Array.from(this.connection.db.cardTracker.iter()).filter(
+      (tracker) => tracker.cardId.toString() === viewedCardId.toString(),
+    );
+    const viewedCardTracker = cardTrackers[0];
+    const linkedTileId = viewedCardTracker ? BigInt(viewedCardTracker.linkedTileId) : undefined;
+
+    this.ensureLinkedTileSubscriptions(linkedTileId);
+
+    const tileTrackers = linkedTileId === undefined
+      ? []
+      : Array.from(this.connection.db.tileTracker.iter()).filter(
+        (tracker) => tracker.tileId.toString() === linkedTileId.toString(),
+      );
+    const tiles = linkedTileId === undefined
+      ? []
+      : Array.from(this.connection.db.tile.iter()).filter(
+        (tile) => tile.tileId.toString() === linkedTileId.toString(),
+      );
 
     console.info("[ui-debug] card subscription applied", {
       reason,
@@ -109,8 +186,48 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.snapshot = {
       ...EMPTY_SNAPSHOT,
       cards,
+      cardTrackers,
+      tileTrackers,
+      tiles,
     };
     this.notify();
+  }
+
+  private ensureLinkedTileSubscriptions(linkedTileId: bigint | undefined): void {
+    if (!this.connection) {
+      return;
+    }
+
+    const hasValidLinkedTile = linkedTileId !== undefined && linkedTileId !== 0n;
+    const effectiveLinkedTileId = hasValidLinkedTile ? linkedTileId : undefined;
+    if (this.currentLinkedTileId === effectiveLinkedTileId) {
+      return;
+    }
+
+    this.currentLinkedTileId = effectiveLinkedTileId;
+    this.activeTileTrackerSubscription?.unsubscribe();
+    this.activeTileSubscription?.unsubscribe();
+    this.activeTileTrackerSubscription = undefined;
+    this.activeTileSubscription = undefined;
+
+    if (effectiveLinkedTileId === undefined) {
+      return;
+    }
+
+    const linkedTileIdString = effectiveLinkedTileId.toString();
+    this.activeTileTrackerSubscription = this.connection
+      .subscriptionBuilder()
+      .onApplied(() => {
+        this.refreshViewData("table-event");
+      })
+      .subscribe(`select * from tile_tracker where tile_id = ${linkedTileIdString}`);
+
+    this.activeTileSubscription = this.connection
+      .subscriptionBuilder()
+      .onApplied(() => {
+        this.refreshViewData("table-event");
+      })
+      .subscribe(`select * from tile where tile_id = ${linkedTileIdString}`);
   }
 
   private notify(): void {

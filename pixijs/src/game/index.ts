@@ -7,6 +7,8 @@ export type {
   DerivedGameViewModel,
   EntityId,
   GameViewSnapshot,
+  TileDefinitionInfo,
+  TileDefinitionLookup,
   TrackedCard,
   TrackedTile,
 } from "./model";
