@@ -58,42 +58,16 @@ export class ViewedCardsDataSource implements GameDataSource {
     }
 
     this.currentViewedCardId = viewedCardId;
+    this.detachTableListeners();
+    this.unsubscribeActiveSubscriptions();
     this.currentLinkedTileId = undefined;
-    this.connection.db.card.removeOnInsert(this.refreshCardsBound);
-    this.connection.db.card.removeOnUpdate(this.refreshCardsBound);
-    this.connection.db.card.removeOnDelete(this.refreshCardsBound);
-    this.connection.db.cardTracker.removeOnInsert(this.refreshCardTrackerBound);
-    this.connection.db.cardTracker.removeOnUpdate(this.refreshCardTrackerBound);
-    this.connection.db.cardTracker.removeOnDelete(this.refreshCardTrackerBound);
-    this.connection.db.tileTracker.removeOnInsert(this.refreshTileTrackerBound);
-    this.connection.db.tileTracker.removeOnUpdate(this.refreshTileTrackerBound);
-    this.connection.db.tileTracker.removeOnDelete(this.refreshTileTrackerBound);
-    this.connection.db.tile.removeOnInsert(this.refreshTileBound);
-    this.connection.db.tile.removeOnUpdate(this.refreshTileBound);
-    this.connection.db.tile.removeOnDelete(this.refreshTileBound);
-    this.activeCardSubscription?.unsubscribe();
-    this.activeCardTrackerSubscription?.unsubscribe();
-    this.activeTileTrackerSubscription?.unsubscribe();
-    this.activeTileSubscription?.unsubscribe();
+    this.attachTableListeners();
 
     const query = `select * from card where owner_card_id = ${viewedCardId.toString()} or card_id = ${viewedCardId.toString()}`;
     console.info("[ui-debug] creating card subscription", {
       viewedCardId,
       query,
     });
-
-    this.connection.db.card.onInsert(this.refreshCardsBound);
-    this.connection.db.card.onUpdate(this.refreshCardsBound);
-    this.connection.db.card.onDelete(this.refreshCardsBound);
-    this.connection.db.cardTracker.onInsert(this.refreshCardTrackerBound);
-    this.connection.db.cardTracker.onUpdate(this.refreshCardTrackerBound);
-    this.connection.db.cardTracker.onDelete(this.refreshCardTrackerBound);
-    this.connection.db.tileTracker.onInsert(this.refreshTileTrackerBound);
-    this.connection.db.tileTracker.onUpdate(this.refreshTileTrackerBound);
-    this.connection.db.tileTracker.onDelete(this.refreshTileTrackerBound);
-    this.connection.db.tile.onInsert(this.refreshTileBound);
-    this.connection.db.tile.onUpdate(this.refreshTileBound);
-    this.connection.db.tile.onDelete(this.refreshTileBound);
 
     this.activeCardSubscription = this.connection
       .subscriptionBuilder()
@@ -112,18 +86,49 @@ export class ViewedCardsDataSource implements GameDataSource {
   }
 
   dispose(): void {
-    this.connection?.db.card.removeOnInsert(this.refreshCardsBound);
-    this.connection?.db.card.removeOnUpdate(this.refreshCardsBound);
-    this.connection?.db.card.removeOnDelete(this.refreshCardsBound);
-    this.connection?.db.cardTracker.removeOnInsert(this.refreshCardTrackerBound);
-    this.connection?.db.cardTracker.removeOnUpdate(this.refreshCardTrackerBound);
-    this.connection?.db.cardTracker.removeOnDelete(this.refreshCardTrackerBound);
-    this.connection?.db.tileTracker.removeOnInsert(this.refreshTileTrackerBound);
-    this.connection?.db.tileTracker.removeOnUpdate(this.refreshTileTrackerBound);
-    this.connection?.db.tileTracker.removeOnDelete(this.refreshTileTrackerBound);
-    this.connection?.db.tile.removeOnInsert(this.refreshTileBound);
-    this.connection?.db.tile.removeOnUpdate(this.refreshTileBound);
-    this.connection?.db.tile.removeOnDelete(this.refreshTileBound);
+    this.detachTableListeners();
+    this.unsubscribeActiveSubscriptions();
+  }
+
+  private attachTableListeners(): void {
+    if (!this.connection) {
+      return;
+    }
+
+    this.connection.db.card.onInsert(this.refreshCardsBound);
+    this.connection.db.card.onUpdate(this.refreshCardsBound);
+    this.connection.db.card.onDelete(this.refreshCardsBound);
+    this.connection.db.card_tracker.onInsert(this.refreshCardTrackerBound);
+    this.connection.db.card_tracker.onUpdate(this.refreshCardTrackerBound);
+    this.connection.db.card_tracker.onDelete(this.refreshCardTrackerBound);
+    this.connection.db.tile_tracker.onInsert(this.refreshTileTrackerBound);
+    this.connection.db.tile_tracker.onUpdate(this.refreshTileTrackerBound);
+    this.connection.db.tile_tracker.onDelete(this.refreshTileTrackerBound);
+    this.connection.db.tile.onInsert(this.refreshTileBound);
+    this.connection.db.tile.onUpdate(this.refreshTileBound);
+    this.connection.db.tile.onDelete(this.refreshTileBound);
+  }
+
+  private detachTableListeners(): void {
+    if (!this.connection) {
+      return;
+    }
+
+    this.connection.db.card.removeOnInsert(this.refreshCardsBound);
+    this.connection.db.card.removeOnUpdate(this.refreshCardsBound);
+    this.connection.db.card.removeOnDelete(this.refreshCardsBound);
+    this.connection.db.card_tracker.removeOnInsert(this.refreshCardTrackerBound);
+    this.connection.db.card_tracker.removeOnUpdate(this.refreshCardTrackerBound);
+    this.connection.db.card_tracker.removeOnDelete(this.refreshCardTrackerBound);
+    this.connection.db.tile_tracker.removeOnInsert(this.refreshTileTrackerBound);
+    this.connection.db.tile_tracker.removeOnUpdate(this.refreshTileTrackerBound);
+    this.connection.db.tile_tracker.removeOnDelete(this.refreshTileTrackerBound);
+    this.connection.db.tile.removeOnInsert(this.refreshTileBound);
+    this.connection.db.tile.removeOnUpdate(this.refreshTileBound);
+    this.connection.db.tile.removeOnDelete(this.refreshTileBound);
+  }
+
+  private unsubscribeActiveSubscriptions(): void {
     this.activeCardSubscription?.unsubscribe();
     this.activeCardTrackerSubscription?.unsubscribe();
     this.activeTileTrackerSubscription?.unsubscribe();
@@ -146,7 +151,7 @@ export class ViewedCardsDataSource implements GameDataSource {
         card.cardId.toString() === viewedCardId.toString(),
     );
 
-    const cardTrackers = Array.from(this.connection.db.cardTracker.iter()).filter(
+    const cardTrackers = Array.from(this.connection.db.card_tracker.iter()).filter(
       (tracker) => tracker.cardId.toString() === viewedCardId.toString(),
     );
     const viewedCardTracker = cardTrackers[0];
@@ -156,7 +161,7 @@ export class ViewedCardsDataSource implements GameDataSource {
 
     const tileTrackers = linkedTileId === undefined
       ? []
-      : Array.from(this.connection.db.tileTracker.iter()).filter(
+      : Array.from(this.connection.db.tile_tracker.iter()).filter(
         (tracker) => tracker.tileId.toString() === linkedTileId.toString(),
       );
     const tiles = linkedTileId === undefined
