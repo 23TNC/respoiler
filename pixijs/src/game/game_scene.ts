@@ -4,6 +4,7 @@ import {
   deriveGameViewModel,
   type DefinitionLookup,
   type EntityId,
+  type TileDefinitionLookup,
   type ViewModelSelection,
 } from "./model";
 import { DetailsPanelRenderer } from "./renderers/details_panel_renderer";
@@ -16,6 +17,7 @@ type GameSceneConfig = {
   height: number;
   playerId: EntityId;
   definitionLookup?: DefinitionLookup;
+  tileDefinitionLookup?: TileDefinitionLookup;
   dataSource?: GameDataSource;
   onViewedCardIdChange?: (viewedCardId: EntityId) => void;
 };
@@ -86,6 +88,7 @@ export class GameScene extends Container {
   private inventoryRegionWidth = 0;
   private inventoryRegionHeight = 0;
   private readonly definitionLookup?: DefinitionLookup;
+  private readonly tileDefinitionLookup?: TileDefinitionLookup;
 
   private observerCardId?: EntityId;
   private viewedCardId?: EntityId;
@@ -100,6 +103,7 @@ export class GameScene extends Container {
     this.widthPx = config.width;
     this.heightPx = config.height;
     this.definitionLookup = config.definitionLookup;
+    this.tileDefinitionLookup = config.tileDefinitionLookup;
     this.onViewedCardIdChange = config.onViewedCardIdChange;
     this.initializeLayout();
 
@@ -267,6 +271,7 @@ export class GameScene extends Container {
       resolvedObserverCardId,
       resolvedViewedCardId,
       this.definitionLookup,
+      this.tileDefinitionLookup,
     );
     console.info("[ui-debug] rendering ids", {
       observerId: this.observerCardId ?? "-",

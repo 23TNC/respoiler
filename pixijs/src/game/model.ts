@@ -20,6 +20,13 @@ export type DefinitionInfo = {
 
 export type DefinitionLookup = (definitionId: EntityId) => DefinitionInfo | undefined;
 
+export type TileDefinitionInfo = {
+  name: string;
+  fillColor: number;
+};
+
+export type TileDefinitionLookup = (definitionId: EntityId) => TileDefinitionInfo | undefined;
+
 export type TrackedCard = {
   card: Card;
   tracker?: CardTracker;
@@ -31,6 +38,7 @@ export type TrackedTile = {
   tile: Tile;
   tracker?: TileTracker;
   attachedCards: TrackedCard[];
+  tileDefinition?: TileDefinitionInfo;
 };
 
 export type ViewModelSelection = {
@@ -104,6 +112,7 @@ export const deriveGameViewModel = (
   observerCardId: EntityId,
   viewedCardId: EntityId,
   lookupDefinition?: DefinitionLookup,
+  lookupTileDefinition?: TileDefinitionLookup,
 ): DerivedGameViewModel => {
   const tileById = new Map(snapshot.tiles.map((tile) => [idToKey(tile.tileId), tile]));
   const trackerByTileId = new Map(snapshot.tileTrackers.map((tracker) => [idToKey(tracker.tileId), tracker]));
@@ -184,6 +193,7 @@ export const deriveGameViewModel = (
         tile,
         tracker,
         attachedCards: attachedCardsByTileId.get(idToKey(tile.tileId)) ?? [],
+        tileDefinition: lookupTileDefinition?.(tile.definitionId),
       };
     })
     .filter((tile) => tile !== undefined);
@@ -199,6 +209,7 @@ export const deriveGameViewModel = (
         tracker: trackerByTileId.get(idToKey(tile.tileId)),
         attachedCards: attachedCardsByTileId.get(idToKey(tile.tileId)) ?? [],
         createTime: Number(eventTracker.createTime),
+        tileDefinition: lookupTileDefinition?.(tile.definitionId),
       };
     })
     .filter((tile) => tile !== undefined)
@@ -219,6 +230,7 @@ export const deriveGameViewModel = (
         attachedCards: attachedCardsByTileId.get(idToKey(tile.tileId)) ?? [],
         q: slotTracker.q,
         r: slotTracker.r,
+        tileDefinition: lookupTileDefinition?.(tile.definitionId),
       };
     })
     .filter((tile) => tile !== undefined);

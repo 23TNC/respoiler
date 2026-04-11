@@ -1,6 +1,7 @@
 import { Application } from "pixi.js";
 import { GameScene } from "./game";
 import { CardDefinitionStore } from "./game/data/card_definition_store";
+import { TileDefinitionStore } from "./game/data/tile_definition_store";
 import { getSpacetimeConnection, initSpacetimeClient } from "./spacetime";
 import { initPlayerRootSubscription } from "./spacetime/playerRootSubscription";
 import { ViewedCardsDataSource } from "./spacetime/viewedCardsDataSource";
@@ -41,10 +42,17 @@ async function boot(): Promise<void> {
   const viewedCardsDataSource = new ViewedCardsDataSource(connection);
 
   let cardDefinitionStore: CardDefinitionStore | undefined;
+  let tileDefinitionStore: TileDefinitionStore | undefined;
   try {
     cardDefinitionStore = await CardDefinitionStore.load();
   } catch (error) {
     console.warn("[ui-debug] failed to load static card definitions", error);
+  }
+
+  try {
+    tileDefinitionStore = await TileDefinitionStore.load();
+  } catch (error) {
+    console.warn("[ui-debug] failed to load static tile definitions", error);
   }
 
   const scene = new GameScene({
@@ -52,6 +60,7 @@ async function boot(): Promise<void> {
     height: window.innerHeight,
     playerId: 1n,
     definitionLookup: cardDefinitionStore?.getLookup(),
+    tileDefinitionLookup: tileDefinitionStore?.getLookup(),
     dataSource: viewedCardsDataSource,
     onViewedCardIdChange: (viewedCardId) => {
       viewedCardsDataSource.setViewedCardId(
@@ -89,4 +98,3 @@ async function boot(): Promise<void> {
 
   window.addEventListener("beforeunload", shutdown, { once: true });
 }
-

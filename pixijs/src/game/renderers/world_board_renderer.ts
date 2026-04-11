@@ -9,24 +9,29 @@ type WorldBoardRenderParams = {
 };
 
 export class WorldBoardRenderer {
+  private static readonly FALLBACK_TILE_NAME = "Unknown Tile";
+  private static readonly FALLBACK_TILE_COLOR = 0x6b7280;
+
   readonly container = new Container();
   private readonly tileRadius = 36;
 
   render(params: WorldBoardRenderParams): void {
     this.container.removeChildren();
 
-    for (const trackedTile of params.tiles) {
+    params.tiles.forEach((trackedTile, index) => {
       if (!trackedTile.tracker) {
-        continue;
+        return;
       }
 
-      const x = this.axialToX(trackedTile.tracker.q, trackedTile.tracker.r);
-      const y = this.axialToY(trackedTile.tracker.r, trackedTile.tracker.z);
+      const x = index === 0 ? 0 : this.axialToX(trackedTile.tracker.q, trackedTile.tracker.r);
+      const y = index === 0 ? 0 : this.axialToY(trackedTile.tracker.r, trackedTile.tracker.z);
+      const tileName = trackedTile.tileDefinition?.name ?? WorldBoardRenderer.FALLBACK_TILE_NAME;
+      const tileColor = trackedTile.tileDefinition?.fillColor ?? WorldBoardRenderer.FALLBACK_TILE_COLOR;
 
       const view = new HexTileView({
         id: trackedTile.tile.tileId,
-        label: `#${trackedTile.tile.tileId}`,
-        color: 0x386641,
+        label: tileName,
+        color: tileColor,
         radius: this.tileRadius,
         selected: params.selectedTileId === trackedTile.tile.tileId,
         onSelect: params.onTileSelect,
@@ -44,7 +49,7 @@ export class WorldBoardRenderer {
         attachedLabel.position.set(x, y + this.tileRadius + 14);
         this.container.addChild(attachedLabel);
       }
-    }
+    });
   }
 
   private axialToX(q: number, r: number): number {
