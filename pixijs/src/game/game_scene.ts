@@ -283,7 +283,14 @@ export class GameScene extends Container {
     });
 
     this.boardRenderer.render({
-      tiles: [...viewModel.worldTiles, ...viewModel.slotTiles],
+      viewedTile: viewModel.viewedTileTracker
+        ? {
+            tileId: viewModel.viewedTileTracker.tileId,
+            q: viewModel.viewedTileTracker.q,
+            r: viewModel.viewedTileTracker.r,
+            z: viewModel.viewedTileTracker.z,
+          }
+        : undefined,
       selectedTileId: this.selection?.type === "tile" ? this.selection.id : undefined,
       onTileSelect: (tileId) => {
         this.selection = { type: "tile", id: tileId };

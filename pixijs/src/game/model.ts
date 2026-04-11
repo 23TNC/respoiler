@@ -53,6 +53,8 @@ export type DerivedGameViewModel = {
   observerCardId: EntityId;
   viewedCardId: EntityId;
   viewedSelfCard?: TrackedCard;
+  viewedCardTracker?: CardTracker;
+  viewedTileTracker?: TileTracker;
   worldTiles: TrackedTile[];
   eventTiles: Array<TrackedTile & { createTime: number }>;
   slotTiles: Array<TrackedTile & { q: number; r: number }>;
@@ -174,6 +176,12 @@ export const deriveGameViewModel = (
     }
   }
 
+  const viewedCardTracker = cardTrackerByCardId.get(idToKey(viewedCardId));
+  const viewedTileTracker =
+    viewedCardTracker && viewedCardTracker.linkedTileId !== ZERO_ID
+      ? trackerByTileId.get(idToKey(viewedCardTracker.linkedTileId))
+      : undefined;
+
   const worldTiles = snapshot.tileTrackers
     .map((tracker) => {
       const tile = tileById.get(idToKey(tracker.tileId));
@@ -227,6 +235,8 @@ export const deriveGameViewModel = (
     observerCardId,
     viewedCardId,
     viewedSelfCard,
+    viewedCardTracker,
+    viewedTileTracker,
     worldTiles,
     eventTiles,
     slotTiles,
