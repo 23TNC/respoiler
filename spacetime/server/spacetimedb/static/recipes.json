@@ -1,0 +1,112 @@
+[
+  {
+    "input": [
+      {
+        "Forest": [
+          { "gt0": [ "input[1].tracker.cost" ] }
+        ]
+      },
+      {
+        "Work": [
+          { "eq0": [ "input[2].var.craft" ] },
+          { "ge0": [ { "path": [ "input[1].id", "input[0].tracker.linked_tile_id" ] } ] }
+        ]
+      },
+      { 
+        "Health": [
+          { "eq0": [ "input[3].var.cooldown" ] }
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "when": { 
+          "and": [
+            { "gt0": [ "input[1].var.trees" ] }, 
+            { "has": [ "input[3].var.logcutter" ] }
+          ]
+        },
+        "on_start": [
+          { "set_ge": [ "input[2].var.craft", "30" ] }
+        ],
+        "on_complete": [
+          {
+            "give": [
+              "input[0].id",
+              "Log",
+              { "rand": [ "1", { "min": [ "3", "input[1].var.trees" ] } ] }
+            ]
+          },
+          { "set_ge": [ "input[3].var.cooldown", "30" ] }
+        ]
+      },
+      {
+        "when": { 
+          "and": [
+            { "gt0": [ "input[1].var.food" ] }, 
+            { "has": [ "input[3].var.gatherer" ] }
+          ]
+        },
+        "on_start": [
+          { "set_ge": [ "input[2].var.craft", "20" ] }
+        ],
+        "on_complete": [
+          {
+            "give": [
+              "input[0].id",
+              "Food",
+              { "rand": [ "2", { "min": [ "5", "input[1].var.food" ] } ] }
+            ]
+          },
+          { "set_ge": [ "input[3].var.cooldown", "30" ] }
+        ]
+      } 
+    ]
+  },
+  {
+    "input": [
+      {
+        "Tile": [
+          { "gt0": [ "input[1].tracker.cost" ] }
+        ]
+      },
+      {
+        "Move": [
+          { "eq0": [ "input[2].var.cooldown" ] }
+        ]
+      },
+      {
+        "Soul": [
+          { "eq0": [ { "rows": [ "input[3].actions" ] } ] },
+          { "gt0": [ { "path": [ "input[3].tracker.linked_tile_id", "input[1].id" ] } ] }
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "when": {
+          "and": [
+            { "gt0": [ "input[1].tracker.cost" ] },
+            { "eq": [ "input[3].tracker.position_lock", "false" ] }
+          ]
+        },
+        "on_start": [
+          { 
+            "set_ge": [ 
+              "input[2].var.craft", {
+                "div": [
+                  { "path": [ "input[3].tracker.linked_tile_id", "input[1].id" ] },
+                  "input[3].var.speed"
+                ]
+              }
+            ]
+          }
+        ],
+        "on_complete": [
+          { "set_eq": [ "input[3].tracker.linked_tile_id", "input[1].id" ] },
+          { "set_ge": [ "input[2].var.cooldown", "60" ] }
+        ]
+      }
+    ]
+  }
+]

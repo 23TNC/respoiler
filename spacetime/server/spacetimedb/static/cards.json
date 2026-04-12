@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Human",
+    "card_type": 5,
+    "topColor": "#a8e0e6",
+    "bottomColor": "#ecd6aa",
+    "id": 1
+  }
+  {
+    "name": "Work",
+    "card_type": 1,
+    "topColor": "#97e3a7",
+    "bottomColor": "#ecd6aa",
+    "id": 2
+  },
+  {
+    "name": "Health",
+    "card_type": 2,
+    "topColor": "#e67373",
+    "bottomColor": "#ecd6aa",
+    "id": 9
+  },
+]

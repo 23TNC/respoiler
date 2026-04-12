@@ -34,6 +34,7 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import BootstrapFromJsonReducer from "./bootstrap_from_json_reducer";
 import CreateCardReducer from "./create_card_reducer";
 import CreatePlayerReducer from "./create_player_reducer";
 import CreateTileReducer from "./create_tile_reducer";
@@ -181,6 +182,7 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("bootstrap_from_json", BootstrapFromJsonReducer),
   __reducerSchema("create_card", CreateCardReducer),
   __reducerSchema("create_player", CreatePlayerReducer),
   __reducerSchema("create_tile", CreateTileReducer),

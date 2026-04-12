@@ -6,6 +6,7 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import BootstrapFromJsonReducer from "../bootstrap_from_json_reducer";
 import CreateCardReducer from "../create_card_reducer";
 import CreatePlayerReducer from "../create_player_reducer";
 import CreateTileReducer from "../create_tile_reducer";
@@ -33,6 +34,7 @@ import UpsertSlotTrackerReducer from "../upsert_slot_tracker_reducer";
 import UpsertSoulAlignmentReducer from "../upsert_soul_alignment_reducer";
 import UpsertTileTrackerReducer from "../upsert_tile_tracker_reducer";
 
+export type BootstrapFromJsonParams = __Infer<typeof BootstrapFromJsonReducer>;
 export type CreateCardParams = __Infer<typeof CreateCardReducer>;
 export type CreatePlayerParams = __Infer<typeof CreatePlayerReducer>;
 export type CreateTileParams = __Infer<typeof CreateTileReducer>;
