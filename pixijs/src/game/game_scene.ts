@@ -23,6 +23,7 @@ type GameSceneConfig = {
 export class GameScene extends Container {
   private static readonly PANEL_HEADER_HEIGHT = 34;
   private static readonly PANEL_PADDING = 10;
+  private static readonly INVENTORY_SIZE_MULTIPLIER = 0.8;
   private static readonly LAYOUT = {
     margin: 16,
     columnGap: 12,
@@ -44,9 +45,9 @@ export class GameScene extends Container {
       maxWidth: 420,
     },
     bottomInventory: {
-      heightRatio: 0.35,
-      minHeight: 220,
-      maxHeight: 320,
+      heightRatio: 0.35 * GameScene.INVENTORY_SIZE_MULTIPLIER,
+      minHeight: 220 * GameScene.INVENTORY_SIZE_MULTIPLIER,
+      maxHeight: 320 * GameScene.INVENTORY_SIZE_MULTIPLIER,
     },
     inventoryAux: {
       heightMultiplierFromTopBanner: 2,
