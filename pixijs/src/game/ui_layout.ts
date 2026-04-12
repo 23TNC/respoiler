@@ -1,6 +1,8 @@
+const CARD_SIZE_MULTIPLIER = 0.8;
+
 export const UI_LAYOUT = {
   card: {
-    width: 70,
+    width: 70 * CARD_SIZE_MULTIPLIER,
     aspectWidth: 5,
     aspectHeight: 8,
     cornerRadius: 10,
