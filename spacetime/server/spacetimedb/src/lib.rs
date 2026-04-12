@@ -109,6 +109,24 @@ pub struct ActionTracker {
     pub completed_at: i64,
 }
 
+// Dense per-card runtime status/flags; one row per card.
+#[table(accessor = card_state, public)]
+pub struct CardState {
+  #[primary_key]
+  pub card_id: u32,
+  pub status: u64,
+  pub flags: u64,
+}
+
+// Dense per-tile runtime status/flags; one row per tile.
+#[table(accessor = tile_state, public)]
+pub struct TileState {
+  #[primary_key]
+  pub tile_id: u32,
+  pub status: u64,
+  pub flags: u64,
+}
+
 // Sparse per-card variables with one row per (card_id, name) pair.
 #[table(accessor = card_var, public)]
 pub struct CardVar {
@@ -848,6 +866,308 @@ pub fn delete_action_tracker(ctx: &ReducerContext, card_id: u32) -> Result<(), S
     validate_nonzero_id("card_id", card_id)?;
     ctx.db.action_tracker().card_id().delete(&card_id);
     Ok(())
+}
+
+// Inserts or updates a dense card state row by card_id.
+#[reducer]
+pub fn set_card_state(
+  ctx: &ReducerContext,
+  card_id: u32,
+  status: u64,
+  flags: u64,
+) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  if let Some(existing) = ctx.db.card_state().card_id().find(&card_id) {
+    ctx.db.card_state().card_id().update(CardState {
+      status,
+      flags,
+      ..existing
+    });
+  } else {
+    ctx.db.card_state().insert(CardState {
+      card_id,
+      status,
+      flags,
+    });
+  }
+
+  Ok(())
+}
+
+// Deletes a dense card state row by card_id if present.
+#[reducer]
+pub fn delete_card_state(ctx: &ReducerContext, card_id: u32) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+  ctx.db.card_state().card_id().delete(&card_id);
+  Ok(())
+}
+
+// Upserts only status in card_state while preserving flags.
+#[reducer]
+pub fn set_card_status(ctx: &ReducerContext, card_id: u32, status: u64) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  if let Some(existing) = ctx.db.card_state().card_id().find(&card_id) {
+    ctx.db.card_state().card_id().update(CardState { status, ..existing });
+  } else {
+    ctx.db.card_state().insert(CardState {
+      card_id,
+      status,
+      flags: 0,
+    });
+  }
+
+  Ok(())
+}
+
+// Upserts only flags in card_state while preserving status.
+#[reducer]
+pub fn set_card_flags(ctx: &ReducerContext, card_id: u32, flags: u64) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  if let Some(existing) = ctx.db.card_state().card_id().find(&card_id) {
+    ctx.db.card_state().card_id().update(CardState { flags, ..existing });
+  } else {
+    ctx.db.card_state().insert(CardState {
+      card_id,
+      status: 0,
+      flags,
+    });
+  }
+
+  Ok(())
+}
+
+// Upserts by OR-ing bits into card_state.status.
+#[reducer]
+pub fn add_card_status_flags(
+  ctx: &ReducerContext,
+  card_id: u32,
+  flags: u64,
+) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  if let Some(existing) = ctx.db.card_state().card_id().find(&card_id) {
+    ctx.db.card_state().card_id().update(CardState {
+      status: existing.status | flags,
+      ..existing
+    });
+  } else {
+    ctx.db.card_state().insert(CardState {
+      card_id,
+      status: flags,
+      flags: 0,
+    });
+  }
+
+  Ok(())
+}
+
+// Clears bits from card_state.status if a row exists.
+#[reducer]
+pub fn remove_card_status_flags(
+  ctx: &ReducerContext,
+  card_id: u32,
+  flags: u64,
+) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  if let Some(existing) = ctx.db.card_state().card_id().find(&card_id) {
+    ctx.db.card_state().card_id().update(CardState {
+      status: existing.status & !flags,
+      ..existing
+    });
+  }
+
+  Ok(())
+}
+
+// Upserts by OR-ing bits into card_state.flags.
+#[reducer]
+pub fn add_card_flags(ctx: &ReducerContext, card_id: u32, flags: u64) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  if let Some(existing) = ctx.db.card_state().card_id().find(&card_id) {
+    ctx.db.card_state().card_id().update(CardState {
+      flags: existing.flags | flags,
+      ..existing
+    });
+  } else {
+    ctx.db.card_state().insert(CardState {
+      card_id,
+      status: 0,
+      flags,
+    });
+  }
+
+  Ok(())
+}
+
+// Clears bits from card_state.flags if a row exists.
+#[reducer]
+pub fn remove_card_flags(ctx: &ReducerContext, card_id: u32, flags: u64) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  if let Some(existing) = ctx.db.card_state().card_id().find(&card_id) {
+    ctx.db.card_state().card_id().update(CardState {
+      flags: existing.flags & !flags,
+      ..existing
+    });
+  }
+
+  Ok(())
+}
+
+// Inserts or updates a dense tile state row by tile_id.
+#[reducer]
+pub fn set_tile_state(
+  ctx: &ReducerContext,
+  tile_id: u32,
+  status: u64,
+  flags: u64,
+) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  if let Some(existing) = ctx.db.tile_state().tile_id().find(&tile_id) {
+    ctx.db.tile_state().tile_id().update(TileState {
+      status,
+      flags,
+      ..existing
+    });
+  } else {
+    ctx.db.tile_state().insert(TileState {
+      tile_id,
+      status,
+      flags,
+    });
+  }
+
+  Ok(())
+}
+
+// Deletes a dense tile state row by tile_id if present.
+#[reducer]
+pub fn delete_tile_state(ctx: &ReducerContext, tile_id: u32) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+  ctx.db.tile_state().tile_id().delete(&tile_id);
+  Ok(())
+}
+
+// Upserts only status in tile_state while preserving flags.
+#[reducer]
+pub fn set_tile_status(ctx: &ReducerContext, tile_id: u32, status: u64) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  if let Some(existing) = ctx.db.tile_state().tile_id().find(&tile_id) {
+    ctx.db.tile_state().tile_id().update(TileState { status, ..existing });
+  } else {
+    ctx.db.tile_state().insert(TileState {
+      tile_id,
+      status,
+      flags: 0,
+    });
+  }
+
+  Ok(())
+}
+
+// Upserts only flags in tile_state while preserving status.
+#[reducer]
+pub fn set_tile_flags(ctx: &ReducerContext, tile_id: u32, flags: u64) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  if let Some(existing) = ctx.db.tile_state().tile_id().find(&tile_id) {
+    ctx.db.tile_state().tile_id().update(TileState { flags, ..existing });
+  } else {
+    ctx.db.tile_state().insert(TileState {
+      tile_id,
+      status: 0,
+      flags,
+    });
+  }
+
+  Ok(())
+}
+
+// Upserts by OR-ing bits into tile_state.status.
+#[reducer]
+pub fn add_tile_status_flags(
+  ctx: &ReducerContext,
+  tile_id: u32,
+  flags: u64,
+) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  if let Some(existing) = ctx.db.tile_state().tile_id().find(&tile_id) {
+    ctx.db.tile_state().tile_id().update(TileState {
+      status: existing.status | flags,
+      ..existing
+    });
+  } else {
+    ctx.db.tile_state().insert(TileState {
+      tile_id,
+      status: flags,
+      flags: 0,
+    });
+  }
+
+  Ok(())
+}
+
+// Clears bits from tile_state.status if a row exists.
+#[reducer]
+pub fn remove_tile_status_flags(
+  ctx: &ReducerContext,
+  tile_id: u32,
+  flags: u64,
+) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  if let Some(existing) = ctx.db.tile_state().tile_id().find(&tile_id) {
+    ctx.db.tile_state().tile_id().update(TileState {
+      status: existing.status & !flags,
+      ..existing
+    });
+  }
+
+  Ok(())
+}
+
+// Upserts by OR-ing bits into tile_state.flags.
+#[reducer]
+pub fn add_tile_flags(ctx: &ReducerContext, tile_id: u32, flags: u64) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  if let Some(existing) = ctx.db.tile_state().tile_id().find(&tile_id) {
+    ctx.db.tile_state().tile_id().update(TileState {
+      flags: existing.flags | flags,
+      ..existing
+    });
+  } else {
+    ctx.db.tile_state().insert(TileState {
+      tile_id,
+      status: 0,
+      flags,
+    });
+  }
+
+  Ok(())
+}
+
+// Clears bits from tile_state.flags if a row exists.
+#[reducer]
+pub fn remove_tile_flags(ctx: &ReducerContext, tile_id: u32, flags: u64) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  if let Some(existing) = ctx.db.tile_state().tile_id().find(&tile_id) {
+    ctx.db.tile_state().tile_id().update(TileState {
+      flags: existing.flags & !flags,
+      ..existing
+    });
+  }
+
+  Ok(())
 }
 
 // Inserts or updates a sparse card variable row by (card_id, name).
