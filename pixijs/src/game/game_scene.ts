@@ -49,10 +49,7 @@ export class GameScene extends Container {
       minHeight: 220 * GameScene.INVENTORY_SIZE_MULTIPLIER,
       maxHeight: 320 * GameScene.INVENTORY_SIZE_MULTIPLIER,
     },
-    inventoryAux: {
-      heightMultiplierFromTopBanner: 2,
-      minHeight: 56,
-    },
+    eventsSplitRatio: 0.6,
   } as const;
 
   private readonly dataStore = new GameDataStore();
@@ -62,16 +59,18 @@ export class GameScene extends Container {
   private readonly detailsRenderer = new DetailsPanelRenderer();
 
   private readonly background = new Graphics();
-  private readonly eventFrame = new Graphics();
+  private readonly eventTopFrame = new Graphics();
+  private readonly eventBottomFrame = new Graphics();
+  private readonly eventTopMask = new Graphics();
   private readonly boardFrame = new Graphics();
   private readonly detailsFrame = new Graphics();
-  private readonly inventoryAuxFrame = new Graphics();
   private readonly inventoryFrame = new Graphics();
 
   private readonly eventRegion = new Container();
+  private readonly eventTopRegion = new Container();
+  private readonly eventBottomRegion = new Container();
   private readonly boardRegion = new Container();
   private readonly detailsRegion = new Container();
-  private readonly inventoryAuxRegion = new Container();
   private readonly inventoryRegion = new Container();
 
   private widthPx: number;
@@ -82,8 +81,8 @@ export class GameScene extends Container {
   private boardRegionHeight = 0;
   private detailsRegionWidth = 0;
   private detailsRegionHeight = 0;
-  private inventoryAuxRegionWidth = 0;
-  private inventoryAuxRegionHeight = 0;
+  private eventTopRegionHeight = 0;
+  private eventBottomRegionHeight = 0;
   private inventoryRegionWidth = 0;
   private inventoryRegionHeight = 0;
   private readonly definitionLookup?: DefinitionLookup;
@@ -145,17 +144,17 @@ export class GameScene extends Container {
   }
 
   private initializeLayout(): void {
-    this.eventRegion.addChild(this.eventFrame, this.eventRenderer.container);
+    this.eventTopRegion.addChild(this.eventTopFrame, this.eventTopMask, this.eventRenderer.container);
+    this.eventBottomRegion.addChild(this.eventBottomFrame);
+    this.eventRegion.addChild(this.eventTopRegion, this.eventBottomRegion);
     this.boardRegion.addChild(this.boardFrame, this.boardRenderer.container);
     this.detailsRegion.addChild(this.detailsFrame, this.detailsRenderer.container);
-    this.inventoryAuxRegion.addChild(this.inventoryAuxFrame);
     this.inventoryRegion.addChild(this.inventoryFrame, this.inventoryRenderer.container);
     this.addChild(
       this.background,
       this.eventRegion,
       this.boardRegion,
       this.detailsRegion,
-      this.inventoryAuxRegion,
       this.inventoryRegion,
     );
   }
@@ -171,12 +170,8 @@ export class GameScene extends Container {
       GameScene.LAYOUT.bottomInventory.minHeight,
       GameScene.LAYOUT.bottomInventory.maxHeight,
     );
-    const inventoryAuxHeight = Math.max(
-      GameScene.LAYOUT.inventoryAux.minHeight,
-      GameScene.LAYOUT.topHeader.panelHeight * GameScene.LAYOUT.inventoryAux.heightMultiplierFromTopBanner,
-    );
-    const bottomRegionHeight = inventoryAuxHeight + rowGap + inventoryHeight;
-    const usableHeight = Math.max(220, this.heightPx - middleTop - bottomRegionHeight - margin - rowGap);
+    const inventoryTop = this.heightPx - margin - inventoryHeight;
+    const usableHeight = Math.max(220, inventoryTop - rowGap - middleTop);
 
     const leftWidth = this.clamp(
       Math.floor(contentWidth * GameScene.LAYOUT.leftEvents.widthRatio),
@@ -195,31 +190,42 @@ export class GameScene extends Container {
 
     this.eventRegionWidth = leftWidth;
     this.eventRegionHeight = usableHeight;
+    this.eventTopRegionHeight = Math.floor(this.eventRegionHeight * GameScene.LAYOUT.eventsSplitRatio);
+    this.eventBottomRegionHeight = this.eventRegionHeight - this.eventTopRegionHeight;
     this.boardRegionWidth = centerWidth;
     this.boardRegionHeight = usableHeight;
     this.detailsRegionWidth = rightWidth;
     this.detailsRegionHeight = usableHeight;
-    this.inventoryAuxRegionWidth = contentWidth;
-    this.inventoryAuxRegionHeight = inventoryAuxHeight;
     this.inventoryRegionWidth = contentWidth;
     this.inventoryRegionHeight = inventoryHeight;
 
-    this.drawFrame(this.eventFrame, this.eventRegionWidth, this.eventRegionHeight, "Events");
+    this.drawFrame(this.eventTopFrame, this.eventRegionWidth, this.eventTopRegionHeight, "Events");
+    this.drawFrame(this.eventBottomFrame, this.eventRegionWidth, this.eventBottomRegionHeight);
     this.drawFrame(this.boardFrame, this.boardRegionWidth, this.boardRegionHeight, "World Board");
     this.drawFrame(this.detailsFrame, this.detailsRegionWidth, this.detailsRegionHeight, "Details");
-    this.drawFrame(this.inventoryAuxFrame, this.inventoryAuxRegionWidth, this.inventoryAuxRegionHeight);
     this.drawFrame(this.inventoryFrame, this.inventoryRegionWidth, this.inventoryRegionHeight);
+    this.eventTopMask.clear();
+    this.eventTopMask
+      .rect(
+        GameScene.PANEL_PADDING,
+        GameScene.PANEL_HEADER_HEIGHT + GameScene.PANEL_PADDING,
+        Math.max(10, this.eventRegionWidth - GameScene.PANEL_PADDING * 2),
+        Math.max(
+          10,
+          this.eventTopRegionHeight - GameScene.PANEL_HEADER_HEIGHT - GameScene.PANEL_PADDING * 2,
+        ),
+      )
+      .fill(0xffffff);
+    this.eventRenderer.container.mask = this.eventTopMask;
 
     this.eventRegion.position.set(margin, middleTop);
+    this.eventTopRegion.position.set(0, 0);
+    this.eventBottomRegion.position.set(0, this.eventTopRegionHeight);
     this.boardRegion.position.set(margin + leftWidth + columnGap, middleTop);
     this.detailsRegion.position.set(margin + leftWidth + columnGap + centerWidth + columnGap, middleTop);
-    this.inventoryAuxRegion.position.set(margin, middleTop + usableHeight + rowGap);
-    this.inventoryRegion.position.set(
-      margin,
-      middleTop + usableHeight + rowGap + inventoryAuxHeight + rowGap,
-    );
+    this.inventoryRegion.position.set(margin, inventoryTop);
 
-    this.eventRenderer.container.position.set(this.eventRegionWidth * 0.5, this.eventRegionHeight - 24);
+    this.eventRenderer.container.position.set(this.eventRegionWidth * 0.5, this.eventTopRegionHeight - 24);
     this.boardRenderer.container.position.set(this.boardRegionWidth * 0.5, this.boardRegionHeight * 0.5);
     this.detailsRenderer.container.position.set(
       GameScene.PANEL_PADDING,
