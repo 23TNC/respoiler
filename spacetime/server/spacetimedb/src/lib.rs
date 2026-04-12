@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use spacetimedb::{reducer, table, ReducerContext, SpacetimeType, Table};
 
 
@@ -114,10 +115,154 @@ enum TileTrackerTarget {
     Slot,
 }
 
+#[derive(Deserialize, Default)]
+struct BootstrapPayload {
+    // Extend this payload with additional top-level table sections as new starter data is needed.
+    player: Option<Vec<BootstrapPlayer>>,
+    card: Option<Vec<BootstrapCard>>,
+    card_tracker: Option<Vec<BootstrapCardTracker>>,
+    tile: Option<Vec<BootstrapTile>>,
+    tile_tracker: Option<Vec<BootstrapTileTracker>>,
+    action_tracker: Option<Vec<BootstrapActionTracker>>,
+}
+
+#[derive(Deserialize)]
+struct BootstrapPlayer {
+    player_id: u32,
+    card_id: u32,
+}
+
+#[derive(Deserialize)]
+struct BootstrapCard {
+    card_id: u32,
+    definition_id: u16,
+    card_type: u16,
+    owner_card_id: u32,
+}
+
+#[derive(Deserialize)]
+struct BootstrapCardTracker {
+    card_id: u32,
+    linked_tile_id: u32,
+    position_lock: bool,
+    position_hold: bool,
+}
+
+#[derive(Deserialize)]
+struct BootstrapTile {
+    tile_id: u32,
+    definition_id: u16,
+    tile_type: u16,
+}
+
+#[derive(Deserialize)]
+struct BootstrapTileTracker {
+    tile_id: u32,
+    q: i32,
+    r: i32,
+    z: i32,
+    linked_tile_id: u32,
+}
+
+#[derive(Deserialize)]
+struct BootstrapActionTracker {
+    card_id: u32,
+    recipe_definition_id: u16,
+    recipe_lock: bool,
+    magnetic_inputs: String,
+    queued_at: i64,
+    started_at: i64,
+    completed_at: i64,
+}
+
+fn read_bootstrap_json_contents() -> &'static str {
+    // Keep this simple and deterministic: load a versioned JSON payload bundled with the module.
+    include_str!("../bootstrap/bootstrap.json")
+}
+
 fn validate_nonzero_id(id_name: &str, id: u32) -> Result<(), String> {
     if id == 0 {
         return Err(format!("{id_name} must not be 0"));
     }
+    Ok(())
+}
+
+// Seeds initial rows from bootstrap/bootstrap.json.
+#[reducer]
+pub fn bootstrap_from_json(ctx: &ReducerContext) -> Result<(), String> {
+    let payload = serde_json::from_str::<BootstrapPayload>(read_bootstrap_json_contents())
+        .map_err(|err| format!("failed to parse bootstrap/bootstrap.json: {err}"))?;
+
+    // Dependency-safe load order:
+    // 1) tile 2) tile_tracker 3) card 4) card_tracker 5) player 6) action_tracker
+    for row in payload.tile.unwrap_or_default() {
+        if ctx.db.tile().tile_id().find(&row.tile_id).is_none() {
+            ctx.db.tile().insert(Tile {
+                tile_id: row.tile_id,
+                definition_id: row.definition_id,
+                tile_type: row.tile_type,
+            });
+        }
+    }
+
+    for row in payload.tile_tracker.unwrap_or_default() {
+        if ctx.db.tile_tracker().tile_id().find(&row.tile_id).is_none() {
+            ctx.db.tile_tracker().insert(TileTracker {
+                tile_id: row.tile_id,
+                q: row.q,
+                r: row.r,
+                z: row.z,
+                linked_tile_id: row.linked_tile_id,
+            });
+        }
+    }
+
+    for row in payload.card.unwrap_or_default() {
+        if ctx.db.card().card_id().find(&row.card_id).is_none() {
+            ctx.db.card().insert(Card {
+                card_id: row.card_id,
+                definition_id: row.definition_id,
+                card_type: row.card_type,
+                owner_card_id: row.owner_card_id,
+            });
+        }
+    }
+
+    for row in payload.card_tracker.unwrap_or_default() {
+        if ctx.db.card_tracker().card_id().find(&row.card_id).is_none() {
+            ctx.db.card_tracker().insert(CardTracker {
+                card_id: row.card_id,
+                linked_tile_id: row.linked_tile_id,
+                position_lock: row.position_lock,
+                position_hold: row.position_hold,
+            });
+        }
+    }
+
+    for row in payload.player.unwrap_or_default() {
+        if ctx.db.player().player_id().find(&row.player_id).is_none() {
+            ctx.db.player().insert(Player {
+                player_id: row.player_id,
+                card_id: row.card_id,
+            });
+        }
+    }
+
+    // Keep action_tracker in the format even if no initial rows are present yet.
+    for row in payload.action_tracker.unwrap_or_default() {
+        if ctx.db.action_tracker().card_id().find(&row.card_id).is_none() {
+            ctx.db.action_tracker().insert(ActionTracker {
+                card_id: row.card_id,
+                recipe_definition_id: row.recipe_definition_id,
+                recipe_lock: row.recipe_lock,
+                magnetic_inputs: row.magnetic_inputs,
+                queued_at: row.queued_at,
+                started_at: row.started_at,
+                completed_at: row.completed_at,
+            });
+        }
+    }
+
     Ok(())
 }
 
