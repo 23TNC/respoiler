@@ -109,6 +109,28 @@ pub struct ActionTracker {
     pub completed_at: i64,
 }
 
+// Sparse per-card variables with one row per (card_id, name) pair.
+#[table(accessor = card_var, public)]
+pub struct CardVar {
+  #[primary_key]
+  #[auto_inc]
+  pub id: u64,
+  pub card_id: u32,
+  pub name: String,
+  pub value: String,
+}
+
+// Sparse per-tile variables with one row per (tile_id, name) pair.
+#[table(accessor = tile_var, public)]
+pub struct TileVar {
+  #[primary_key]
+  #[auto_inc]
+  pub id: u64,
+  pub tile_id: u32,
+  pub name: String,
+  pub value: String,
+}
+
 enum TileTrackerTarget {
     Tile,
     Event,
@@ -826,4 +848,122 @@ pub fn delete_action_tracker(ctx: &ReducerContext, card_id: u32) -> Result<(), S
     validate_nonzero_id("card_id", card_id)?;
     ctx.db.action_tracker().card_id().delete(&card_id);
     Ok(())
+}
+
+// Inserts or updates a sparse card variable row by (card_id, name).
+#[reducer]
+pub fn set_card_var(
+  ctx: &ReducerContext,
+  card_id: u32,
+  name: String,
+  value: String,
+) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  let mut existing_ids = Vec::new();
+  for row in ctx.db.card_var().iter() {
+    if row.card_id == card_id && row.name == name {
+      existing_ids.push(row.id);
+    }
+  }
+
+  if let Some(existing_id) = existing_ids.first() {
+    if let Some(existing) = ctx.db.card_var().id().find(existing_id) {
+      ctx.db.card_var().id().update(CardVar {
+        value,
+        ..existing
+      });
+    }
+
+    for duplicate_id in &existing_ids[1..] {
+      ctx.db.card_var().id().delete(duplicate_id);
+    }
+  } else {
+    ctx.db.card_var().insert(CardVar {
+      id: 0,
+      card_id,
+      name,
+      value,
+    });
+  }
+
+  Ok(())
+}
+
+// Deletes a sparse card variable row by (card_id, name) if present.
+#[reducer]
+pub fn delete_card_var(ctx: &ReducerContext, card_id: u32, name: String) -> Result<(), String> {
+  validate_nonzero_id("card_id", card_id)?;
+
+  let mut ids_to_delete = Vec::new();
+  for row in ctx.db.card_var().iter() {
+    if row.card_id == card_id && row.name == name {
+      ids_to_delete.push(row.id);
+    }
+  }
+
+  for id in ids_to_delete {
+    ctx.db.card_var().id().delete(&id);
+  }
+
+  Ok(())
+}
+
+// Inserts or updates a sparse tile variable row by (tile_id, name).
+#[reducer]
+pub fn set_tile_var(
+  ctx: &ReducerContext,
+  tile_id: u32,
+  name: String,
+  value: String,
+) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  let mut existing_ids = Vec::new();
+  for row in ctx.db.tile_var().iter() {
+    if row.tile_id == tile_id && row.name == name {
+      existing_ids.push(row.id);
+    }
+  }
+
+  if let Some(existing_id) = existing_ids.first() {
+    if let Some(existing) = ctx.db.tile_var().id().find(existing_id) {
+      ctx.db.tile_var().id().update(TileVar {
+        value,
+        ..existing
+      });
+    }
+
+    for duplicate_id in &existing_ids[1..] {
+      ctx.db.tile_var().id().delete(duplicate_id);
+    }
+  } else {
+    ctx.db.tile_var().insert(TileVar {
+      id: 0,
+      tile_id,
+      name,
+      value,
+    });
+  }
+
+  Ok(())
+}
+
+// Deletes a sparse tile variable row by (tile_id, name) if present.
+#[reducer]
+pub fn delete_tile_var(ctx: &ReducerContext, tile_id: u32, name: String) -> Result<(), String> {
+  validate_nonzero_id("tile_id", tile_id)?;
+
+  let mut ids_to_delete = Vec::new();
+  for row in ctx.db.tile_var().iter() {
+    if row.tile_id == tile_id && row.name == name {
+      ids_to_delete.push(row.id);
+    }
+  }
+
+  for id in ids_to_delete {
+    ctx.db.tile_var().id().delete(&id);
+  }
+
+  Ok(())
 }
