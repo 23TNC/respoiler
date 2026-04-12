@@ -17,7 +17,9 @@ export class ViewedCardsDataSource implements GameDataSource {
   private snapshot: GameViewSnapshot = EMPTY_SNAPSHOT;
   private readonly listeners = new Set<() => void>();
   private activeSubscriptions: SubscriptionHandle[] = [];
+  private tileSubscription?: SubscriptionHandle;
   private currentViewedCardId?: bigint;
+  private currentLinkedTileId = 0;
   private readonly refreshSnapshotBound = (): void => {
     this.refreshSnapshot("table-event");
   };
@@ -56,15 +58,16 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.connection.db.tile_tracker.removeOnDelete(this.refreshSnapshotBound);
     this.activeSubscriptions.forEach((subscription) => subscription.unsubscribe());
     this.activeSubscriptions = [];
+    this.tileSubscription?.unsubscribe();
+    this.tileSubscription = undefined;
+    this.currentLinkedTileId = 0;
 
-    const cardQuery = `select * from card where owner_card_id = ${viewedCardId.toString()} or card_id = ${viewedCardId.toString()}`;
+    const cardQuery = `select * from card where card_id = ${viewedCardId.toString()}`;
     const cardTrackerQuery = `select * from card_tracker where card_id = ${viewedCardId.toString()}`;
-    const tileTrackerQuery = "select * from tile_tracker";
     console.info("[ui-debug] creating viewed-card subscriptions", {
       viewedCardId,
       cardQuery,
       cardTrackerQuery,
-      tileTrackerQuery,
     });
 
     this.connection.db.card.onInsert(this.refreshSnapshotBound);
@@ -83,7 +86,6 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.activeSubscriptions = [
       this.connection.subscriptionBuilder().onApplied(refreshInitial).subscribe(cardQuery),
       this.connection.subscriptionBuilder().onApplied(refreshInitial).subscribe(cardTrackerQuery),
-      this.connection.subscriptionBuilder().onApplied(refreshInitial).subscribe(tileTrackerQuery),
     ];
   }
 
@@ -99,6 +101,9 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.connection?.db.tile_tracker.removeOnDelete(this.refreshSnapshotBound);
     this.activeSubscriptions.forEach((subscription) => subscription.unsubscribe());
     this.activeSubscriptions = [];
+    this.tileSubscription?.unsubscribe();
+    this.tileSubscription = undefined;
+    this.currentLinkedTileId = 0;
   }
 
   private refreshSnapshot(reason: "initial" | "table-event"): void {
@@ -108,9 +113,7 @@ export class ViewedCardsDataSource implements GameDataSource {
 
     const viewedCardId = this.currentViewedCardId;
     const cards = Array.from(this.connection.db.card.iter()).filter(
-      (card) =>
-        card.ownerCardId.toString() === viewedCardId.toString() ||
-        card.cardId.toString() === viewedCardId.toString(),
+      (card) => card.cardId.toString() === viewedCardId.toString(),
     );
 
     const cardTracker = Array.from(this.connection.db.card_tracker.iter()).find(
@@ -122,6 +125,8 @@ export class ViewedCardsDataSource implements GameDataSource {
             (tracker) => tracker.tileId === cardTracker.linkedTileId,
           )
         : undefined;
+    const linkedTileId = cardTracker?.linkedTileId ?? 0;
+    this.updateTileSubscription(linkedTileId);
 
     console.info("[ui-debug] viewed cards snapshot applied", {
       reason,
@@ -154,5 +159,25 @@ export class ViewedCardsDataSource implements GameDataSource {
 
   private notify(): void {
     this.listeners.forEach((listener) => listener());
+  }
+
+  private updateTileSubscription(linkedTileId: number): void {
+    if (!this.connection || this.currentLinkedTileId === linkedTileId) {
+      return;
+    }
+
+    this.currentLinkedTileId = linkedTileId;
+    this.tileSubscription?.unsubscribe();
+    this.tileSubscription = undefined;
+
+    if (linkedTileId === 0) {
+      return;
+    }
+
+    const tileTrackerQuery = `select * from tile_tracker where tile_id = ${linkedTileId.toString()}`;
+    this.tileSubscription = this.connection
+      .subscriptionBuilder()
+      .onApplied(() => this.refreshSnapshot("initial"))
+      .subscribe(tileTrackerQuery);
   }
 }
