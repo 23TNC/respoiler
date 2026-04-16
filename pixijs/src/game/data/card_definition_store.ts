@@ -11,16 +11,56 @@ type RawCardDefinition = {
   topColor?: string | number;
   bottom_color?: string | number;
   bottomColor?: string | number;
+  style?: {
+    color?: [string, string] | string[];
+  };
 };
 
-const STATIC_CARD_DEFINITIONS_PATH = "/static/cards.json";
+type RawTileDefinition = {
+  id?: number | string;
+  key?: string;
+  name?: string;
+  hostKind?: string;
+  style?: {
+    fillColor?: string | number;
+    strokeColor?: string | number;
+    labelColor?: string | number;
+  };
+  defaultProperties?: Record<string, unknown>;
+};
+
+export type TileDefinitionInfo = {
+  id: string;
+  key?: string;
+  name: string;
+  hostKind?: string;
+  style?: {
+    fillColor?: number;
+    strokeColor?: number;
+    labelColor?: number;
+  };
+  defaultProperties?: Record<string, unknown>;
+};
+
+type DefinitionFileManifest = {
+  cardFiles: readonly string[];
+  tileFiles: readonly string[];
+};
+
+const STATIC_DEFINITION_FILES: DefinitionFileManifest = {
+  cardFiles: ["soul.json", "discipline.json", "faculty.json", "revery.json", "requisites.json"],
+  tileFiles: ["tiles.json"],
+};
+
+const STATIC_CARD_DEFINITIONS_BASE_PATH = "/static/cards";
 const DEFAULT_CARD_DEFINITION: DefinitionInfo = {
   name: "Unknown",
   topColor: 0x607080,
   bottomColor: 0x32404b,
 };
 
-const missingDefinitionIdsLogged = new Set<string>();
+const missingCardDefinitionIdsLogged = new Set<string>();
+const missingTileDefinitionIdsLogged = new Set<string>();
 
 const normalizeColor = (value: string | number | undefined, fallback: number): number => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -66,14 +106,93 @@ const normalizeCardDefinition = (entry: RawCardDefinition): [string, DefinitionI
     id,
     {
       name,
-      topColor: normalizeColor(entry.top_color ?? entry.topColor, DEFAULT_CARD_DEFINITION.topColor),
-      bottomColor: normalizeColor(entry.bottom_color ?? entry.bottomColor, DEFAULT_CARD_DEFINITION.bottomColor),
+      topColor: normalizeColor(entry.top_color ?? entry.topColor ?? entry.style?.color?.[0], DEFAULT_CARD_DEFINITION.topColor),
+      bottomColor: normalizeColor(
+        entry.bottom_color ?? entry.bottomColor ?? entry.style?.color?.[1],
+        DEFAULT_CARD_DEFINITION.bottomColor,
+      ),
     },
   ];
 };
 
+const normalizeTileDefinition = (entry: RawTileDefinition): [string, TileDefinitionInfo] | undefined => {
+  const id = normalizeDefinitionId(entry.id);
+  if (!id) {
+    return undefined;
+  }
+
+  return [
+    id,
+    {
+      id,
+      key: typeof entry.key === "string" ? entry.key : undefined,
+      name: entry.name?.trim() || `Tile ${id}`,
+      hostKind: typeof entry.hostKind === "string" ? entry.hostKind : undefined,
+      style: entry.style
+        ? {
+            fillColor:
+              entry.style.fillColor !== undefined
+                ? normalizeColor(entry.style.fillColor, DEFAULT_CARD_DEFINITION.topColor)
+                : undefined,
+            strokeColor:
+              entry.style.strokeColor !== undefined
+                ? normalizeColor(entry.style.strokeColor, DEFAULT_CARD_DEFINITION.bottomColor)
+                : undefined,
+            labelColor:
+              entry.style.labelColor !== undefined
+                ? normalizeColor(entry.style.labelColor, DEFAULT_CARD_DEFINITION.bottomColor)
+                : undefined,
+          }
+        : undefined,
+      defaultProperties: entry.defaultProperties,
+    },
+  ];
+};
+
+const parseDefinitionArray = (rawPayload: unknown, sourcePath: string): unknown[] => {
+  if (Array.isArray(rawPayload)) {
+    return rawPayload;
+  }
+
+  if (typeof rawPayload === "string") {
+    const trimmed = rawPayload.trim();
+    if (trimmed.length === 0) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (error) {
+      console.warn("[ui-debug] failed to parse static definition payload", { sourcePath, error });
+      return [];
+    }
+  }
+
+  console.warn("[ui-debug] invalid static definition payload; expected an array", { sourcePath });
+  return [];
+};
+
+const loadDefinitionFile = async (relativePath: string): Promise<unknown[]> => {
+  const path = `${STATIC_CARD_DEFINITIONS_BASE_PATH}/${relativePath}`;
+
+  try {
+    const rawPayload = await loadStaticJson<unknown>(path);
+    return parseDefinitionArray(rawPayload, path);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return [];
+    }
+
+    throw error;
+  }
+};
+
 export class CardDefinitionStore {
   private readonly definitionById = new Map<string, DefinitionInfo>();
+  private readonly tileDefinitionById = new Map<string, TileDefinitionInfo>();
 
   static async load(): Promise<CardDefinitionStore> {
     const store = new CardDefinitionStore();
@@ -92,32 +211,70 @@ export class CardDefinitionStore {
       return definition;
     }
 
-    if (!missingDefinitionIdsLogged.has(key)) {
-      missingDefinitionIdsLogged.add(key);
+    if (!missingCardDefinitionIdsLogged.has(key)) {
+      missingCardDefinitionIdsLogged.add(key);
       console.warn("[ui-debug] missing static card definition", { definitionId: key });
     }
 
     return DEFAULT_CARD_DEFINITION;
   }
 
-  private async initialize(): Promise<void> {
-    const rawDefinitions = await loadStaticJson<unknown>(STATIC_CARD_DEFINITIONS_PATH);
-
-    if (!Array.isArray(rawDefinitions)) {
-      console.warn("[ui-debug] invalid static card definitions payload; expected an array");
-      return;
+  getTileDefinitionById(definitionId: EntityId): TileDefinitionInfo | undefined {
+    const key = definitionId.toString();
+    const definition = this.tileDefinitionById.get(key);
+    if (definition) {
+      return definition;
     }
 
-    for (const entry of rawDefinitions) {
-      if (typeof entry !== "object" || entry === null) {
-        continue;
+    if (!missingTileDefinitionIdsLogged.has(key)) {
+      missingTileDefinitionIdsLogged.add(key);
+      console.warn("[ui-debug] missing static tile definition", { definitionId: key });
+    }
+
+    return undefined;
+  }
+
+  private async initialize(): Promise<void> {
+    await Promise.all([this.loadCardDefinitions(), this.loadTileDefinitions()]);
+  }
+
+  private async loadCardDefinitions(): Promise<void> {
+    const payloads = await Promise.all(STATIC_DEFINITION_FILES.cardFiles.map((file) => loadDefinitionFile(file)));
+
+    for (const entries of payloads) {
+      for (const entry of entries) {
+        if (typeof entry !== "object" || entry === null) {
+          continue;
+        }
+
+        const normalized = normalizeCardDefinition(entry as RawCardDefinition);
+        if (!normalized) {
+          continue;
+        }
+
+        const [id, definition] = normalized;
+        this.definitionById.set(id, definition);
       }
-      const normalized = normalizeCardDefinition(entry as RawCardDefinition);
-      if (!normalized) {
-        continue;
+    }
+  }
+
+  private async loadTileDefinitions(): Promise<void> {
+    const payloads = await Promise.all(STATIC_DEFINITION_FILES.tileFiles.map((file) => loadDefinitionFile(file)));
+
+    for (const entries of payloads) {
+      for (const entry of entries) {
+        if (typeof entry !== "object" || entry === null) {
+          continue;
+        }
+
+        const normalized = normalizeTileDefinition(entry as RawTileDefinition);
+        if (!normalized) {
+          continue;
+        }
+
+        const [id, definition] = normalized;
+        this.tileDefinitionById.set(id, definition);
       }
-      const [id, definition] = normalized;
-      this.definitionById.set(id, definition);
     }
   }
 }
