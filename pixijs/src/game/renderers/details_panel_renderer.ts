@@ -26,15 +26,13 @@ export class DetailsPanelRenderer {
     this.container.addChild(root);
 
     if (!params.selection) {
-      this.drawTitle("Details", 12, 10, params.width - 24);
-      this.drawBodyText([`Observer: ${this.formatIdForDisplay(params.observerCardId)}`, `Viewed: ${this.formatIdForDisplay(params.viewedCardId)}`, "", "Select a tile or card."], 12, 36, params.width - 24);
+      this.drawBodyText([`Observer: ${this.formatIdForDisplay(params.observerCardId)}`, `Viewed: ${this.formatIdForDisplay(params.viewedCardId)}`, "", "Select a tile or card."], 12, 12, params.width - 24);
       return;
     }
 
     const selectedCard = this.resolveSelectedCard(params.viewModel, params.selection);
     if (!selectedCard) {
-      this.drawTitle("Details", 12, 10, params.width - 24);
-      this.drawBodyText([`Card ${params.selection.id} not found.`], 12, 36, params.width - 24);
+      this.drawBodyText([`Card ${params.selection.id} not found.`], 12, 12, params.width - 24);
       return;
     }
 
@@ -79,7 +77,7 @@ export class DetailsPanelRenderer {
 
     const secondPanelY = firstPanelY + firstPanelHeight + 10;
     const secondPanelHeight = Math.max(120, params.height - secondPanelY - 10);
-    this.drawSubPanel("Attached Cards", 10, secondPanelY, params.width - 20, secondPanelHeight);
+    this.drawSubPanel(undefined, 10, secondPanelY, params.width - 20, secondPanelHeight);
 
     const attachedCards = this.findAttachedCardsBySharedPosition(params.viewModel, selectedTileCard);
     const disciplineCards = attachedCards.filter((card) => card.card.cardType === 1);
@@ -94,7 +92,7 @@ export class DetailsPanelRenderer {
 
     const nestedPanelY = secondPanelY + 78;
     const nestedPanelHeight = Math.max(54, secondPanelHeight - 88);
-    this.drawSubPanel("Attached 2..5", 20, nestedPanelY, params.width - 40, nestedPanelHeight);
+    this.drawSubPanel(undefined, 20, nestedPanelY, params.width - 40, nestedPanelHeight);
     this.drawBodyText(
       this.toCardLines(nestedCards, params.definitionLookup),
       28,
@@ -202,8 +200,11 @@ export class DetailsPanelRenderer {
     return panel;
   }
 
-  private drawSubPanel(label: string, x: number, y: number, width: number, height: number): void {
+  private drawSubPanel(label: string | undefined, x: number, y: number, width: number, height: number): void {
     this.container.addChild(this.drawPanel(x, y, width, height, 6));
+    if (!label) {
+      return;
+    }
     const title = new Text({
       text: label,
       style: { fill: 0xc9d0d9, fontSize: 11, fontWeight: "bold" },
