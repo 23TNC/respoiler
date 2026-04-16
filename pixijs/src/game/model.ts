@@ -170,6 +170,10 @@ export const deriveGameViewModel = (
       continue;
     }
 
+    if (trackedCard.tracker) {
+      continue;
+    }
+
     inventories[category].push(trackedCard);
   }
 
