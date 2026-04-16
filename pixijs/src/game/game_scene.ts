@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Point, Text } from "pixi.js";
 import { GameDataStore, type GameDataSource } from "./data/game_data_store";
 import { CardView } from "./components/card_view";
 import {
@@ -377,7 +377,7 @@ export class GameScene extends Container {
         this.selection = { type: "card", id: cardId };
         this.renderView();
       },
-      onDragStart: (cardId, x, y) => {
+      onDragStart: (cardId, pointerGlobalX, pointerGlobalY) => {
         const trackedCard = this.findTrackedCardById(viewModel, cardId);
         if (!trackedCard) {
           return;
@@ -389,21 +389,21 @@ export class GameScene extends Container {
         this.dragState = {
           cardId,
           cardType: trackedCard.card.cardType,
-          originalPosition: { x, y },
+          originalPosition: { x: pointerGlobalX, y: pointerGlobalY },
         };
-        this.createDragPreview(trackedCard, x, y);
+        this.createDragPreview(trackedCard, pointerGlobalX, pointerGlobalY);
       },
-      onDragMove: (cardId, x, y) => {
+      onDragMove: (cardId, pointerGlobalX, pointerGlobalY) => {
         if (!this.dragState || this.toIdKey(this.dragState.cardId) !== this.toIdKey(cardId)) {
           return;
         }
-        this.updateDragPreviewPosition(x, y);
+        this.updateDragPreviewPosition(pointerGlobalX, pointerGlobalY);
       },
-      onDragEnd: (cardId, x, y) => {
+      onDragEnd: (cardId, pointerGlobalX, pointerGlobalY) => {
         if (!this.dragState || this.toIdKey(this.dragState.cardId) !== this.toIdKey(cardId)) {
           return;
         }
-        const dropTarget = this.resolveValidDropTarget(viewModel, x, y);
+        const dropTarget = this.resolveValidDropTarget(viewModel, pointerGlobalX, pointerGlobalY);
         if (!dropTarget) {
           this.updateDragPreviewPosition(this.dragState.originalPosition.x, this.dragState.originalPosition.y);
           this.clearDragPreview();
@@ -552,10 +552,17 @@ export class GameScene extends Container {
 
   private resolveValidDropTarget(
     viewModel: ReturnType<typeof deriveGameViewModel>,
-    globalX: number,
-    globalY: number,
+    pointerGlobalX: number,
+    pointerGlobalY: number,
   ): DropTarget | undefined {
-    const hoveredTile = this.boardRenderer.findTopmostTileAt(globalX, globalY);
+    // Drag events give renderer-global coordinates. Convert explicitly into:
+    // global -> GameScene local -> world-board local.
+    const sceneLocalPointer = this.toLocal(new Point(pointerGlobalX, pointerGlobalY));
+    const boardLocalPointer = this.boardRenderer.container.toLocal(sceneLocalPointer, this);
+    const hoveredTile = this.boardRenderer.findTopmostTileAtBoardLocal(
+      boardLocalPointer.x,
+      boardLocalPointer.y,
+    );
     if (!hoveredTile) {
       return undefined;
     }

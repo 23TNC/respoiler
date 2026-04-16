@@ -18,8 +18,10 @@ type InventoryRenderParams = {
   height: number;
   onSelect: (cardId: EntityId) => void;
   onDragStart: (cardId: EntityId) => void;
-  onDragMove: (cardId: EntityId, x: number, y: number) => void;
-  onDragEnd: (cardId: EntityId, x: number, y: number) => void;
+  // Coordinates are Pixi renderer-global pointer coordinates (event.global).
+  onDragMove: (cardId: EntityId, globalX: number, globalY: number) => void;
+  // Coordinates are Pixi renderer-global pointer coordinates (event.global).
+  onDragEnd: (cardId: EntityId, globalX: number, globalY: number) => void;
 };
 
 type InventoryPanelMetrics = {

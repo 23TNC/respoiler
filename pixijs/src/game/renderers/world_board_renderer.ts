@@ -1,4 +1,4 @@
-import { Container, Text } from "pixi.js";
+import { Container, Point, Text } from "pixi.js";
 import { HexTileView } from "../components/hex_tile_view";
 import type { EntityId } from "../model";
 
@@ -82,10 +82,15 @@ export class WorldBoardRenderer {
     this.container.addChild(coordinatesLabel);
   }
 
-  findTopmostTileAt(globalX: number, globalY: number): RenderedWorldTile | undefined {
+  /**
+   * Hit testing in world-board local coordinates (relative to `this.container`).
+   */
+  findTopmostTileAtBoardLocal(boardLocalX: number, boardLocalY: number): RenderedWorldTile | undefined {
+    const boardLocalPoint = new Point(boardLocalX, boardLocalY);
     for (let i = this.renderedTiles.length - 1; i >= 0; i -= 1) {
       const candidate = this.renderedTiles[i];
-      if (candidate.view.hitTestGlobal(globalX, globalY)) {
+      const tileLocalPoint = candidate.view.toLocal(boardLocalPoint, this.container);
+      if (candidate.view.hitArea?.contains(tileLocalPoint.x, tileLocalPoint.y)) {
         return candidate.tile;
       }
     }
