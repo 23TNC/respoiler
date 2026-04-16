@@ -52,8 +52,8 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.activeSubscriptions.forEach((subscription) => subscription.unsubscribe());
     this.activeSubscriptions = [];
 
-    const cardQuery = `select * from card where owner_card_id = ${viewedCardId.toString()} or card_id = ${viewedCardId.toString()}`;
-    const cardTrackerQuery = `select * from card_tracker where card_id = ${viewedCardId.toString()} or linked_card_id = ${viewedCardId.toString()}`;
+    const cardQuery = "select * from card";
+    const cardTrackerQuery = "select * from card_tracker";
     console.info("[ui-debug] creating viewed-card subscriptions", {
       viewedCardId,
       cardQuery,
@@ -92,21 +92,46 @@ export class ViewedCardsDataSource implements GameDataSource {
     }
 
     const viewedCardId = this.currentViewedCardId;
-    const cards = Array.from(this.connection.db.card.iter()).filter(
-      (card) =>
-        card.ownerCardId.toString() === viewedCardId.toString() ||
-        card.cardId.toString() === viewedCardId.toString(),
-    );
+    const allCards = Array.from(this.connection.db.card.iter());
+    const allTrackers = Array.from(this.connection.db.card_tracker.iter());
+    const viewedSoulTracker = allTrackers.find((tracker) => tracker.cardId.toString() === viewedCardId.toString());
 
-    const cardTrackers = Array.from(this.connection.db.card_tracker.iter()).filter(
-      (tracker) =>
-        tracker.cardId.toString() === viewedCardId.toString() ||
-        tracker.linkedCardId.toString() === viewedCardId.toString(),
-    );
+    const positionTrackers = viewedSoulTracker
+      ? allTrackers.filter(
+          (tracker) =>
+            tracker.q === viewedSoulTracker.q &&
+            tracker.r === viewedSoulTracker.r &&
+            tracker.z === viewedSoulTracker.z,
+        )
+      : [];
+
+    const positionCardIds = new Set(positionTrackers.map((tracker) => tracker.cardId.toString()));
+
+    const cards = allCards.filter((card) => {
+      if (card.cardId.toString() === viewedCardId.toString()) {
+        return true;
+      }
+      if (card.ownerCardId.toString() === viewedCardId.toString()) {
+        return true;
+      }
+      return positionCardIds.has(card.cardId.toString());
+    });
+
+    const cardTrackers = allTrackers.filter((tracker) => {
+      if (tracker.cardId.toString() === viewedCardId.toString()) {
+        return true;
+      }
+      if (tracker.linkedCardId.toString() === viewedCardId.toString()) {
+        return true;
+      }
+      return positionCardIds.has(tracker.cardId.toString());
+    });
 
     console.info("[ui-debug] viewed cards snapshot applied", {
       reason,
       viewedCardId,
+      viewedSoulTracker,
+      positionTrackers,
       cards,
       cardTrackers,
     });
