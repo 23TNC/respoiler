@@ -22,7 +22,7 @@
         "show": true
       },
       {
-        "flag": 1,
+        "flag": 2,
         "name": "food",
         "default": false,
         "show": true
