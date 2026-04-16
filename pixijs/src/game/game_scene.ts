@@ -294,9 +294,9 @@ export class GameScene extends Container {
     });
 
     this.boardRenderer.render({
-      viewedTile: viewModel.viewedWorldTracker
+      viewedTile: viewModel.viewedWorldTracker && viewModel.viewedWorldTile
         ? {
-            tileId: resolvedViewedCardId,
+            tileId: viewModel.viewedWorldTile.tile.cardId,
             q: viewModel.viewedWorldTracker.q,
             r: viewModel.viewedWorldTracker.r,
             z: viewModel.viewedWorldTracker.z,
@@ -323,6 +323,7 @@ export class GameScene extends Container {
       console.info("[ui-debug] world hex render ready", {
         viewedCardId: resolvedViewedCardId,
         cardTracker: viewModel.viewedCardTracker,
+        worldTileCardId: viewModel.viewedWorldTile?.tile.cardId,
         tileTracker: viewModel.viewedWorldTracker,
       });
     }
