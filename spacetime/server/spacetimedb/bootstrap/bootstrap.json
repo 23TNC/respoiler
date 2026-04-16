@@ -3,11 +3,11 @@
     { "player_id": 1, "card_id": 2 }
   ],
   "card": [
-    { "card_id": 2, "definition_id": 1, "card_type": 5, "owner_card_id": 0 },
-    { "card_id": 6, "definition_id": 3, "card_type": 6, "owner_card_id": 0 },
-    { "card_id": 3, "definition_id": 2, "card_type": 1, "owner_card_id": 2 },
-    { "card_id": 4, "definition_id": 9, "card_type": 2, "owner_card_id": 2 },
-    { "card_id": 5, "definition_id": 9, "card_type": 2, "owner_card_id": 2 }
+    { "card_id": 2, "definition_id": 5001, "card_type": 5, "owner_card_id": 0 },
+    { "card_id": 6, "definition_id": 6001, "card_type": 6, "owner_card_id": 0 },
+    { "card_id": 3, "definition_id": 1001, "card_type": 1, "owner_card_id": 2 },
+    { "card_id": 4, "definition_id": 2001, "card_type": 2, "owner_card_id": 2 },
+    { "card_id": 5, "definition_id": 2001, "card_type": 2, "owner_card_id": 2 }
   ],
   "card_tracker": [
     {

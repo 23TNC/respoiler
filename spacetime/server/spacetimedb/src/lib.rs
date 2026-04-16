@@ -11,6 +11,9 @@ use spacetimedb::{reducer, table, ReducerContext, SpacetimeType, Table};
 // Requisite    3
 // Reverie      4
 // Soul         5
+// Tile         6
+// Event        7
+// Slot         8
 
 #[derive(SpacetimeType)]
 pub enum TileType {

@@ -2,7 +2,7 @@
   {
     "id": "Forest_Work_Health",
     "input": [ 
-      { "Forest": { "ge": [ "input[1].tracker.cost", "0" ] } }, 
+      { "Forest": { "ge": [ "input[1].var[cost]", "0" ] } }, 
       { "Work": {
           "and": [
             { "if": [ "input[2].status[ready]" ] },

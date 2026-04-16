@@ -41,7 +41,6 @@ import AddTileStatusFlagsReducer from "./add_tile_status_flags_reducer";
 import BootstrapFromJsonReducer from "./bootstrap_from_json_reducer";
 import CreateCardReducer from "./create_card_reducer";
 import CreatePlayerReducer from "./create_player_reducer";
-import CreateTileReducer from "./create_tile_reducer";
 import DeleteActionTrackerReducer from "./delete_action_tracker_reducer";
 import DeleteCardReducer from "./delete_card_reducer";
 import DeleteCardStateReducer from "./delete_card_state_reducer";
@@ -51,9 +50,7 @@ import DeleteEventTrackerReducer from "./delete_event_tracker_reducer";
 import DeletePlayerReducer from "./delete_player_reducer";
 import DeleteSlotTrackerReducer from "./delete_slot_tracker_reducer";
 import DeleteSoulAlignmentReducer from "./delete_soul_alignment_reducer";
-import DeleteTileReducer from "./delete_tile_reducer";
 import DeleteTileStateReducer from "./delete_tile_state_reducer";
-import DeleteTileTrackerReducer from "./delete_tile_tracker_reducer";
 import DeleteTileVarReducer from "./delete_tile_var_reducer";
 import RemoveCardFlagsReducer from "./remove_card_flags_reducer";
 import RemoveCardStatusFlagsReducer from "./remove_card_status_flags_reducer";
@@ -74,13 +71,11 @@ import UpdateCardPositionHoldReducer from "./update_card_position_hold_reducer";
 import UpdateCardPositionLockReducer from "./update_card_position_lock_reducer";
 import UpdateCardTileReducer from "./update_card_tile_reducer";
 import UpdatePlayerCardReducer from "./update_player_card_reducer";
-import UpdateTileReducer from "./update_tile_reducer";
 import UpsertActionTrackerReducer from "./upsert_action_tracker_reducer";
 import UpsertCardTrackerReducer from "./upsert_card_tracker_reducer";
 import UpsertEventTrackerReducer from "./upsert_event_tracker_reducer";
 import UpsertSlotTrackerReducer from "./upsert_slot_tracker_reducer";
 import UpsertSoulAlignmentReducer from "./upsert_soul_alignment_reducer";
-import UpsertTileTrackerReducer from "./upsert_tile_tracker_reducer";
 
 // Import all procedure arg schemas
 
@@ -94,9 +89,7 @@ import EventTrackerRow from "./event_tracker_table";
 import PlayerRow from "./player_table";
 import SlotTrackerRow from "./slot_tracker_table";
 import SoulAlignmentRow from "./soul_alignment_table";
-import TileRow from "./tile_table";
 import TileStateRow from "./tile_state_table";
-import TileTrackerRow from "./tile_tracker_table";
 import TileVarRow from "./tile_var_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -202,17 +195,6 @@ const tablesSchema = __schema({
       { name: 'soul_alignment_card_id_key', constraint: 'unique', columns: ['cardId'] },
     ],
   }, SoulAlignmentRow),
-  tile: __table({
-    name: 'tile',
-    indexes: [
-      { accessor: 'tile_id', name: 'tile_tile_id_idx_btree', algorithm: 'btree', columns: [
-        'tileId',
-      ] },
-    ],
-    constraints: [
-      { name: 'tile_tile_id_key', constraint: 'unique', columns: ['tileId'] },
-    ],
-  }, TileRow),
   tile_state: __table({
     name: 'tile_state',
     indexes: [
@@ -224,17 +206,6 @@ const tablesSchema = __schema({
       { name: 'tile_state_tile_id_key', constraint: 'unique', columns: ['tileId'] },
     ],
   }, TileStateRow),
-  tile_tracker: __table({
-    name: 'tile_tracker',
-    indexes: [
-      { accessor: 'tile_id', name: 'tile_tracker_tile_id_idx_btree', algorithm: 'btree', columns: [
-        'tileId',
-      ] },
-    ],
-    constraints: [
-      { name: 'tile_tracker_tile_id_key', constraint: 'unique', columns: ['tileId'] },
-    ],
-  }, TileTrackerRow),
   tile_var: __table({
     name: 'tile_var',
     indexes: [
@@ -257,7 +228,6 @@ const reducersSchema = __reducers(
   __reducerSchema("bootstrap_from_json", BootstrapFromJsonReducer),
   __reducerSchema("create_card", CreateCardReducer),
   __reducerSchema("create_player", CreatePlayerReducer),
-  __reducerSchema("create_tile", CreateTileReducer),
   __reducerSchema("delete_action_tracker", DeleteActionTrackerReducer),
   __reducerSchema("delete_card", DeleteCardReducer),
   __reducerSchema("delete_card_state", DeleteCardStateReducer),
@@ -267,9 +237,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_player", DeletePlayerReducer),
   __reducerSchema("delete_slot_tracker", DeleteSlotTrackerReducer),
   __reducerSchema("delete_soul_alignment", DeleteSoulAlignmentReducer),
-  __reducerSchema("delete_tile", DeleteTileReducer),
   __reducerSchema("delete_tile_state", DeleteTileStateReducer),
-  __reducerSchema("delete_tile_tracker", DeleteTileTrackerReducer),
   __reducerSchema("delete_tile_var", DeleteTileVarReducer),
   __reducerSchema("remove_card_flags", RemoveCardFlagsReducer),
   __reducerSchema("remove_card_status_flags", RemoveCardStatusFlagsReducer),
@@ -290,13 +258,11 @@ const reducersSchema = __reducers(
   __reducerSchema("update_card_position_lock", UpdateCardPositionLockReducer),
   __reducerSchema("update_card_tile", UpdateCardTileReducer),
   __reducerSchema("update_player_card", UpdatePlayerCardReducer),
-  __reducerSchema("update_tile", UpdateTileReducer),
   __reducerSchema("upsert_action_tracker", UpsertActionTrackerReducer),
   __reducerSchema("upsert_card_tracker", UpsertCardTrackerReducer),
   __reducerSchema("upsert_event_tracker", UpsertEventTrackerReducer),
   __reducerSchema("upsert_slot_tracker", UpsertSlotTrackerReducer),
   __reducerSchema("upsert_soul_alignment", UpsertSoulAlignmentReducer),
-  __reducerSchema("upsert_tile_tracker", UpsertTileTrackerReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

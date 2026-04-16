@@ -82,28 +82,12 @@ export const SoulAlignment = __t.object("SoulAlignment", {
 });
 export type SoulAlignment = __Infer<typeof SoulAlignment>;
 
-export const Tile = __t.object("Tile", {
-  tileId: __t.u32(),
-  definitionId: __t.u16(),
-  tileType: __t.u16(),
-});
-export type Tile = __Infer<typeof Tile>;
-
 export const TileState = __t.object("TileState", {
   tileId: __t.u32(),
   status: __t.u64(),
   flags: __t.u64(),
 });
 export type TileState = __Infer<typeof TileState>;
-
-export const TileTracker = __t.object("TileTracker", {
-  tileId: __t.u32(),
-  q: __t.i32(),
-  r: __t.i32(),
-  z: __t.i32(),
-  linkedTileId: __t.u32(),
-});
-export type TileTracker = __Infer<typeof TileTracker>;
 
 export const TileVar = __t.object("TileVar", {
   id: __t.u64(),
@@ -112,3 +96,4 @@ export const TileVar = __t.object("TileVar", {
   value: __t.string(),
 });
 export type TileVar = __Infer<typeof TileVar>;
+
