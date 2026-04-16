@@ -52,6 +52,7 @@ async function boot(): Promise<void> {
     height: window.innerHeight,
     playerId: 1n,
     definitionLookup: cardDefinitionStore?.getLookup(),
+    tileDefinitionLookup: (definitionId) => cardDefinitionStore?.getTileDefinitionById(definitionId),
     dataSource: viewedCardsDataSource,
     onViewedCardIdChange: (viewedCardId) => {
       viewedCardsDataSource.setViewedCardId(
@@ -89,4 +90,3 @@ async function boot(): Promise<void> {
 
   window.addEventListener("beforeunload", shutdown, { once: true });
 }
-

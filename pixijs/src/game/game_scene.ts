@@ -6,6 +6,7 @@ import {
   type EntityId,
   type ViewModelSelection,
 } from "./model";
+import type { TileDefinitionInfo } from "./data/card_definition_store";
 import { DetailsPanelRenderer } from "./renderers/details_panel_renderer";
 import { EventColumnRenderer } from "./renderers/event_column_renderer";
 import { InventoryRenderer } from "./renderers/inventory_renderer";
@@ -16,6 +17,7 @@ type GameSceneConfig = {
   height: number;
   playerId: EntityId;
   definitionLookup?: DefinitionLookup;
+  tileDefinitionLookup?: (definitionId: EntityId) => TileDefinitionInfo | undefined;
   dataSource?: GameDataSource;
   onViewedCardIdChange?: (viewedCardId: EntityId) => void;
 };
@@ -86,6 +88,7 @@ export class GameScene extends Container {
   private inventoryRegionWidth = 0;
   private inventoryRegionHeight = 0;
   private readonly definitionLookup?: DefinitionLookup;
+  private readonly tileDefinitionLookup?: (definitionId: EntityId) => TileDefinitionInfo | undefined;
 
   private observerCardId?: EntityId;
   private viewedCardId?: EntityId;
@@ -100,6 +103,7 @@ export class GameScene extends Container {
     this.widthPx = config.width;
     this.heightPx = config.height;
     this.definitionLookup = config.definitionLookup;
+    this.tileDefinitionLookup = config.tileDefinitionLookup;
     this.onViewedCardIdChange = config.onViewedCardIdChange;
     this.initializeLayout();
 
@@ -348,6 +352,8 @@ export class GameScene extends Container {
       observerCardId: this.observerCardId,
       viewedCardId: this.viewedCardId,
       selection: this.selection,
+      definitionLookup: this.definitionLookup,
+      tileDefinitionLookup: this.tileDefinitionLookup,
       width: Math.max(120, this.detailsRegionWidth - GameScene.PANEL_PADDING * 2),
       height: Math.max(80, this.detailsRegionHeight - GameScene.PANEL_HEADER_HEIGHT - GameScene.PANEL_PADDING * 2),
     });
