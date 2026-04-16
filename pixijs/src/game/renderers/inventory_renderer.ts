@@ -17,7 +17,8 @@ type InventoryRenderParams = {
   width: number;
   height: number;
   onSelect: (cardId: EntityId) => void;
-  onDragStart: (cardId: EntityId) => void;
+  // Coordinates are Pixi renderer-global pointer coordinates (event.global).
+  onDragStart: (cardId: EntityId, globalX: number, globalY: number) => void;
   // Coordinates are Pixi renderer-global pointer coordinates (event.global).
   onDragMove: (cardId: EntityId, globalX: number, globalY: number) => void;
   // Coordinates are Pixi renderer-global pointer coordinates (event.global).
@@ -93,10 +94,13 @@ export class InventoryRenderer {
           width: metrics.cardWidth,
           height: metrics.cardHeight,
           selected: params.selectedCardId === trackedCard.card.cardId,
-          onSelect: params.onSelect,
-          onDragStart: params.onDragStart,
-          onDragMove: params.onDragMove,
-          onDragEnd: params.onDragEnd,
+          onSelect: () => params.onSelect(trackedCard.card.cardId),
+          onDragStart: (_cardId, globalX, globalY) =>
+            params.onDragStart(trackedCard.card.cardId, globalX, globalY),
+          onDragMove: (_cardId, globalX, globalY) =>
+            params.onDragMove(trackedCard.card.cardId, globalX, globalY),
+          onDragEnd: (_cardId, globalX, globalY) =>
+            params.onDragEnd(trackedCard.card.cardId, globalX, globalY),
         });
         cardView.position.set(cardX, cardY);
         content.addChild(cardView);

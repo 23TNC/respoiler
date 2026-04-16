@@ -29,6 +29,7 @@ export class CardView extends Container {
     super();
 
     this.trackedCard = config.trackedCard;
+    const cardId = this.trackedCard.card.cardId;
     this.colorRegions = new Container();
     this.roundedMask = new Graphics();
     this.topRegion = new Graphics();
@@ -58,33 +59,33 @@ export class CardView extends Container {
     this.cursor = "pointer";
     this.hitArea = new Rectangle(0, 0, config.width, config.height);
 
-    this.on("pointertap", () => config.onSelect?.(this.trackedCard.card.cardId));
+    this.on("pointertap", () => config.onSelect?.(cardId));
     this.on("pointerdown", (event) => {
       if (event.button !== 0) {
         return;
       }
       this.dragging = true;
-      config.onDragStart?.(this.trackedCard.card.cardId, event.global.x, event.global.y);
+      config.onDragStart?.(cardId, event.global.x, event.global.y);
     });
     this.on("globalpointermove", (event) => {
       if (!this.dragging) {
         return;
       }
-      config.onDragMove?.(this.trackedCard.card.cardId, event.global.x, event.global.y);
+      config.onDragMove?.(cardId, event.global.x, event.global.y);
     });
     this.on("pointerup", (event) => {
       if (!this.dragging) {
         return;
       }
       this.dragging = false;
-      config.onDragEnd?.(this.trackedCard.card.cardId, event.global.x, event.global.y);
+      config.onDragEnd?.(cardId, event.global.x, event.global.y);
     });
     this.on("pointerupoutside", (event) => {
       if (!this.dragging) {
         return;
       }
       this.dragging = false;
-      config.onDragEnd?.(this.trackedCard.card.cardId, event.global.x, event.global.y);
+      config.onDragEnd?.(cardId, event.global.x, event.global.y);
     });
   }
 

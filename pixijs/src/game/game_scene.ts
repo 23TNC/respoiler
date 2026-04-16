@@ -391,6 +391,12 @@ export class GameScene extends Container {
           cardType: trackedCard.card.cardType,
           originalPosition: { x: pointerGlobalX, y: pointerGlobalY },
         };
+        console.debug("[drag-debug] start", {
+          callbackCardId: cardId,
+          draggedTrackedCardCardId: trackedCard.card.cardId,
+          dragStateCardId: this.dragState.cardId,
+          cardType: this.dragState.cardType,
+        });
         this.createDragPreview(trackedCard, pointerGlobalX, pointerGlobalY);
       },
       onDragMove: (cardId, pointerGlobalX, pointerGlobalY) => {
@@ -403,6 +409,13 @@ export class GameScene extends Container {
         if (!this.dragState || this.toIdKey(this.dragState.cardId) !== this.toIdKey(cardId)) {
           return;
         }
+        const draggedTrackedCard = this.findTrackedCardById(viewModel, this.dragState.cardId);
+        console.debug("[drag-debug] end", {
+          callbackCardId: cardId,
+          draggedTrackedCardCardId: draggedTrackedCard?.card.cardId,
+          dragStateCardId: this.dragState.cardId,
+          cardType: this.dragState.cardType,
+        });
         const dropTarget = this.resolveValidDropTarget(viewModel, pointerGlobalX, pointerGlobalY);
         if (!dropTarget) {
           this.updateDragPreviewPosition(this.dragState.originalPosition.x, this.dragState.originalPosition.y);
@@ -418,6 +431,12 @@ export class GameScene extends Container {
               q: dropTarget.q,
               r: dropTarget.r,
               z: dropTarget.z,
+            });
+            console.debug("[drag-debug] before persistTypeOneDrop", {
+              callbackCardId: cardId,
+              draggedTrackedCardCardId: draggedTrackedCard?.card.cardId,
+              dragStateCardId: this.dragState.cardId,
+              cardType: this.dragState.cardType,
             });
             this.persistTypeOneDrop(cardId, dropTarget);
             break;
