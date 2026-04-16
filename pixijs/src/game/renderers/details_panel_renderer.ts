@@ -59,7 +59,10 @@ export class DetailsPanelRenderer {
   }
 
   private renderWorldTileDetails(params: DetailsPanelParams, selectedTileCard: TrackedCard): void {
-    const title = params.definitionLookup?.(6, selectedTileCard.card.definitionId)?.name ?? "Unknown Tile";
+    const tileDefinitionId = selectedTileCard.card.definitionId;
+    const title = params.tileDefinitionLookup?.(tileDefinitionId)?.name
+      ?? params.definitionLookup?.(6, tileDefinitionId)?.name
+      ?? "Unknown Tile";
     this.drawTitle(title, 12, 10, params.width - 24);
 
     const firstPanelY = 36;
@@ -104,7 +107,8 @@ export class DetailsPanelRenderer {
     tileCard: TrackedCard,
     tileDefinitionLookup: ((definitionId: EntityId) => TileDefinitionInfo | undefined) | undefined,
   ): Array<{ name: string }> {
-    const definition = tileDefinitionLookup?.(tileCard.card.definitionId);
+    const tileDefinitionId = tileCard.card.definitionId;
+    const definition = tileDefinitionLookup?.(tileDefinitionId);
     if (!definition) {
       return [];
     }
