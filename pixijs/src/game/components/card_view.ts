@@ -8,9 +8,10 @@ export type CardViewConfig = {
   height: number;
   selected?: boolean;
   onSelect?: (cardId: EntityId) => void;
-  onDragStart?: (cardId: EntityId, x: number, y: number) => void;
-  onDragMove?: (cardId: EntityId, x: number, y: number) => void;
-  onDragEnd?: (cardId: EntityId, x: number, y: number) => void;
+  // Drag callbacks use Pixi renderer-global pointer coordinates (event.global).
+  onDragStart?: (cardId: EntityId, globalX: number, globalY: number) => void;
+  onDragMove?: (cardId: EntityId, globalX: number, globalY: number) => void;
+  onDragEnd?: (cardId: EntityId, globalX: number, globalY: number) => void;
 };
 
 export class CardView extends Container {
