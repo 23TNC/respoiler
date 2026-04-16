@@ -113,7 +113,7 @@ export class DetailsPanelRenderer {
       return [];
     }
 
-    return definition.flags.filter((flag) => flag.show).map((flag) => ({ name: flag.name }));
+    return definition.flags.filter((flag) => flag.show === true).map((flag) => ({ name: flag.name }));
   }
 
   private findAttachedCardsBySharedPosition(viewModel: DerivedGameViewModel, selectedTileCard: TrackedCard): TrackedCard[] {

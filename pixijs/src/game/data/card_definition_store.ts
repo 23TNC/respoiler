@@ -18,6 +18,8 @@ type RawCardDefinition = {
 
 type RawTileDefinition = {
   id?: number | string;
+  definition_id?: number | string;
+  definitionId?: number | string;
   key?: string;
   name?: string;
   hostKind?: string;
@@ -60,7 +62,7 @@ type DefinitionFileManifest = {
 
 const STATIC_DEFINITION_FILES: DefinitionFileManifest = {
   cardFiles: ["soul.json", "discipline.json", "faculty.json", "revery.json", "requisites.json"],
-  tileFiles: ["tile.json", "tiles.json"],
+  tileFiles: ["tile.json"],
 };
 
 const STATIC_CARD_DEFINITIONS_BASE_PATH = "/static/cards";
@@ -127,7 +129,7 @@ const normalizeCardDefinition = (entry: RawCardDefinition): [string, DefinitionI
 };
 
 const normalizeTileDefinition = (entry: RawTileDefinition): [string, TileDefinitionInfo] | undefined => {
-  const id = normalizeDefinitionId(entry.id);
+  const id = normalizeDefinitionId(entry.id ?? entry.definition_id ?? entry.definitionId);
   if (!id) {
     return undefined;
   }
