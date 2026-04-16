@@ -411,21 +411,29 @@ export class GameScene extends Container {
           return;
         }
 
-        if (this.dragState.cardType === 1) {
-          this.localCardPositionOverrides.set(this.toIdKey(cardId), {
-            linkedCardId: dropTarget.tileId,
-            q: dropTarget.q,
-            r: dropTarget.r,
-            z: dropTarget.z,
-          });
-          this.persistTypeOneDrop(cardId, dropTarget);
-        } else {
-          this.localCardPositionOverrides.set(this.toIdKey(cardId), {
-            linkedCardId: dropTarget.tileId,
-            q: dropTarget.q,
-            r: dropTarget.r,
-            z: dropTarget.z,
-          });
+        switch (this.dragState.cardType) {
+          case 1:
+            this.localCardPositionOverrides.set(this.toIdKey(cardId), {
+              linkedCardId: dropTarget.tileId,
+              q: dropTarget.q,
+              r: dropTarget.r,
+              z: dropTarget.z,
+            });
+            this.persistTypeOneDrop(cardId, dropTarget);
+            break;
+          case 2:
+          case 3:
+          case 4:
+          case 5:
+            this.localCardPositionOverrides.set(this.toIdKey(cardId), {
+              linkedCardId: dropTarget.tileId,
+              q: dropTarget.q,
+              r: dropTarget.r,
+              z: dropTarget.z,
+            });
+            break;
+          default:
+            break;
         }
 
         this.clearDragPreview();
@@ -533,7 +541,7 @@ export class GameScene extends Container {
     if (!connection) {
       console.warn("[ui-debug] missing spacetime connection for type-1 drop", {
         cardId,
-        linkedCardId: dropTarget.tileId,
+        linkedCardId: 0,
         q: dropTarget.q,
         r: dropTarget.r,
         z: dropTarget.z,
@@ -543,7 +551,7 @@ export class GameScene extends Container {
 
     connection.reducers.upsertCardTracker(
       Number(cardId),
-      Number(dropTarget.tileId),
+      0,
       dropTarget.q,
       dropTarget.r,
       dropTarget.z,
