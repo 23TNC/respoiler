@@ -15,8 +15,6 @@ export class GameDataStore {
       cards: [],
       cardTrackers: [],
       actionTrackers: [],
-      tiles: [],
-      tileTrackers: [],
       eventTrackers: [],
       slotTrackers: [],
       ...initialSnapshot,

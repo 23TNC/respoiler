@@ -122,12 +122,6 @@ export class CardView extends Container {
     this.titleText.style.wordWrapWidth = width - UI_LAYOUT.card.textPadding * 2;
     this.titleText.position.set(width * 0.5, artRegionHeight + nameRegionHeight * 0.5);
 
-    if (this.trackedCard.tracker?.positionLock) {
-      this.alpha = 0.75;
-    } else if (this.trackedCard.tracker?.positionHold) {
-      this.alpha = 0.88;
-    } else {
-      this.alpha = 1;
-    }
+    this.alpha = 1;
   }
 }

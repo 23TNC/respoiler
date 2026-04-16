@@ -12,7 +12,8 @@ import {
 
 export default __t.row({
   cardId: __t.u32().primaryKey().name("card_id"),
-  linkedTileId: __t.u32().name("linked_tile_id"),
-  positionLock: __t.bool().name("position_lock"),
-  positionHold: __t.bool().name("position_hold"),
+  linkedCardId: __t.u32().name("linked_card_id"),
+  q: __t.i32().name("q"),
+  r: __t.i32().name("r"),
+  z: __t.i32().name("z"),
 });

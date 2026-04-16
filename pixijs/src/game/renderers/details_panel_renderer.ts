@@ -64,8 +64,8 @@ export class DetailsPanelRenderer {
         lines.push(`Tile ${selection.id} not found.`);
         return lines;
       }
-      lines.push(`Tile #${tile.tile.tileId}`);
-      lines.push(`Type: ${tile.tile.tileType}`);
+      lines.push(`Tile #${tile.tile.cardId}`);
+      lines.push(`Type: ${tile.tile.cardType}`);
       if (tile.tracker) {
         lines.push(`Position: q=${tile.tracker.q}, r=${tile.tracker.r}, z=${tile.tracker.z}`);
       }
@@ -86,9 +86,7 @@ export class DetailsPanelRenderer {
     lines.push(`Type: ${card.card.cardType}`);
     lines.push(`Name: ${card.definition?.name ?? "Unknown definition"}`);
     lines.push(`Action state: ${card.actionState}`);
-    lines.push(`Position lock: ${card.tracker?.positionLock ? "yes" : "no"}`);
-    lines.push(`Position hold: ${card.tracker?.positionHold ? "yes" : "no"}`);
-    lines.push(`Linked tile: ${card.tracker?.linkedTileId ?? 0}`);
+    lines.push(`Linked card: ${card.tracker?.linkedCardId ?? 0}`);
 
     return lines;
   }
@@ -96,7 +94,7 @@ export class DetailsPanelRenderer {
   private findTile(viewModel: DerivedGameViewModel, tileId: EntityId): TrackedTile | undefined {
     const key = idToKey(tileId);
     return [...viewModel.worldTiles, ...viewModel.eventTiles, ...viewModel.slotTiles].find(
-      (tile) => idToKey(tile.tile.tileId) === key,
+      (tile) => idToKey(tile.tile.cardId) === key,
     );
   }
 

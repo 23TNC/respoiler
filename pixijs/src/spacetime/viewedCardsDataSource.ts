@@ -7,8 +7,6 @@ const EMPTY_SNAPSHOT: GameViewSnapshot = {
   cards: [],
   cardTrackers: [],
   actionTrackers: [],
-  tiles: [],
-  tileTrackers: [],
   eventTrackers: [],
   slotTrackers: [],
 };
@@ -51,20 +49,15 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.connection.db.card_tracker.removeOnInsert(this.refreshSnapshotBound);
     this.connection.db.card_tracker.removeOnUpdate(this.refreshSnapshotBound);
     this.connection.db.card_tracker.removeOnDelete(this.refreshSnapshotBound);
-    this.connection.db.tile_tracker.removeOnInsert(this.refreshSnapshotBound);
-    this.connection.db.tile_tracker.removeOnUpdate(this.refreshSnapshotBound);
-    this.connection.db.tile_tracker.removeOnDelete(this.refreshSnapshotBound);
     this.activeSubscriptions.forEach((subscription) => subscription.unsubscribe());
     this.activeSubscriptions = [];
 
     const cardQuery = `select * from card where owner_card_id = ${viewedCardId.toString()} or card_id = ${viewedCardId.toString()}`;
-    const cardTrackerQuery = `select * from card_tracker where card_id = ${viewedCardId.toString()}`;
-    const tileTrackerQuery = "select * from tile_tracker";
+    const cardTrackerQuery = `select * from card_tracker where card_id = ${viewedCardId.toString()} or linked_card_id = ${viewedCardId.toString()}`;
     console.info("[ui-debug] creating viewed-card subscriptions", {
       viewedCardId,
       cardQuery,
       cardTrackerQuery,
-      tileTrackerQuery,
     });
 
     this.connection.db.card.onInsert(this.refreshSnapshotBound);
@@ -73,17 +66,12 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.connection.db.card_tracker.onInsert(this.refreshSnapshotBound);
     this.connection.db.card_tracker.onUpdate(this.refreshSnapshotBound);
     this.connection.db.card_tracker.onDelete(this.refreshSnapshotBound);
-    this.connection.db.tile_tracker.onInsert(this.refreshSnapshotBound);
-    this.connection.db.tile_tracker.onUpdate(this.refreshSnapshotBound);
-    this.connection.db.tile_tracker.onDelete(this.refreshSnapshotBound);
-
     const refreshInitial = (): void => {
       this.refreshSnapshot("initial");
     };
     this.activeSubscriptions = [
       this.connection.subscriptionBuilder().onApplied(refreshInitial).subscribe(cardQuery),
       this.connection.subscriptionBuilder().onApplied(refreshInitial).subscribe(cardTrackerQuery),
-      this.connection.subscriptionBuilder().onApplied(refreshInitial).subscribe(tileTrackerQuery),
     ];
   }
 
@@ -94,9 +82,6 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.connection?.db.card_tracker.removeOnInsert(this.refreshSnapshotBound);
     this.connection?.db.card_tracker.removeOnUpdate(this.refreshSnapshotBound);
     this.connection?.db.card_tracker.removeOnDelete(this.refreshSnapshotBound);
-    this.connection?.db.tile_tracker.removeOnInsert(this.refreshSnapshotBound);
-    this.connection?.db.tile_tracker.removeOnUpdate(this.refreshSnapshotBound);
-    this.connection?.db.tile_tracker.removeOnDelete(this.refreshSnapshotBound);
     this.activeSubscriptions.forEach((subscription) => subscription.unsubscribe());
     this.activeSubscriptions = [];
   }
@@ -113,22 +98,17 @@ export class ViewedCardsDataSource implements GameDataSource {
         card.cardId.toString() === viewedCardId.toString(),
     );
 
-    const cardTracker = Array.from(this.connection.db.card_tracker.iter()).find(
-      (tracker) => tracker.cardId.toString() === viewedCardId.toString(),
+    const cardTrackers = Array.from(this.connection.db.card_tracker.iter()).filter(
+      (tracker) =>
+        tracker.cardId.toString() === viewedCardId.toString() ||
+        tracker.linkedCardId.toString() === viewedCardId.toString(),
     );
-    const tileTracker =
-      cardTracker && cardTracker.linkedTileId !== 0
-        ? Array.from(this.connection.db.tile_tracker.iter()).find(
-            (tracker) => tracker.tileId === cardTracker.linkedTileId,
-          )
-        : undefined;
 
     console.info("[ui-debug] viewed cards snapshot applied", {
       reason,
       viewedCardId,
       cards,
-      cardTracker,
-      tileTracker,
+      cardTrackers,
     });
 
     const groupedCounts = {
@@ -146,8 +126,7 @@ export class ViewedCardsDataSource implements GameDataSource {
     this.snapshot = {
       ...EMPTY_SNAPSHOT,
       cards,
-      cardTrackers: cardTracker ? [cardTracker] : [],
-      tileTrackers: tileTracker ? [tileTracker] : [],
+      cardTrackers,
     };
     this.notify();
   }
