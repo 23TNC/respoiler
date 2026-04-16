@@ -37,26 +37,6 @@ pub struct SoulAlignment {
     pub permissions: u64,
 }
 
-// Stores tile identity plus runtime discriminator/type data.
-#[table(accessor = tile, public)]
-pub struct Tile {
-    #[primary_key]
-    pub tile_id: u32,
-    pub definition_id: u16,
-    pub tile_type: u16,
-}
-
-// Tracks world-positioned tiles and optional links to other tiles.
-#[table(accessor = tile_tracker, public)]
-pub struct TileTracker {
-    #[primary_key]
-    pub tile_id: u32,
-    pub q: i32,
-    pub r: i32,
-    pub z: i32,
-    pub linked_tile_id: u32,
-}
-
 // Tracks event tiles with owning/related card and creation time.
 #[table(accessor = event_tracker, public)]
 pub struct EventTracker {
@@ -86,14 +66,15 @@ pub struct Card {
     pub owner_card_id: u32,
 }
 
-// Tracks card placement/link state plus intrinsic/temporary movement locks.
+// Tracks card placement and optional relationship links.
 #[table(accessor = card_tracker, public)]
 pub struct CardTracker {
     #[primary_key]
     pub card_id: u32,
-    pub linked_tile_id: u32,
-    pub position_lock: bool,
-    pub position_hold: bool,
+    pub linked_card_id: u32,
+    pub q: i32,
+    pub r: i32,
+    pub z: i32,
 }
 
 // Optional per-card action/recipe execution tracking.
@@ -150,7 +131,6 @@ pub struct TileVar {
 }
 
 enum TileTrackerTarget {
-    Tile,
     Event,
     Slot,
 }
@@ -161,8 +141,6 @@ struct BootstrapPayload {
     player: Option<Vec<BootstrapPlayer>>,
     card: Option<Vec<BootstrapCard>>,
     card_tracker: Option<Vec<BootstrapCardTracker>>,
-    tile: Option<Vec<BootstrapTile>>,
-    tile_tracker: Option<Vec<BootstrapTileTracker>>,
     action_tracker: Option<Vec<BootstrapActionTracker>>,
 }
 
@@ -183,25 +161,10 @@ struct BootstrapCard {
 #[derive(Deserialize)]
 struct BootstrapCardTracker {
     card_id: u32,
-    linked_tile_id: u32,
-    position_lock: bool,
-    position_hold: bool,
-}
-
-#[derive(Deserialize)]
-struct BootstrapTile {
-    tile_id: u32,
-    definition_id: u16,
-    tile_type: u16,
-}
-
-#[derive(Deserialize)]
-struct BootstrapTileTracker {
-    tile_id: u32,
+    linked_card_id: u32,
     q: i32,
     r: i32,
     z: i32,
-    linked_tile_id: u32,
 }
 
 #[derive(Deserialize)]
@@ -234,28 +197,7 @@ pub fn bootstrap_from_json(ctx: &ReducerContext) -> Result<(), String> {
         .map_err(|err| format!("failed to parse bootstrap/bootstrap.json: {err}"))?;
 
     // Dependency-safe load order:
-    // 1) tile 2) tile_tracker 3) card 4) card_tracker 5) player 6) action_tracker
-    for row in payload.tile.unwrap_or_default() {
-        if ctx.db.tile().tile_id().find(&row.tile_id).is_none() {
-            ctx.db.tile().insert(Tile {
-                tile_id: row.tile_id,
-                definition_id: row.definition_id,
-                tile_type: row.tile_type,
-            });
-        }
-    }
-
-    for row in payload.tile_tracker.unwrap_or_default() {
-        if ctx.db.tile_tracker().tile_id().find(&row.tile_id).is_none() {
-            ctx.db.tile_tracker().insert(TileTracker {
-                tile_id: row.tile_id,
-                q: row.q,
-                r: row.r,
-                z: row.z,
-                linked_tile_id: row.linked_tile_id,
-            });
-        }
-    }
+    // 1) card 2) card_tracker 3) player 4) action_tracker
 
     for row in payload.card.unwrap_or_default() {
         if ctx.db.card().card_id().find(&row.card_id).is_none() {
@@ -272,9 +214,10 @@ pub fn bootstrap_from_json(ctx: &ReducerContext) -> Result<(), String> {
         if ctx.db.card_tracker().card_id().find(&row.card_id).is_none() {
             ctx.db.card_tracker().insert(CardTracker {
                 card_id: row.card_id,
-                linked_tile_id: row.linked_tile_id,
-                position_lock: row.position_lock,
-                position_hold: row.position_hold,
+                linked_card_id: row.linked_card_id,
+                q: row.q,
+                r: row.r,
+                z: row.z,
             });
         }
     }
@@ -319,26 +262,12 @@ fn validate_tile_tracker_exclusivity(
     target: TileTrackerTarget,
 ) -> Result<(), String> {
     match target {
-        TileTrackerTarget::Tile => {
-            if ctx.db.event_tracker().tile_id().find(&tile_id).is_some() {
-                return Err("tile_id already exists in event_tracker".to_string());
-            }
-            if ctx.db.slot_tracker().tile_id().find(&tile_id).is_some() {
-                return Err("tile_id already exists in slot_tracker".to_string());
-            }
-        }
         TileTrackerTarget::Event => {
-            if ctx.db.tile_tracker().tile_id().find(&tile_id).is_some() {
-                return Err("tile_id already exists in tile_tracker".to_string());
-            }
             if ctx.db.slot_tracker().tile_id().find(&tile_id).is_some() {
                 return Err("tile_id already exists in slot_tracker".to_string());
             }
         }
         TileTrackerTarget::Slot => {
-            if ctx.db.tile_tracker().tile_id().find(&tile_id).is_some() {
-                return Err("tile_id already exists in tile_tracker".to_string());
-            }
             if ctx.db.event_tracker().tile_id().find(&tile_id).is_some() {
                 return Err("tile_id already exists in event_tracker".to_string());
             }
@@ -429,102 +358,6 @@ pub fn upsert_soul_alignment(
 pub fn delete_soul_alignment(ctx: &ReducerContext, card_id: u32) -> Result<(), String> {
     validate_nonzero_id("card_id", card_id)?;
     ctx.db.soul_alignment().card_id().delete(&card_id);
-    Ok(())
-}
-
-// Creates a new tile row.
-#[reducer]
-pub fn create_tile(
-    ctx: &ReducerContext,
-    tile_id: u32,
-    definition_id: u16,
-    tile_type: u16,
-) -> Result<(), String> {
-    validate_nonzero_id("tile_id", tile_id)?;
-
-    if ctx.db.tile().tile_id().find(&tile_id).is_some() {
-        return Err("tile already exists".to_string());
-    }
-
-    ctx.db.tile().insert(Tile {
-        tile_id,
-        definition_id,
-        tile_type,
-    });
-    Ok(())
-}
-
-// Updates an existing tile row.
-#[reducer]
-pub fn update_tile(
-    ctx: &ReducerContext,
-    tile_id: u32,
-    definition_id: u16,
-    tile_type: u16,
-) -> Result<(), String> {
-    validate_nonzero_id("tile_id", tile_id)?;
-
-    let existing = ctx
-        .db
-        .tile()
-        .tile_id()
-        .find(&tile_id)
-        .ok_or("tile not found")?;
-    ctx.db.tile().tile_id().update(Tile {
-        definition_id,
-        tile_type,
-        ..existing
-    });
-    Ok(())
-}
-
-// Deletes a tile row.
-#[reducer]
-pub fn delete_tile(ctx: &ReducerContext, tile_id: u32) -> Result<(), String> {
-    validate_nonzero_id("tile_id", tile_id)?;
-    ctx.db.tile().tile_id().delete(&tile_id);
-    Ok(())
-}
-
-// Inserts or updates tile tracking data with exclusivity checks.
-#[reducer]
-pub fn upsert_tile_tracker(
-    ctx: &ReducerContext,
-    tile_id: u32,
-    q: i32,
-    r: i32,
-    z: i32,
-    linked_tile_id: u32,
-) -> Result<(), String> {
-    validate_nonzero_id("tile_id", tile_id)?;
-
-    if let Some(existing) = ctx.db.tile_tracker().tile_id().find(&tile_id) {
-        ctx.db.tile_tracker().tile_id().update(TileTracker {
-            q,
-            r,
-            z,
-            linked_tile_id,
-            ..existing
-        });
-    } else {
-        validate_tile_tracker_exclusivity(ctx, tile_id, TileTrackerTarget::Tile)?;
-        ctx.db.tile_tracker().insert(TileTracker {
-            tile_id,
-            q,
-            r,
-            z,
-            linked_tile_id,
-        });
-    }
-
-    Ok(())
-}
-
-// Deletes a tile tracker row.
-#[reducer]
-pub fn delete_tile_tracker(ctx: &ReducerContext, tile_id: u32) -> Result<(), String> {
-    validate_nonzero_id("tile_id", tile_id)?;
-    ctx.db.tile_tracker().tile_id().delete(&tile_id);
     Ok(())
 }
 
@@ -670,37 +503,40 @@ pub fn delete_card(ctx: &ReducerContext, card_id: u32) -> Result<(), String> {
 pub fn upsert_card_tracker(
     ctx: &ReducerContext,
     card_id: u32,
-    linked_tile_id: u32,
-    position_lock: bool,
-    position_hold: bool,
+    linked_card_id: u32,
+    q: i32,
+    r: i32,
+    z: i32,
 ) -> Result<(), String> {
     validate_nonzero_id("card_id", card_id)?;
 
     if let Some(existing) = ctx.db.card_tracker().card_id().find(&card_id) {
         ctx.db.card_tracker().card_id().update(CardTracker {
-            linked_tile_id,
-            position_lock,
-            position_hold,
+            linked_card_id,
+            q,
+            r,
+            z,
             ..existing
         });
     } else {
         ctx.db.card_tracker().insert(CardTracker {
             card_id,
-            linked_tile_id,
-            position_lock,
-            position_hold,
+            linked_card_id,
+            q,
+            r,
+            z,
         });
     }
 
     Ok(())
 }
 
-// Updates only the linked tile field for an existing card tracker row.
+// Updates only the linked card field for an existing card tracker row.
 #[reducer]
 pub fn update_card_tile(
     ctx: &ReducerContext,
     card_id: u32,
-    linked_tile_id: u32,
+    linked_card_id: u32,
 ) -> Result<(), String> {
     validate_nonzero_id("card_id", card_id)?;
 
@@ -711,13 +547,16 @@ pub fn update_card_tile(
         .find(&card_id)
         .ok_or("card_tracker not found")?;
     ctx.db.card_tracker().card_id().update(CardTracker {
-        linked_tile_id,
+        linked_card_id,
         ..existing
     });
     Ok(())
 }
 
-// Updates only the intrinsic position lock field for an existing card tracker row.
+const CARD_STATUS_POSITION_LOCK: u64 = 1 << 0;
+const CARD_STATUS_POSITION_HOLD: u64 = 1 << 1;
+
+// Updates only the intrinsic position lock flag in card_state.status.
 #[reducer]
 pub fn update_card_position_lock(
     ctx: &ReducerContext,
@@ -725,21 +564,32 @@ pub fn update_card_position_lock(
     position_lock: bool,
 ) -> Result<(), String> {
     validate_nonzero_id("card_id", card_id)?;
+    let existing = ctx.db.card_state().card_id().find(&card_id);
+    let status = if let Some(state) = existing.as_ref() {
+        if position_lock {
+            state.status | CARD_STATUS_POSITION_LOCK
+        } else {
+            state.status & !CARD_STATUS_POSITION_LOCK
+        }
+    } else if position_lock {
+        CARD_STATUS_POSITION_LOCK
+    } else {
+        0
+    };
 
-    let existing = ctx
-        .db
-        .card_tracker()
-        .card_id()
-        .find(&card_id)
-        .ok_or("card_tracker not found")?;
-    ctx.db.card_tracker().card_id().update(CardTracker {
-        position_lock,
-        ..existing
-    });
+    if let Some(state) = existing {
+        ctx.db.card_state().card_id().update(CardState { status, ..state });
+    } else {
+        ctx.db.card_state().insert(CardState {
+            card_id,
+            status,
+            flags: 0,
+        });
+    }
     Ok(())
 }
 
-// Updates only the temporary position hold field for an existing card tracker row.
+// Updates only the temporary position hold flag in card_state.status.
 #[reducer]
 pub fn update_card_position_hold(
     ctx: &ReducerContext,
@@ -747,17 +597,28 @@ pub fn update_card_position_hold(
     position_hold: bool,
 ) -> Result<(), String> {
     validate_nonzero_id("card_id", card_id)?;
+    let existing = ctx.db.card_state().card_id().find(&card_id);
+    let status = if let Some(state) = existing.as_ref() {
+        if position_hold {
+            state.status | CARD_STATUS_POSITION_HOLD
+        } else {
+            state.status & !CARD_STATUS_POSITION_HOLD
+        }
+    } else if position_hold {
+        CARD_STATUS_POSITION_HOLD
+    } else {
+        0
+    };
 
-    let existing = ctx
-        .db
-        .card_tracker()
-        .card_id()
-        .find(&card_id)
-        .ok_or("card_tracker not found")?;
-    ctx.db.card_tracker().card_id().update(CardTracker {
-        position_hold,
-        ..existing
-    });
+    if let Some(state) = existing {
+        ctx.db.card_state().card_id().update(CardState { status, ..state });
+    } else {
+        ctx.db.card_state().insert(CardState {
+            card_id,
+            status,
+            flags: 0,
+        });
+    }
     Ok(())
 }
 

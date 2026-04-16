@@ -12,5 +12,5 @@ import {
 
 export default {
   cardId: __t.u32(),
-  linkedTileId: __t.u32(),
+  linkedCardId: __t.u32(),
 };

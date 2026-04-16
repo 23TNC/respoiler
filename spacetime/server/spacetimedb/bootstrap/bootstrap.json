@@ -4,6 +4,7 @@
   ],
   "card": [
     { "card_id": 2, "definition_id": 1, "card_type": 5, "owner_card_id": 0 },
+    { "card_id": 6, "definition_id": 3, "card_type": 6, "owner_card_id": 0 },
     { "card_id": 3, "definition_id": 2, "card_type": 1, "owner_card_id": 2 },
     { "card_id": 4, "definition_id": 9, "card_type": 2, "owner_card_id": 2 },
     { "card_id": 5, "definition_id": 9, "card_type": 2, "owner_card_id": 2 }
@@ -11,16 +12,18 @@
   "card_tracker": [
     {
       "card_id": 2,
-      "linked_tile_id": 2,
-      "position_lock": false,
-      "position_hold": false
+      "linked_card_id": 0,
+      "q": 0,
+      "r": 0,
+      "z": 1
+    },
+    {
+      "card_id": 6,
+      "linked_card_id": 0,
+      "q": 0,
+      "r": 0,
+      "z": 1
     }
-  ],
-  "tile": [
-    { "tile_id": 2, "definition_id": 3, "tile_type": 1 }
-  ],
-  "tile_tracker": [
-    { "tile_id": 2, "q": 0, "r": 0, "z": 1, "linked_tile_id": 0 }
   ],
   "action_tracker": []
 }

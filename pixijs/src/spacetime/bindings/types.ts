@@ -38,9 +38,10 @@ export type CardState = __Infer<typeof CardState>;
 
 export const CardTracker = __t.object("CardTracker", {
   cardId: __t.u32(),
-  linkedTileId: __t.u32(),
-  positionLock: __t.bool(),
-  positionHold: __t.bool(),
+  linkedCardId: __t.u32(),
+  q: __t.i32(),
+  r: __t.i32(),
+  z: __t.i32(),
 });
 export type CardTracker = __Infer<typeof CardTracker>;
 
@@ -111,4 +112,3 @@ export const TileVar = __t.object("TileVar", {
   value: __t.string(),
 });
 export type TileVar = __Infer<typeof TileVar>;
-

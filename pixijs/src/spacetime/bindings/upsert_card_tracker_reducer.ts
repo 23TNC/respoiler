@@ -12,7 +12,8 @@ import {
 
 export default {
   cardId: __t.u32(),
-  linkedTileId: __t.u32(),
-  positionLock: __t.bool(),
-  positionHold: __t.bool(),
+  linkedCardId: __t.u32(),
+  q: __t.i32(),
+  r: __t.i32(),
+  z: __t.i32(),
 };

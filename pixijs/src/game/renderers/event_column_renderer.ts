@@ -21,11 +21,11 @@ export class EventColumnRenderer {
     for (let i = 0; i < params.tiles.length; i += 1) {
       const tile = params.tiles[i];
       const view = new HexTileView({
-        id: tile.tile.tileId,
+        id: tile.tile.cardId,
         label: `E${i + 1}`,
         color: 0x8d6a9f,
         radius: 26,
-        selected: params.selectedTileId === tile.tile.tileId,
+        selected: params.selectedTileId === tile.tile.cardId,
         onSelect: params.onTileSelect,
       });
       view.position.set(0, startY - i * spacing);

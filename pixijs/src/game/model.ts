@@ -5,8 +5,6 @@ import type {
   EventTracker,
   Player,
   SlotTracker,
-  Tile,
-  TileTracker,
 } from "../spacetime/bindings/types";
 
 export type CardCategory = "action" | "skill" | "item" | "memory" | "soul";
@@ -28,8 +26,8 @@ export type TrackedCard = {
 };
 
 export type TrackedTile = {
-  tile: Tile;
-  tracker?: TileTracker;
+  tile: Card;
+  tracker?: CardTracker;
   attachedCards: TrackedCard[];
 };
 
@@ -43,8 +41,6 @@ export type GameViewSnapshot = {
   cards: Card[];
   cardTrackers: CardTracker[];
   actionTrackers: ActionTracker[];
-  tiles: Tile[];
-  tileTrackers: TileTracker[];
   eventTrackers: EventTracker[];
   slotTrackers: SlotTracker[];
 };
@@ -54,7 +50,7 @@ export type DerivedGameViewModel = {
   viewedCardId: EntityId;
   viewedSelfCard?: TrackedCard;
   viewedCardTracker?: CardTracker;
-  viewedTileTracker?: TileTracker;
+  viewedWorldTracker?: CardTracker;
   worldTiles: TrackedTile[];
   eventTiles: Array<TrackedTile & { createTime: number }>;
   slotTiles: Array<TrackedTile & { q: number; r: number }>;
@@ -107,13 +103,12 @@ export const deriveGameViewModel = (
   viewedCardId: EntityId,
   lookupDefinition?: DefinitionLookup,
 ): DerivedGameViewModel => {
-  const tileById = new Map(snapshot.tiles.map((tile) => [idToKey(tile.tileId), tile]));
-  const trackerByTileId = new Map(snapshot.tileTrackers.map((tracker) => [idToKey(tracker.tileId), tracker]));
   const cardTrackerByCardId = new Map(snapshot.cardTrackers.map((tracker) => [idToKey(tracker.cardId), tracker]));
   const actionByCardId = new Map(snapshot.actionTrackers.map((action) => [idToKey(action.cardId), action]));
+  const cardById = new Map(snapshot.cards.map((card) => [idToKey(card.cardId), card]));
 
   const ownedCards = snapshot.cards.filter((card) => card.ownerCardId === viewedCardId);
-  const attachedCardsByTileId = new Map<string, TrackedCard[]>();
+  const attachedCardsByLinkedCardId = new Map<string, TrackedCard[]>();
 
   const trackedOwnedCards: TrackedCard[] = ownedCards.map((card) => {
     const tracker = cardTrackerByCardId.get(idToKey(card.cardId));
@@ -124,13 +119,13 @@ export const deriveGameViewModel = (
       definition: lookupDefinition?.(card.definitionId),
     };
 
-    if (tracker && tracker.linkedTileId !== ZERO_ID) {
-      const tileKey = idToKey(tracker.linkedTileId);
-      const existing = attachedCardsByTileId.get(tileKey);
+    if (tracker && tracker.linkedCardId !== ZERO_ID) {
+      const tileKey = idToKey(tracker.linkedCardId);
+      const existing = attachedCardsByLinkedCardId.get(tileKey);
       if (existing) {
         existing.push(trackedCard);
       } else {
-        attachedCardsByTileId.set(tileKey, [trackedCard]);
+        attachedCardsByLinkedCardId.set(tileKey, [trackedCard]);
       }
     }
 
@@ -177,35 +172,29 @@ export const deriveGameViewModel = (
   }
 
   const viewedCardTracker = cardTrackerByCardId.get(idToKey(viewedCardId));
-  const viewedTileTracker =
-    viewedCardTracker && viewedCardTracker.linkedTileId !== ZERO_ID
-      ? trackerByTileId.get(idToKey(viewedCardTracker.linkedTileId))
-      : undefined;
+  const viewedWorldTracker = viewedCardTracker;
 
-  const worldTiles = snapshot.tileTrackers
+  const worldTiles = snapshot.cards
+    .filter((card) => card.cardType === 6)
     .map((tracker) => {
-      const tile = tileById.get(idToKey(tracker.tileId));
-      if (!tile || tile.tileType !== "world") {
-        return undefined;
-      }
       return {
-        tile,
-        tracker,
-        attachedCards: attachedCardsByTileId.get(idToKey(tile.tileId)) ?? [],
+        tile: tracker,
+        tracker: cardTrackerByCardId.get(idToKey(tracker.cardId)),
+        attachedCards: attachedCardsByLinkedCardId.get(idToKey(tracker.cardId)) ?? [],
       };
     })
     .filter((tile) => tile !== undefined);
 
   const eventTiles = snapshot.eventTrackers
     .map((eventTracker) => {
-      const tile = tileById.get(idToKey(eventTracker.tileId));
-      if (!tile || tile.tileType !== "event" || eventTracker.cardId !== viewedCardId) {
+      const tile = cardById.get(idToKey(eventTracker.tileId));
+      if (!tile || tile.cardType !== 7 || eventTracker.cardId !== viewedCardId) {
         return undefined;
       }
       return {
         tile,
-        tracker: trackerByTileId.get(idToKey(tile.tileId)),
-        attachedCards: attachedCardsByTileId.get(idToKey(tile.tileId)) ?? [],
+        tracker: cardTrackerByCardId.get(idToKey(tile.cardId)),
+        attachedCards: attachedCardsByLinkedCardId.get(idToKey(tile.cardId)) ?? [],
         createTime: Number(eventTracker.createTime),
       };
     })
@@ -217,14 +206,14 @@ export const deriveGameViewModel = (
       if (slotTracker.cardId !== viewedCardId) {
         return undefined;
       }
-      const tile = tileById.get(idToKey(slotTracker.tileId));
-      if (!tile || tile.tileType !== "slot") {
+      const tile = cardById.get(idToKey(slotTracker.tileId));
+      if (!tile || tile.cardType !== 8) {
         return undefined;
       }
       return {
         tile,
-        tracker: trackerByTileId.get(idToKey(tile.tileId)),
-        attachedCards: attachedCardsByTileId.get(idToKey(tile.tileId)) ?? [],
+        tracker: cardTrackerByCardId.get(idToKey(tile.cardId)),
+        attachedCards: attachedCardsByLinkedCardId.get(idToKey(tile.cardId)) ?? [],
         q: slotTracker.q,
         r: slotTracker.r,
       };
@@ -236,7 +225,7 @@ export const deriveGameViewModel = (
     viewedCardId,
     viewedSelfCard,
     viewedCardTracker,
-    viewedTileTracker,
+    viewedWorldTracker,
     worldTiles,
     eventTiles,
     slotTiles,

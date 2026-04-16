@@ -290,12 +290,12 @@ export class GameScene extends Container {
     });
 
     this.boardRenderer.render({
-      viewedTile: viewModel.viewedTileTracker
+      viewedTile: viewModel.viewedWorldTracker
         ? {
-            tileId: viewModel.viewedTileTracker.tileId,
-            q: viewModel.viewedTileTracker.q,
-            r: viewModel.viewedTileTracker.r,
-            z: viewModel.viewedTileTracker.z,
+            tileId: resolvedViewedCardId,
+            q: viewModel.viewedWorldTracker.q,
+            r: viewModel.viewedWorldTracker.r,
+            z: viewModel.viewedWorldTracker.z,
           }
         : undefined,
       selectedTileId: this.selection?.type === "tile" ? this.selection.id : undefined,
@@ -309,23 +309,17 @@ export class GameScene extends Container {
         viewedCardId: resolvedViewedCardId,
         reason: "missing-card-tracker",
       });
-    } else if (viewModel.viewedCardTracker.linkedTileId === 0) {
+    } else if (!viewModel.viewedWorldTracker) {
       console.info("[ui-debug] world hex render skipped", {
         viewedCardId: resolvedViewedCardId,
         cardTracker: viewModel.viewedCardTracker,
-        reason: "missing-linked-tile-id",
-      });
-    } else if (!viewModel.viewedTileTracker) {
-      console.info("[ui-debug] world hex render skipped", {
-        viewedCardId: resolvedViewedCardId,
-        cardTracker: viewModel.viewedCardTracker,
-        reason: "missing-tile-tracker",
+        reason: "missing-world-tracker",
       });
     } else {
       console.info("[ui-debug] world hex render ready", {
         viewedCardId: resolvedViewedCardId,
         cardTracker: viewModel.viewedCardTracker,
-        tileTracker: viewModel.viewedTileTracker,
+        tileTracker: viewModel.viewedWorldTracker,
       });
     }
 
@@ -345,7 +339,7 @@ export class GameScene extends Container {
         // Extension point: live drag ghost / hover highlighting.
       },
       onDragEnd: () => {
-        // Extension point: dispatch reducer to update card_tracker.linked_tile_id.
+        // Extension point: dispatch reducer to update card_tracker.linked_card_id.
       },
     });
 
