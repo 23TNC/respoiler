@@ -81,7 +81,19 @@ export class DetailsPanelRenderer {
 
     const attachedCards = this.findAttachedCardsBySharedPosition(params.viewModel, selectedTileCard);
     const disciplineCards = attachedCards.filter((card) => card.card.cardType === 1);
-    const nestedCards = attachedCards.filter((card) => card.card.cardType >= 2 && card.card.cardType <= 5);
+    const viewedSoulIdKey = params.viewedCardId ? idToKey(params.viewedCardId) : undefined;
+    const nestedCards = attachedCards.filter((card) => {
+      if (card.card.cardType < 2 || card.card.cardType > 5) {
+        return false;
+      }
+      if (!viewedSoulIdKey) {
+        return false;
+      }
+      if (idToKey(card.card.cardId) === viewedSoulIdKey) {
+        return false;
+      }
+      return idToKey(card.card.ownerCardId) === viewedSoulIdKey;
+    });
 
     this.drawBodyText(
       ["Discipline", ...this.toCardLines(disciplineCards, params.definitionLookup)],
