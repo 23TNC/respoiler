@@ -1,6 +1,12 @@
 {
   "player": [
-    { "player_id": 1, "card_id": 2 }
+    { 
+      "player_id": 1, 
+      "card_id": 2,
+      "q": 0,
+      "r": 0,
+      "z": 1
+    }
   ],
   "card": [
     { "card_id": 2, "definition_id": 5001, "card_type": 5, "owner_card_id": 0 },
