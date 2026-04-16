@@ -22,11 +22,17 @@ type RawTileDefinition = {
   name?: string;
   hostKind?: string;
   style?: {
+    color?: [string, string, string] | string[];
     fillColor?: string | number;
     strokeColor?: string | number;
     labelColor?: string | number;
   };
   defaultProperties?: Record<string, unknown>;
+  flags?: Array<{
+    flag?: number;
+    name?: string;
+    show?: boolean;
+  }>;
 };
 
 export type TileDefinitionInfo = {
@@ -40,6 +46,11 @@ export type TileDefinitionInfo = {
     labelColor?: number;
   };
   defaultProperties?: Record<string, unknown>;
+  flags: Array<{
+    flag: number;
+    name: string;
+    show: boolean;
+  }>;
 };
 
 type DefinitionFileManifest = {
@@ -49,7 +60,7 @@ type DefinitionFileManifest = {
 
 const STATIC_DEFINITION_FILES: DefinitionFileManifest = {
   cardFiles: ["soul.json", "discipline.json", "faculty.json", "revery.json", "requisites.json"],
-  tileFiles: ["tiles.json"],
+  tileFiles: ["tile.json", "tiles.json"],
 };
 
 const STATIC_CARD_DEFINITIONS_BASE_PATH = "/static/cards";
@@ -131,20 +142,32 @@ const normalizeTileDefinition = (entry: RawTileDefinition): [string, TileDefinit
       style: entry.style
         ? {
             fillColor:
-              entry.style.fillColor !== undefined
-                ? normalizeColor(entry.style.fillColor, DEFAULT_CARD_DEFINITION.topColor)
+              entry.style.fillColor !== undefined || entry.style.color?.[0] !== undefined
+                ? normalizeColor(entry.style.fillColor ?? entry.style.color?.[0], DEFAULT_CARD_DEFINITION.topColor)
                 : undefined,
             strokeColor:
-              entry.style.strokeColor !== undefined
-                ? normalizeColor(entry.style.strokeColor, DEFAULT_CARD_DEFINITION.bottomColor)
+              entry.style.strokeColor !== undefined || entry.style.color?.[1] !== undefined
+                ? normalizeColor(entry.style.strokeColor ?? entry.style.color?.[1], DEFAULT_CARD_DEFINITION.bottomColor)
                 : undefined,
             labelColor:
-              entry.style.labelColor !== undefined
-                ? normalizeColor(entry.style.labelColor, DEFAULT_CARD_DEFINITION.bottomColor)
+              entry.style.labelColor !== undefined || entry.style.color?.[2] !== undefined
+                ? normalizeColor(entry.style.labelColor ?? entry.style.color?.[2], DEFAULT_CARD_DEFINITION.bottomColor)
                 : undefined,
           }
         : undefined,
       defaultProperties: entry.defaultProperties,
+      flags: Array.isArray(entry.flags)
+        ? entry.flags
+            .map((flagEntry) => {
+              const flag = typeof flagEntry?.flag === "number" && Number.isFinite(flagEntry.flag) ? flagEntry.flag : undefined;
+              const name = typeof flagEntry?.name === "string" ? flagEntry.name.trim() : "";
+              if (flag === undefined || name.length === 0) {
+                return undefined;
+              }
+              return { flag, name, show: flagEntry?.show === true };
+            })
+            .filter((flagEntry) => flagEntry !== undefined)
+        : [],
     },
   ];
 };
@@ -191,6 +214,7 @@ const loadDefinitionFile = async (relativePath: string): Promise<unknown[]> => {
 };
 
 export class CardDefinitionStore {
+  private readonly definitionsByCardType = new Map<number, Map<string, DefinitionInfo>>();
   private readonly definitionById = new Map<string, DefinitionInfo>();
   private readonly tileDefinitionById = new Map<string, TileDefinitionInfo>();
 
@@ -201,7 +225,7 @@ export class CardDefinitionStore {
   }
 
   getLookup(): DefinitionLookup {
-    return (definitionId: EntityId) => this.getById(definitionId);
+    return (cardType: number, definitionId: EntityId) => this.getByCardTypeAndId(cardType, definitionId);
   }
 
   getById(definitionId: EntityId): DefinitionInfo {
@@ -234,6 +258,25 @@ export class CardDefinitionStore {
     return undefined;
   }
 
+  getByCardTypeAndId(cardType: number, definitionId: EntityId): DefinitionInfo {
+    const key = definitionId.toString();
+    const typedDefinition = this.definitionsByCardType.get(cardType)?.get(key);
+    if (typedDefinition) {
+      return typedDefinition;
+    }
+    if (cardType === 6) {
+      const tileDefinition = this.getTileDefinitionById(definitionId);
+      if (tileDefinition) {
+        return {
+          name: tileDefinition.name,
+          topColor: tileDefinition.style?.fillColor ?? DEFAULT_CARD_DEFINITION.topColor,
+          bottomColor: tileDefinition.style?.strokeColor ?? DEFAULT_CARD_DEFINITION.bottomColor,
+        };
+      }
+    }
+    return this.getById(definitionId);
+  }
+
   private async initialize(): Promise<void> {
     await Promise.all([this.loadCardDefinitions(), this.loadTileDefinitions()]);
   }
@@ -254,6 +297,14 @@ export class CardDefinitionStore {
 
         const [id, definition] = normalized;
         this.definitionById.set(id, definition);
+        const cardType = typeof (entry as { card_type?: unknown }).card_type === "number"
+          ? (entry as { card_type: number }).card_type
+          : undefined;
+        if (cardType !== undefined) {
+          const definitionsForType = this.definitionsByCardType.get(cardType) ?? new Map<string, DefinitionInfo>();
+          definitionsForType.set(id, definition);
+          this.definitionsByCardType.set(cardType, definitionsForType);
+        }
       }
     }
   }

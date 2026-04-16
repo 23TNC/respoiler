@@ -16,7 +16,7 @@ export type DefinitionInfo = {
   bottomColor: number;
 };
 
-export type DefinitionLookup = (definitionId: EntityId) => DefinitionInfo | undefined;
+export type DefinitionLookup = (cardType: number, definitionId: EntityId) => DefinitionInfo | undefined;
 
 export type TrackedCard = {
   card: Card;
@@ -116,7 +116,7 @@ export const deriveGameViewModel = (
       card,
       tracker,
       actionState: deriveActionState(actionByCardId.get(idToKey(card.cardId))),
-      definition: lookupDefinition?.(card.definitionId),
+      definition: lookupDefinition?.(card.cardType, card.definitionId),
     };
 
     if (tracker && tracker.linkedCardId !== ZERO_ID) {
@@ -166,7 +166,7 @@ export const deriveGameViewModel = (
         card: selfCard,
         tracker,
         actionState: deriveActionState(actionByCardId.get(idToKey(selfCard.cardId))),
-        definition: lookupDefinition?.(selfCard.definitionId),
+        definition: lookupDefinition?.(selfCard.cardType, selfCard.definitionId),
       };
     }
   }
