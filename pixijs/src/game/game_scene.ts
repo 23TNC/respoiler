@@ -52,6 +52,7 @@ export class GameScene extends Container {
       maxHeight: 320 * GameScene.INVENTORY_SIZE_MULTIPLIER,
     },
     eventsSplitRatio: 0.6,
+    eventsPanelGap: 12,
   } as const;
 
   private readonly dataStore = new GameDataStore();
@@ -194,8 +195,12 @@ export class GameScene extends Container {
 
     this.eventRegionWidth = leftWidth;
     this.eventRegionHeight = usableHeight;
-    this.eventTopRegionHeight = Math.floor(this.eventRegionHeight * GameScene.LAYOUT.eventsSplitRatio);
-    this.eventBottomRegionHeight = this.eventRegionHeight - this.eventTopRegionHeight;
+    const eventPanelsCombinedHeight = Math.max(
+      0,
+      this.eventRegionHeight - GameScene.LAYOUT.eventsPanelGap,
+    );
+    this.eventTopRegionHeight = Math.floor(eventPanelsCombinedHeight * GameScene.LAYOUT.eventsSplitRatio);
+    this.eventBottomRegionHeight = eventPanelsCombinedHeight - this.eventTopRegionHeight;
     this.boardRegionWidth = centerWidth;
     this.boardRegionHeight = usableHeight;
     this.detailsRegionWidth = rightWidth;
@@ -203,10 +208,10 @@ export class GameScene extends Container {
     this.inventoryRegionWidth = contentWidth;
     this.inventoryRegionHeight = inventoryHeight;
 
-    this.drawFrame(this.eventTopFrame, this.eventRegionWidth, this.eventTopRegionHeight, "Events");
+    this.drawFrame(this.eventTopFrame, this.eventRegionWidth, this.eventTopRegionHeight);
     this.drawFrame(this.eventBottomFrame, this.eventRegionWidth, this.eventBottomRegionHeight);
-    this.drawFrame(this.boardFrame, this.boardRegionWidth, this.boardRegionHeight, "World Board");
-    this.drawFrame(this.detailsFrame, this.detailsRegionWidth, this.detailsRegionHeight, "Details");
+    this.drawFrame(this.boardFrame, this.boardRegionWidth, this.boardRegionHeight);
+    this.drawFrame(this.detailsFrame, this.detailsRegionWidth, this.detailsRegionHeight);
     this.drawFrame(this.inventoryFrame, this.inventoryRegionWidth, this.inventoryRegionHeight);
     this.eventTopMask.clear();
     this.eventTopMask
@@ -224,7 +229,7 @@ export class GameScene extends Container {
 
     this.eventRegion.position.set(margin, middleTop);
     this.eventTopRegion.position.set(0, 0);
-    this.eventBottomRegion.position.set(0, this.eventTopRegionHeight);
+    this.eventBottomRegion.position.set(0, this.eventTopRegionHeight + GameScene.LAYOUT.eventsPanelGap);
     this.boardRegion.position.set(margin + leftWidth + columnGap, middleTop);
     this.detailsRegion.position.set(margin + leftWidth + columnGap + centerWidth + columnGap, middleTop);
     this.inventoryRegion.position.set(margin, inventoryTop);
