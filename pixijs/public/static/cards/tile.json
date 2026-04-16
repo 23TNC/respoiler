@@ -14,6 +14,18 @@
         "flag": 0,
         "name": "blocks_sight",
         "default": true
+      },
+      {
+        "flag": 1,
+        "name": "trees",
+        "default": false
+        "show": true
+      },
+      {
+        "flag": 1,
+        "name": "food",
+        "default": false,
+        "show": true
       }
     ]
   }
