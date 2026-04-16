@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Point, Polygon, Text } from "pixi.js";
 import type { EntityId } from "../model";
 
 export type HexTileViewConfig = {
@@ -16,6 +16,7 @@ export class HexTileView extends Container {
   private readonly labelText: Text;
   private readonly tileId: EntityId;
   private readonly radius: number;
+  private readonly polygon: Polygon;
 
   constructor(config: HexTileViewConfig) {
     super();
@@ -24,6 +25,7 @@ export class HexTileView extends Container {
     this.radius = config.radius;
     this.background = new Graphics();
     this.border = new Graphics();
+    this.polygon = new Polygon(this.computeFlatHexPoints(this.radius));
     this.labelText = new Text({
       text: config.label,
       style: {
@@ -39,6 +41,7 @@ export class HexTileView extends Container {
 
     this.eventMode = "static";
     this.cursor = "pointer";
+    this.hitArea = this.polygon;
     this.on("pointertap", () => config.onSelect?.(this.tileId));
   }
 
@@ -47,7 +50,7 @@ export class HexTileView extends Container {
   }
 
   private draw(fillColor: number, selected: boolean): void {
-    const points = this.computeFlatHexPoints(this.radius);
+    const points = this.polygon.points;
 
     this.background.clear();
     this.background.poly(points, true).fill(fillColor);
@@ -59,6 +62,18 @@ export class HexTileView extends Container {
     });
 
     this.labelText.position.set(0, 0);
+  }
+
+  getTileId(): EntityId {
+    return this.tileId;
+  }
+
+  hitTestGlobal(globalX: number, globalY: number): boolean {
+    if (!this.visible || !this.worldVisible) {
+      return false;
+    }
+    const localPoint = this.toLocal(new Point(globalX, globalY));
+    return this.polygon.contains(localPoint.x, localPoint.y);
   }
 
   private computeFlatHexPoints(radius: number): number[] {

@@ -1,6 +1,8 @@
 import { Container, Graphics, Text } from "pixi.js";
 import { GameDataStore, type GameDataSource } from "./data/game_data_store";
+import { CardView } from "./components/card_view";
 import {
+  type CardTracker,
   deriveGameViewModel,
   type DefinitionLookup,
   type EntityId,
@@ -11,6 +13,8 @@ import { DetailsPanelRenderer } from "./renderers/details_panel_renderer";
 import { EventColumnRenderer } from "./renderers/event_column_renderer";
 import { InventoryRenderer } from "./renderers/inventory_renderer";
 import { WorldBoardRenderer } from "./renderers/world_board_renderer";
+import { CARD_HEIGHT, UI_LAYOUT } from "./ui_layout";
+import { getSpacetimeConnection } from "../spacetime";
 
 type GameSceneConfig = {
   width: number;
@@ -20,6 +24,19 @@ type GameSceneConfig = {
   tileDefinitionLookup?: (definitionId: EntityId) => TileDefinitionInfo | undefined;
   dataSource?: GameDataSource;
   onViewedCardIdChange?: (viewedCardId: EntityId) => void;
+};
+
+type CardPositionOverride = {
+  q: number;
+  r: number;
+  z: number;
+  linkedCardId: EntityId;
+};
+
+type DragState = {
+  cardId: EntityId;
+  cardType: number;
+  originalPosition: { x: number; y: number };
 };
 
 export class GameScene extends Container {
@@ -97,6 +114,9 @@ export class GameScene extends Container {
 
   private disposeSource?: () => void;
   private readonly onViewedCardIdChange?: (viewedCardId: EntityId) => void;
+  private readonly localCardPositionOverrides = new Map<string, CardPositionOverride>();
+  private dragState?: DragState;
+  private dragPreview?: Container;
 
   constructor(config: GameSceneConfig) {
     super();
@@ -274,7 +294,7 @@ export class GameScene extends Container {
   }
 
   private renderView(): void {
-    const snapshot = this.dataStore.getSnapshot();
+    const snapshot = this.withLocalCardPositionOverrides(this.dataStore.getSnapshot());
     const resolvedObserverCardId = this.observerCardId ?? 0n;
     const resolvedViewedCardId = this.viewedCardId ?? 0n;
 
@@ -307,6 +327,14 @@ export class GameScene extends Container {
             z: viewModel.viewedWorldTracker.z,
           }
         : undefined,
+      worldTiles: viewModel.worldTiles
+        .filter((tile) => tile.tracker !== undefined)
+        .map((tile) => ({
+          tileId: tile.tile.cardId,
+          q: tile.tracker!.q,
+          r: tile.tracker!.r,
+          z: tile.tracker!.z,
+        })),
       selectedTileId: this.selection?.type === "tile" ? this.selection.id : undefined,
       onTileSelect: (tileId) => {
         this.selection = { type: "tile", id: tileId };
@@ -342,14 +370,55 @@ export class GameScene extends Container {
         this.selection = { type: "card", id: cardId };
         this.renderView();
       },
-      onDragStart: (cardId) => {
+      onDragStart: (cardId, x, y) => {
+        const trackedCard = this.findTrackedCardById(viewModel, cardId);
+        if (!trackedCard) {
+          return;
+        }
+        if (trackedCard.card.cardType < 1 || trackedCard.card.cardType > 5) {
+          return;
+        }
         this.selection = { type: "card", id: cardId };
+        this.dragState = {
+          cardId,
+          cardType: trackedCard.card.cardType,
+          originalPosition: { x, y },
+        };
+        this.createDragPreview(trackedCard, x, y);
       },
-      onDragMove: () => {
-        // Extension point: live drag ghost / hover highlighting.
+      onDragMove: (cardId, x, y) => {
+        if (!this.dragState || this.toIdKey(this.dragState.cardId) !== this.toIdKey(cardId)) {
+          return;
+        }
+        this.updateDragPreviewPosition(x, y);
       },
-      onDragEnd: () => {
-        // Extension point: dispatch reducer to update card_tracker.linked_card_id.
+      onDragEnd: (cardId, x, y) => {
+        if (!this.dragState || this.toIdKey(this.dragState.cardId) !== this.toIdKey(cardId)) {
+          return;
+        }
+        const dropTarget = this.boardRenderer.findTopmostTileAt(x, y);
+        if (!dropTarget) {
+          this.updateDragPreviewPosition(this.dragState.originalPosition.x, this.dragState.originalPosition.y);
+          this.clearDragPreview();
+          this.dragState = undefined;
+          return;
+        }
+
+        if (this.dragState.cardType === 1) {
+          this.persistTypeOneDrop(cardId, dropTarget.tileId, dropTarget.q, dropTarget.r, dropTarget.z);
+          this.localCardPositionOverrides.delete(this.toIdKey(cardId));
+        } else {
+          this.localCardPositionOverrides.set(this.toIdKey(cardId), {
+            linkedCardId: dropTarget.tileId,
+            q: dropTarget.q,
+            r: dropTarget.r,
+            z: dropTarget.z,
+          });
+        }
+
+        this.clearDragPreview();
+        this.dragState = undefined;
+        this.renderView();
       },
     });
 
@@ -406,5 +475,104 @@ export class GameScene extends Container {
 
   private formatIdForDisplay(id: EntityId | undefined): string {
     return id === undefined ? "-" : id.toString();
+  }
+
+  private createDragPreview(trackedCard: NonNullable<ReturnType<GameScene["findTrackedCardById"]>>, globalX: number, globalY: number): void {
+    this.clearDragPreview();
+    const previewWidth = UI_LAYOUT.card.width;
+    const preview = new CardView({
+      trackedCard,
+      width: previewWidth,
+      height: CARD_HEIGHT(previewWidth),
+      selected: false,
+    });
+    preview.eventMode = "none";
+    preview.alpha = 0.9;
+    preview.pivot.set(previewWidth * 0.5, CARD_HEIGHT(previewWidth) * 0.5);
+    preview.zIndex = 1000;
+    this.addChild(preview);
+    this.sortableChildren = true;
+    this.dragPreview = preview;
+    this.updateDragPreviewPosition(globalX, globalY);
+  }
+
+  private updateDragPreviewPosition(globalX: number, globalY: number): void {
+    if (!this.dragPreview) {
+      return;
+    }
+    const local = this.toLocal({ x: globalX, y: globalY });
+    this.dragPreview.position.set(local.x, local.y);
+  }
+
+  private clearDragPreview(): void {
+    if (!this.dragPreview) {
+      return;
+    }
+    this.removeChild(this.dragPreview);
+    this.dragPreview.destroy({ children: true });
+    this.dragPreview = undefined;
+  }
+
+  private persistTypeOneDrop(
+    cardId: EntityId,
+    linkedCardId: EntityId,
+    q: number,
+    r: number,
+    z: number,
+  ): void {
+    const connection = getSpacetimeConnection();
+    if (!connection) {
+      console.warn("[ui-debug] missing spacetime connection for type-1 drop", { cardId, linkedCardId, q, r, z });
+      return;
+    }
+
+    connection.reducers.upsertCardTracker(
+      Number(cardId),
+      Number(linkedCardId),
+      q,
+      r,
+      z,
+    );
+  }
+
+  private withLocalCardPositionOverrides(snapshot: ReturnType<GameDataStore["getSnapshot"]>): ReturnType<GameDataStore["getSnapshot"]> {
+    if (this.localCardPositionOverrides.size === 0) {
+      return snapshot;
+    }
+
+    const nextTrackers = new Map<string, CardTracker>(
+      snapshot.cardTrackers.map((tracker) => [this.toIdKey(tracker.cardId), tracker]),
+    );
+    this.localCardPositionOverrides.forEach((override, cardIdKey) => {
+      const existing = nextTrackers.get(cardIdKey);
+      if (!existing) {
+        return;
+      }
+      nextTrackers.set(cardIdKey, {
+        ...existing,
+        linkedCardId: BigInt(override.linkedCardId),
+        q: override.q,
+        r: override.r,
+        z: override.z,
+      });
+    });
+
+    return {
+      ...snapshot,
+      cardTrackers: Array.from(nextTrackers.values()),
+    };
+  }
+
+  private findTrackedCardById(
+    viewModel: ReturnType<typeof deriveGameViewModel>,
+    cardId: EntityId,
+  ) {
+    return Object.values(viewModel.inventories)
+      .flat()
+      .find((trackedCard) => this.toIdKey(trackedCard.card.cardId) === this.toIdKey(cardId));
+  }
+
+  private toIdKey(id: EntityId): string {
+    return id.toString();
   }
 }

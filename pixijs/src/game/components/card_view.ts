@@ -8,7 +8,7 @@ export type CardViewConfig = {
   height: number;
   selected?: boolean;
   onSelect?: (cardId: EntityId) => void;
-  onDragStart?: (cardId: EntityId) => void;
+  onDragStart?: (cardId: EntityId, x: number, y: number) => void;
   onDragMove?: (cardId: EntityId, x: number, y: number) => void;
   onDragEnd?: (cardId: EntityId, x: number, y: number) => void;
 };
@@ -58,9 +58,12 @@ export class CardView extends Container {
     this.hitArea = new Rectangle(0, 0, config.width, config.height);
 
     this.on("pointertap", () => config.onSelect?.(this.trackedCard.card.cardId));
-    this.on("pointerdown", () => {
+    this.on("pointerdown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
       this.dragging = true;
-      config.onDragStart?.(this.trackedCard.card.cardId);
+      config.onDragStart?.(this.trackedCard.card.cardId, event.global.x, event.global.y);
     });
     this.on("globalpointermove", (event) => {
       if (!this.dragging) {
