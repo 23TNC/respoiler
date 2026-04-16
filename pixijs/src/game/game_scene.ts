@@ -39,6 +39,13 @@ type DragState = {
   originalPosition: { x: number; y: number };
 };
 
+type DropTarget = {
+  tileId: EntityId;
+  q: number;
+  r: number;
+  z: number;
+};
+
 export class GameScene extends Container {
   private static readonly PANEL_HEADER_HEIGHT = 34;
   private static readonly PANEL_PADDING = 10;
@@ -396,7 +403,7 @@ export class GameScene extends Container {
         if (!this.dragState || this.toIdKey(this.dragState.cardId) !== this.toIdKey(cardId)) {
           return;
         }
-        const dropTarget = this.boardRenderer.findTopmostTileAt(x, y);
+        const dropTarget = this.resolveValidDropTarget(viewModel, x, y);
         if (!dropTarget) {
           this.updateDragPreviewPosition(this.dragState.originalPosition.x, this.dragState.originalPosition.y);
           this.clearDragPreview();
@@ -405,8 +412,13 @@ export class GameScene extends Container {
         }
 
         if (this.dragState.cardType === 1) {
-          this.persistTypeOneDrop(cardId, dropTarget.tileId, dropTarget.q, dropTarget.r, dropTarget.z);
-          this.localCardPositionOverrides.delete(this.toIdKey(cardId));
+          this.localCardPositionOverrides.set(this.toIdKey(cardId), {
+            linkedCardId: dropTarget.tileId,
+            q: dropTarget.q,
+            r: dropTarget.r,
+            z: dropTarget.z,
+          });
+          this.persistTypeOneDrop(cardId, dropTarget);
         } else {
           this.localCardPositionOverrides.set(this.toIdKey(cardId), {
             linkedCardId: dropTarget.tileId,
@@ -515,24 +527,48 @@ export class GameScene extends Container {
 
   private persistTypeOneDrop(
     cardId: EntityId,
-    linkedCardId: EntityId,
-    q: number,
-    r: number,
-    z: number,
+    dropTarget: DropTarget,
   ): void {
     const connection = getSpacetimeConnection();
     if (!connection) {
-      console.warn("[ui-debug] missing spacetime connection for type-1 drop", { cardId, linkedCardId, q, r, z });
+      console.warn("[ui-debug] missing spacetime connection for type-1 drop", {
+        cardId,
+        linkedCardId: dropTarget.tileId,
+        q: dropTarget.q,
+        r: dropTarget.r,
+        z: dropTarget.z,
+      });
       return;
     }
 
     connection.reducers.upsertCardTracker(
       Number(cardId),
-      Number(linkedCardId),
-      q,
-      r,
-      z,
+      Number(dropTarget.tileId),
+      dropTarget.q,
+      dropTarget.r,
+      dropTarget.z,
     );
+  }
+
+  private resolveValidDropTarget(
+    viewModel: ReturnType<typeof deriveGameViewModel>,
+    globalX: number,
+    globalY: number,
+  ): DropTarget | undefined {
+    const hoveredTile = this.boardRenderer.findTopmostTileAt(globalX, globalY);
+    if (!hoveredTile) {
+      return undefined;
+    }
+
+    const tileCard = viewModel.worldTiles.find(
+      (worldTile) => this.toIdKey(worldTile.tile.cardId) === this.toIdKey(hoveredTile.tileId),
+    )?.tile;
+
+    if (!tileCard || tileCard.cardType !== 6) {
+      return undefined;
+    }
+
+    return hoveredTile;
   }
 
   private withLocalCardPositionOverrides(snapshot: ReturnType<GameDataStore["getSnapshot"]>): ReturnType<GameDataStore["getSnapshot"]> {
@@ -545,12 +581,20 @@ export class GameScene extends Container {
     );
     this.localCardPositionOverrides.forEach((override, cardIdKey) => {
       const existing = nextTrackers.get(cardIdKey);
-      if (!existing) {
+      if (existing) {
+        nextTrackers.set(cardIdKey, {
+          ...existing,
+          linkedCardId: BigInt(override.linkedCardId),
+          q: override.q,
+          r: override.r,
+          z: override.z,
+        });
         return;
       }
+
       nextTrackers.set(cardIdKey, {
-        ...existing,
-        linkedCardId: BigInt(override.linkedCardId),
+        cardId: Number(cardIdKey),
+        linkedCardId: Number(override.linkedCardId),
         q: override.q,
         r: override.r,
         z: override.z,
