@@ -14,7 +14,7 @@ type DetailsPanelParams = {
   height: number;
 };
 
-const CARD_TYPES_WITH_MINIMAL_DETAILS = new Set([1, 2, 3, 4, 5]);
+const CARD_TYPES_WITH_FLAGS_PANEL = new Set([2, 3, 4, 5]);
 
 export class DetailsPanelRenderer {
   readonly container = new Container();
@@ -45,7 +45,22 @@ export class DetailsPanelRenderer {
       return;
     }
 
-    if (CARD_TYPES_WITH_MINIMAL_DETAILS.has(selectedCard.card.cardType)) {
+    if (CARD_TYPES_WITH_FLAGS_PANEL.has(selectedCard.card.cardType)) {
+      const definition = params.definitionLookup?.(selectedCard.card.cardType, selectedCard.card.definitionId);
+      this.drawTitle(definition?.name ?? "Unknown", 12, 10, params.width - 24);
+      const flagsPanelY = 36;
+      const flagsPanelHeight = Math.max(88, params.height - flagsPanelY - 10);
+      const flagsBodyY = this.drawSubPanel("Flags", 10, flagsPanelY, params.width - 20, flagsPanelHeight);
+      this.drawBodyText(
+        this.toFlagLines(this.getVisibleFlagsFromDefinition(definition)),
+        20,
+        flagsBodyY,
+        params.width - 40,
+      );
+      return;
+    }
+
+    if (selectedCard.card.cardType === 1) {
       const definition = params.definitionLookup?.(selectedCard.card.cardType, selectedCard.card.definitionId);
       this.drawTitle(definition?.name ?? "Unknown", 12, 10, params.width - 24);
       return;
@@ -65,23 +80,24 @@ export class DetailsPanelRenderer {
 
     const firstPanelY = 36;
     const firstPanelHeight = Math.max(88, Math.floor(params.height * 0.28));
-    this.drawSubPanel("Flags", 10, firstPanelY, params.width - 20, firstPanelHeight);
+    const firstPanelBodyY = this.drawSubPanel("Flags", 10, firstPanelY, params.width - 20, firstPanelHeight);
 
-    const flags = this.getVisibleFlags(selectedTileCard, params.tileDefinitionLookup);
+    const flags = this.getVisibleTileFlags(selectedTileCard, params.tileDefinitionLookup);
     this.drawBodyText(
-      flags.length > 0 ? flags.map((flag) => `• ${flag.name}`) : ["(no visible flags)"],
+      this.toFlagLines(flags),
       20,
-      firstPanelY + 26,
+      firstPanelBodyY,
       params.width - 40,
     );
 
     const secondPanelY = firstPanelY + firstPanelHeight + 10;
     const secondPanelHeight = Math.max(120, params.height - secondPanelY - 10);
-    this.drawSubPanel(undefined, 10, secondPanelY, params.width - 20, secondPanelHeight);
+    const secondPanelBodyY = this.drawSubPanel(undefined, 10, secondPanelY, params.width - 20, secondPanelHeight);
 
     const attachedCards = this.findAttachedCardsBySharedPosition(params.viewModel, selectedTileCard);
-    const disciplineCards = attachedCards.filter((card) => card.card.cardType === 1);
     const viewedSoulIdKey = params.viewedCardId ? idToKey(params.viewedCardId) : undefined;
+    const disciplineCards = attachedCards.filter((card) => card.card.cardType === 1);
+    const ownedDisciplineCards = disciplineCards.filter((card) => viewedSoulIdKey !== undefined && idToKey(card.card.ownerCardId) === viewedSoulIdKey);
     const nestedCards = attachedCards.filter((card) => {
       if (card.card.cardType < 2 || card.card.cardType > 5) {
         return false;
@@ -96,24 +112,24 @@ export class DetailsPanelRenderer {
     });
 
     this.drawBodyText(
-      ["Discipline", ...this.toCardLines(disciplineCards, params.definitionLookup)],
+      ["Discipline", ...this.toCardLines(ownedDisciplineCards, params.definitionLookup)],
       20,
-      secondPanelY + 26,
+      secondPanelBodyY,
       params.width - 40,
     );
 
     const nestedPanelY = secondPanelY + 78;
     const nestedPanelHeight = Math.max(54, secondPanelHeight - 88);
-    this.drawSubPanel(undefined, 20, nestedPanelY, params.width - 40, nestedPanelHeight);
+    const nestedPanelBodyY = this.drawSubPanel(undefined, 20, nestedPanelY, params.width - 40, nestedPanelHeight);
     this.drawBodyText(
       this.toCardLines(nestedCards, params.definitionLookup),
       28,
-      nestedPanelY + 24,
+      nestedPanelBodyY,
       params.width - 56,
     );
   }
 
-  private getVisibleFlags(
+  private getVisibleTileFlags(
     tileCard: TrackedCard,
     tileDefinitionLookup: ((definitionId: EntityId) => TileDefinitionInfo | undefined) | undefined,
   ): Array<{ name: string }> {
@@ -123,7 +139,19 @@ export class DetailsPanelRenderer {
       return [];
     }
 
+    return this.getVisibleFlagsFromDefinition(definition);
+  }
+
+  private getVisibleFlagsFromDefinition(definition: { flags: Array<{ name: string; show: boolean }> } | undefined): Array<{ name: string }> {
+    if (!definition) {
+      return [];
+    }
+
     return definition.flags.filter((flag) => flag.show === true).map((flag) => ({ name: flag.name }));
+  }
+
+  private toFlagLines(flags: Array<{ name: string }>): string[] {
+    return flags.length > 0 ? flags.map((flag) => `• ${flag.name}`) : ["(no visible flags)"];
   }
 
   private findAttachedCardsBySharedPosition(viewModel: DerivedGameViewModel, selectedTileCard: TrackedCard): TrackedCard[] {
@@ -212,10 +240,10 @@ export class DetailsPanelRenderer {
     return panel;
   }
 
-  private drawSubPanel(label: string | undefined, x: number, y: number, width: number, height: number): void {
+  private drawSubPanel(label: string | undefined, x: number, y: number, width: number, height: number): number {
     this.container.addChild(this.drawPanel(x, y, width, height, 6));
     if (!label) {
-      return;
+      return y + 10;
     }
     const title = new Text({
       text: label,
@@ -223,6 +251,7 @@ export class DetailsPanelRenderer {
     });
     title.position.set(x + 8, y + 6);
     this.container.addChild(title);
+    return y + 26;
   }
 
   private drawTitle(text: string, x: number, y: number, maxWidth: number): void {

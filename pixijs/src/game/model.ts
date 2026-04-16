@@ -14,6 +14,11 @@ export type DefinitionInfo = {
   name: string;
   topColor: number;
   bottomColor: number;
+  flags: Array<{
+    flag: number;
+    name: string;
+    show: boolean;
+  }>;
 };
 
 export type DefinitionLookup = (cardType: number, definitionId: EntityId) => DefinitionInfo | undefined;

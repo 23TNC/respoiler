@@ -14,6 +14,11 @@ type RawCardDefinition = {
   style?: {
     color?: [string, string] | string[];
   };
+  flags?: Array<{
+    flag?: number;
+    name?: string;
+    show?: boolean;
+  }>;
 };
 
 type RawTileDefinition = {
@@ -70,6 +75,7 @@ const DEFAULT_CARD_DEFINITION: DefinitionInfo = {
   name: "Unknown",
   topColor: 0x607080,
   bottomColor: 0x32404b,
+  flags: [],
 };
 
 const missingCardDefinitionIdsLogged = new Set<string>();
@@ -124,6 +130,18 @@ const normalizeCardDefinition = (entry: RawCardDefinition): [string, DefinitionI
         entry.bottom_color ?? entry.bottomColor ?? entry.style?.color?.[1],
         DEFAULT_CARD_DEFINITION.bottomColor,
       ),
+      flags: Array.isArray(entry.flags)
+        ? entry.flags
+            .map((flagEntry) => {
+              const flag = typeof flagEntry?.flag === "number" && Number.isFinite(flagEntry.flag) ? flagEntry.flag : undefined;
+              const name = typeof flagEntry?.name === "string" ? flagEntry.name.trim() : "";
+              if (flag === undefined || name.length === 0) {
+                return undefined;
+              }
+              return { flag, name, show: flagEntry?.show === true };
+            })
+            .filter((flagEntry) => flagEntry !== undefined)
+        : [],
     },
   ];
 };
@@ -273,6 +291,7 @@ export class CardDefinitionStore {
           name: tileDefinition.name,
           topColor: tileDefinition.style?.fillColor ?? DEFAULT_CARD_DEFINITION.topColor,
           bottomColor: tileDefinition.style?.strokeColor ?? DEFAULT_CARD_DEFINITION.bottomColor,
+          flags: tileDefinition.flags,
         };
       }
     }
