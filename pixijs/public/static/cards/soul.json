@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "name": "Human",
+    "card_type": 5,
+    "style": {
+      "color": [ "#a8e0e6", "#ecd6aa" ]
+    }, 
+    "stats": {
+      "vision": 3,
+      "influence": 2
+    }
+  }
+]

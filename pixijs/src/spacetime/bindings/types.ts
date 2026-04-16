@@ -29,6 +29,13 @@ export const Card = __t.object("Card", {
 });
 export type Card = __Infer<typeof Card>;
 
+export const CardState = __t.object("CardState", {
+  cardId: __t.u32(),
+  status: __t.u64(),
+  flags: __t.u64(),
+});
+export type CardState = __Infer<typeof CardState>;
+
 export const CardTracker = __t.object("CardTracker", {
   cardId: __t.u32(),
   linkedTileId: __t.u32(),
@@ -36,6 +43,14 @@ export const CardTracker = __t.object("CardTracker", {
   positionHold: __t.bool(),
 });
 export type CardTracker = __Infer<typeof CardTracker>;
+
+export const CardVar = __t.object("CardVar", {
+  id: __t.u64(),
+  cardId: __t.u32(),
+  name: __t.string(),
+  value: __t.string(),
+});
+export type CardVar = __Infer<typeof CardVar>;
 
 export const EventTracker = __t.object("EventTracker", {
   tileId: __t.u32(),
@@ -73,6 +88,13 @@ export const Tile = __t.object("Tile", {
 });
 export type Tile = __Infer<typeof Tile>;
 
+export const TileState = __t.object("TileState", {
+  tileId: __t.u32(),
+  status: __t.u64(),
+  flags: __t.u64(),
+});
+export type TileState = __Infer<typeof TileState>;
+
 export const TileTracker = __t.object("TileTracker", {
   tileId: __t.u32(),
   q: __t.i32(),
@@ -81,4 +103,12 @@ export const TileTracker = __t.object("TileTracker", {
   linkedTileId: __t.u32(),
 });
 export type TileTracker = __Infer<typeof TileTracker>;
+
+export const TileVar = __t.object("TileVar", {
+  id: __t.u64(),
+  tileId: __t.u32(),
+  name: __t.string(),
+  value: __t.string(),
+});
+export type TileVar = __Infer<typeof TileVar>;
 

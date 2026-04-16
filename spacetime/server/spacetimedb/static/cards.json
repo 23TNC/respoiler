@@ -1,23 +1,36 @@
 [
   {
+    "id": 1,
     "name": "Human",
     "card_type": 5,
-    "topColor": "#a8e0e6",
-    "bottomColor": "#ecd6aa",
-    "id": 1
+    "style": {
+      "color": [ "#a8e0e6", "#ecd6aa" ]
+    }, 
+    "stats": {
+      "vision": 3,
+      "influence": 2
+    }
   }
   {
+    "id": 2,
     "name": "Work",
     "card_type": 1,
-    "topColor": "#97e3a7",
-    "bottomColor": "#ecd6aa",
-    "id": 2
+    "style": {
+      "color": [ "#97e3a7", "#ecd6aa" ]
+    }
   },
   {
+    "id": 9,
     "name": "Health",
     "card_type": 2,
-    "topColor": "#e67373",
-    "bottomColor": "#ecd6aa",
-    "id": 9
+    "style": {
+      "color": [ "#e67373", "#ecd6aa" ]
+    },
+    "flags": [
+      {
+        "flag": 1,
+        "name": "woodcutter"
+      }
+    ]
   },
 ]

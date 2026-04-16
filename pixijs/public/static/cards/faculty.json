@@ -1,0 +1,16 @@
+[
+  {
+    "id": 9,
+    "name": "Health",
+    "card_type": 2,
+    "style": {
+      "color": [ "#e67373", "#ecd6aa" ]
+    },
+    "flags": [
+      {
+        "flag": 1,
+        "name": "woodcutter"
+      }
+    ]
+  }
+]
