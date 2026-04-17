@@ -37,7 +37,7 @@ async function bootstrap(): Promise<void> {
   const redrawLayout = (): void => {
     const screenWidth = app.screen.width;
     const screenHeight = app.screen.height;
-    const padding = screenHeight / 120;
+    const padding = screenHeight / 240;
 
     const layoutRects = computePanelLayout(screenWidth, screenHeight);
 
