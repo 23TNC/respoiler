@@ -13,7 +13,9 @@
 /build/
 bin/
 dist/
-/despoiler-spacetimedb/spacetimedb/target/
+/spacetime/server/spacetimedb/target/
+/spacetime/config
+/spacetime/data
 
 # spacetimedb data
 /spacetime-data/*
@@ -59,3 +61,5 @@ Thumbs.db
 .idea/
 *.swp
 
+# npm
+pixijs/node_modules/*
