@@ -1,6 +1,9 @@
-import { Application, Graphics } from "pixi.js";
+import { Application, Container, Graphics } from "pixi.js";
 
-import { computePanelLayout } from "./ui/layout";
+import { getDebugInventoryCards } from "./ui/debugCards";
+import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
+import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
+import { createCardView } from "./ui/cardRenderer";
 import { drawPanel } from "./ui/panelRenderer";
 
 async function bootstrap(): Promise<void> {
@@ -32,18 +35,53 @@ async function bootstrap(): Promise<void> {
   app.canvas.style.display = "block";
 
   const panelGraphics = new Graphics();
+  const cardLayer = new Container();
   app.stage.addChild(panelGraphics);
+  app.stage.addChild(cardLayer);
 
   const redrawLayout = (): void => {
     const screenWidth = app.screen.width;
     const screenHeight = app.screen.height;
-    const padding = screenHeight / 240;
+    const panelPadding = screenHeight / 240;
+    const cardPadding = screenHeight / 240;
 
     const layoutRects = computePanelLayout(screenWidth, screenHeight);
+    const layoutById = new Map<PanelId, LayoutRect>(layoutRects.map((rect) => [rect.id, rect]));
 
     panelGraphics.clear();
+    cardLayer.removeChildren();
+
     for (const layoutRect of layoutRects) {
-      drawPanel(panelGraphics, layoutRect, padding);
+      drawPanel(panelGraphics, layoutRect, panelPadding);
+    }
+
+    const debugCardsByPanel = getDebugInventoryCards();
+
+    for (const [panelId, cards] of Object.entries(debugCardsByPanel)) {
+      const panelRect = layoutById.get(panelId as PanelId);
+
+      if (!panelRect || cards.length === 0) {
+        continue;
+      }
+
+      const cardLayoutRects = computeInventoryCardLayoutRects(
+        panelRect,
+        cards.length,
+        screenWidth,
+        screenHeight,
+      );
+
+      for (let index = 0; index < cards.length; index += 1) {
+        const cardData = cards[index];
+        const cardLayoutRect = cardLayoutRects[index];
+
+        if (!cardData || !cardLayoutRect) {
+          continue;
+        }
+
+        const cardView = createCardView(cardData, cardLayoutRect, cardPadding, screenHeight);
+        cardLayer.addChild(cardView);
+      }
     }
   };
 
