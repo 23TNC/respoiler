@@ -89,88 +89,123 @@ interface ProgressOutlineConfig {
 
 function drawCardProgressOutline(graphics: Graphics, config: ProgressOutlineConfig): void {
   const value = Math.max(0, Math.min(1, config.value));
+  const r = Math.max(0, Math.min(config.radius, config.width / 2, config.height / 2));
 
   graphics
-    .roundRect(config.x, config.y, config.width, config.height, config.radius)
+    .roundRect(config.x, config.y, config.width, config.height, r)
     .stroke({ color: config.emptyColor, width: config.strokeWidth, alpha: 1 });
 
   if (value <= 0) {
     return;
   }
 
-  const perimeter = 2 * (config.width + config.height);
-  const filledLength = perimeter * value;
-  const progressPath = buildPerimeterProgressPath(
-    config.x,
-    config.y,
-    config.width,
-    config.height,
-    filledLength,
-    config.direction,
-  );
+  const straightTopBottom = Math.max(0, config.width - (2 * r));
+  const straightLeftRight = Math.max(0, config.height - (2 * r));
+  const cornerArcLength = (Math.PI / 2) * r;
+  const perimeter =
+    (2 * straightTopBottom) +
+    (2 * straightLeftRight) +
+    (4 * cornerArcLength);
 
-  if (progressPath.length < 2) {
-    return;
-  }
+  let remaining = perimeter * value;
 
-  graphics.moveTo(progressPath[0].x, progressPath[0].y);
+  const x0 = config.x;
+  const y0 = config.y;
+  const x1 = config.x + config.width;
+  const y1 = config.y + config.height;
 
-  for (let index = 1; index < progressPath.length; index += 1) {
-    const point = progressPath[index];
-    graphics.lineTo(point.x, point.y);
+  if (config.direction === "clockwise") {
+    graphics.moveTo(x0 + r, y0);
+
+    remaining = drawLineProgress(graphics, x0 + r, y0, x1 - r, y0, remaining);
+    remaining = drawArcProgress(graphics, x1 - r, y0 + r, r, -Math.PI / 2, 0, remaining, false);
+    remaining = drawLineProgress(graphics, x1, y0 + r, x1, y1 - r, remaining);
+    remaining = drawArcProgress(graphics, x1 - r, y1 - r, r, 0, Math.PI / 2, remaining, false);
+    remaining = drawLineProgress(graphics, x1 - r, y1, x0 + r, y1, remaining);
+    remaining = drawArcProgress(graphics, x0 + r, y1 - r, r, Math.PI / 2, Math.PI, remaining, false);
+    remaining = drawLineProgress(graphics, x0, y1 - r, x0, y0 + r, remaining);
+    remaining = drawArcProgress(graphics, x0 + r, y0 + r, r, Math.PI, (3 * Math.PI) / 2, remaining, false);
+  } else {
+    graphics.moveTo(x0, y0 + r);
+
+    remaining = drawLineProgress(graphics, x0, y0 + r, x0, y1 - r, remaining);
+    remaining = drawArcProgress(graphics, x0 + r, y1 - r, r, Math.PI, Math.PI / 2, remaining, true);
+    remaining = drawLineProgress(graphics, x0 + r, y1, x1 - r, y1, remaining);
+    remaining = drawArcProgress(graphics, x1 - r, y1 - r, r, Math.PI / 2, 0, remaining, true);
+    remaining = drawLineProgress(graphics, x1, y1 - r, x1, y0 + r, remaining);
+    remaining = drawArcProgress(graphics, x1 - r, y0 + r, r, 0, -Math.PI / 2, remaining, true);
+    remaining = drawLineProgress(graphics, x1 - r, y0, x0 + r, y0, remaining);
+    remaining = drawArcProgress(graphics, x0 + r, y0 + r, r, -Math.PI / 2, Math.PI, remaining, true);
   }
 
   graphics.stroke({ color: config.fillColor, width: config.strokeWidth, alpha: 1 });
 }
 
-function buildPerimeterProgressPath(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  filledLength: number,
-  direction: ProgressDirection,
-): Point[] {
-  if (filledLength <= 0) {
-    return [];
+function drawLineProgress(
+  graphics: Graphics,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  remaining: number,
+): number {
+  if (remaining <= 0) {
+    return 0;
   }
 
-  const segments =
-    direction === "clockwise"
-      ? [
-          { dx: width, dy: 0 },
-          { dx: 0, dy: height },
-          { dx: -width, dy: 0 },
-          { dx: 0, dy: -height },
-        ]
-      : [
-          { dx: 0, dy: height },
-          { dx: width, dy: 0 },
-          { dx: 0, dy: -height },
-          { dx: -width, dy: 0 },
-        ];
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const length = Math.hypot(dx, dy);
 
-  const path: Point[] = [{ x, y }];
-  let currentPoint: Point = { x, y };
-  let remaining = filledLength;
+  if (length <= 0) {
+    return remaining;
+  }
 
-  for (const segment of segments) {
-    if (remaining <= 0) {
-      break;
+  const drawLength = Math.min(length, remaining);
+  const t = drawLength / length;
+
+  graphics.lineTo(
+    x0 + (dx * t),
+    y0 + (dy * t),
+  );
+
+  return remaining - drawLength;
+}
+
+function drawArcProgress(
+  graphics: Graphics,
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+  remaining: number,
+  anticlockwise: boolean,
+): number {
+  if (remaining <= 0 || radius <= 0) {
+    return remaining;
+  }
+
+  let delta = endAngle - startAngle;
+
+  if (anticlockwise) {
+    if (delta > 0) {
+      delta -= Math.PI * 2;
     }
-
-    const segmentLength = Math.abs(segment.dx) + Math.abs(segment.dy);
-    const drawLength = Math.min(segmentLength, remaining);
-    const ratio = segmentLength > 0 ? drawLength / segmentLength : 0;
-
-    currentPoint = {
-      x: currentPoint.x + (segment.dx * ratio),
-      y: currentPoint.y + (segment.dy * ratio),
-    };
-
-    path.push({ ...currentPoint });
-    remaining -= drawLength;
+  } else if (delta < 0) {
+    delta += Math.PI * 2;
   }
 
-  return path;
+  const arcLength = Math.abs(delta) * radius;
+  if (arcLength <= 0) {
+    return remaining;
+  }
+
+  const drawLength = Math.min(arcLength, remaining);
+  const t = drawLength / arcLength;
+  const partialEndAngle = startAngle + (delta * t);
+
+  graphics.arc(cx, cy, radius, startAngle, partialEndAngle, anticlockwise);
+
+  return remaining - drawLength;
 }
