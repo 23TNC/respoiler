@@ -39,7 +39,7 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
   const labelLayer = new Container();
 
   const strokeWidth = Math.max(1, config.screenHeight / 240);
-  const progressStrokeWidth = Math.max(1, strokeWidth * 0.9);
+  const progressStrokeWidth = Math.max(1, strokeWidth * 0.5);
 
   const hexPathInset = strokeWidth / 2;
   const pathSize = computeInsetHexSize(config.size, strokeWidth);
@@ -47,7 +47,7 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
 
   drawClosedPolygonPath(backgroundLayer, pathVertices);
   backgroundLayer
-    .fill({ color: card.colors[0] ?? 0x2f4a85, alpha: 1 })
+    .fill({ color: card.colors[0] ?? 0xd3deef, alpha: 1 })
     .stroke({ color: config.strokeColor ?? 0xd3deef, width: strokeWidth, alpha: 1 });
 
   drawHexProgress(progressLayer, {

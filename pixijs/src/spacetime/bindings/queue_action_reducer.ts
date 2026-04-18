@@ -12,8 +12,8 @@ import {
 
 export default {
   cardId: __t.u32(),
-  recipeDefinitionId: __t.u16(),
-  queuedAt: __t.i64(),
-  startedAt: __t.i64(),
-  completedAt: __t.i64(),
+  recipe: __t.u16(),
+  q: __t.i32(),
+  r: __t.i32(),
+  z: __t.u16(),
 };

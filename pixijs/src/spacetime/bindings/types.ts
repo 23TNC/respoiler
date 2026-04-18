@@ -10,63 +10,32 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export const ActionTracker = __t.object("ActionTracker", {
+export const Action = __t.object("Action", {
   cardId: __t.u32(),
-  recipeDefinitionId: __t.u16(),
-  queuedAt: __t.i64(),
-  startedAt: __t.i64(),
-  completedAt: __t.i64(),
+  recipe: __t.u16(),
+  start: __t.u32(),
+  end: __t.u32(),
+  flags: __t.u8(),
+  zone: __t.u32(),
+  position: __t.u8(),
 });
-export type ActionTracker = __Infer<typeof ActionTracker>;
+export type Action = __Infer<typeof Action>;
 
 export const Card = __t.object("Card", {
   cardId: __t.u32(),
-  definitionId: __t.u16(),
-  cardType: __t.u16(),
-  ownerCardId: __t.u32(),
+  definition: __t.u16(),
+  link: __t.u32(),
+  flags: __t.u64(),
+  zone: __t.u32(),
+  position: __t.u8(),
 });
 export type Card = __Infer<typeof Card>;
-
-export const CardLink = __t.object("CardLink", {
-  cardId: __t.u32(),
-  linkedCardId: __t.u32(),
-});
-export type CardLink = __Infer<typeof CardLink>;
-
-export const CardPosition = __t.object("CardPosition", {
-  cardId: __t.u32(),
-  q: __t.i32(),
-  r: __t.i32(),
-  z: __t.i32(),
-});
-export type CardPosition = __Infer<typeof CardPosition>;
-
-export const CardState = __t.object("CardState", {
-  cardId: __t.u32(),
-  bits0: __t.u64(),
-  bits1: __t.u64(),
-});
-export type CardState = __Infer<typeof CardState>;
-
-export const CardVar = __t.object("CardVar", {
-  id: __t.u64(),
-  cardId: __t.u32(),
-  name: __t.string(),
-  value: __t.string(),
-});
-export type CardVar = __Infer<typeof CardVar>;
 
 export const Player = __t.object("Player", {
   playerId: __t.u32(),
   cardId: __t.u32(),
+  zone: __t.u32(),
+  position: __t.u8(),
 });
 export type Player = __Infer<typeof Player>;
-
-export const SoulAlignment = __t.object("SoulAlignment", {
-  cardId: __t.u32(),
-  factionId: __t.u32(),
-  groupId: __t.u32(),
-  permissions: __t.u64(),
-});
-export type SoulAlignment = __Infer<typeof SoulAlignment>;
 

@@ -12,6 +12,7 @@ import {
 
 export default {
   cardId: __t.u32(),
-  bank: __t.u8(),
-  value: __t.u64(),
+  q: __t.i32(),
+  r: __t.i32(),
+  z: __t.u16(),
 };

@@ -34,166 +34,92 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
-import AddCardBitsReducer from "./add_card_bits_reducer";
-import BootstrapReducer from "./bootstrap_reducer";
-import CreateCardReducer from "./create_card_reducer";
-import CreatePlayerReducer from "./create_player_reducer";
-import DeleteActionTrackerReducer from "./delete_action_tracker_reducer";
+import CompleteActionReducer from "./complete_action_reducer";
+import DeleteActionReducer from "./delete_action_reducer";
 import DeleteCardReducer from "./delete_card_reducer";
-import DeleteCardLinkReducer from "./delete_card_link_reducer";
-import DeleteCardPositionReducer from "./delete_card_position_reducer";
-import DeleteCardStateReducer from "./delete_card_state_reducer";
-import DeleteCardVarReducer from "./delete_card_var_reducer";
 import DeletePlayerReducer from "./delete_player_reducer";
-import DeleteSoulAlignmentReducer from "./delete_soul_alignment_reducer";
-import RemoveCardBitsReducer from "./remove_card_bits_reducer";
-import SetCardBitsReducer from "./set_card_bits_reducer";
-import SetCardStateReducer from "./set_card_state_reducer";
-import SetCardVarReducer from "./set_card_var_reducer";
-import UpdateActionQueueTimesReducer from "./update_action_queue_times_reducer";
-import UpdateActionRecipeReducer from "./update_action_recipe_reducer";
-import UpdateCardReducer from "./update_card_reducer";
-import UpdatePlayerCardReducer from "./update_player_card_reducer";
-import UpsertActionTrackerReducer from "./upsert_action_tracker_reducer";
-import UpsertCardLinkReducer from "./upsert_card_link_reducer";
-import UpsertCardPositionReducer from "./upsert_card_position_reducer";
-import UpsertSoulAlignmentReducer from "./upsert_soul_alignment_reducer";
+import QueueActionReducer from "./queue_action_reducer";
+import SetCardFlagsReducer from "./set_card_flags_reducer";
+import StartActionReducer from "./start_action_reducer";
+import UpdateCardLinkReducer from "./update_card_link_reducer";
+import UpdateCardLocationReducer from "./update_card_location_reducer";
+import UpsertCardReducer from "./upsert_card_reducer";
+import UpsertPlayerReducer from "./upsert_player_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
-import ActionTrackerRow from "./action_tracker_table";
-import CardRow from "./card_table";
-import CardLinkRow from "./card_link_table";
-import CardPositionRow from "./card_position_table";
-import CardStateRow from "./card_state_table";
-import CardVarRow from "./card_var_table";
-import PlayerRow from "./player_table";
-import SoulAlignmentRow from "./soul_alignment_table";
+import ActionsRow from "./actions_table";
+import CardsRow from "./cards_table";
+import PlayersRow from "./players_table";
 
 /** Type-only namespace exports for generated type groups. */
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
-  action_tracker: __table({
-    name: 'action_tracker',
+  actions: __table({
+    name: 'actions',
     indexes: [
-      { accessor: 'card_id', name: 'action_tracker_card_id_idx_btree', algorithm: 'btree', columns: [
+      { accessor: 'card_id', name: 'actions_card_id_idx_btree', algorithm: 'btree', columns: [
         'cardId',
       ] },
+      { accessor: 'zone', name: 'actions_zone_idx_btree', algorithm: 'btree', columns: [
+        'zone',
+      ] },
     ],
     constraints: [
-      { name: 'action_tracker_card_id_key', constraint: 'unique', columns: ['cardId'] },
+      { name: 'actions_card_id_key', constraint: 'unique', columns: ['cardId'] },
     ],
-  }, ActionTrackerRow),
-  card: __table({
-    name: 'card',
+  }, ActionsRow),
+  cards: __table({
+    name: 'cards',
     indexes: [
-      { accessor: 'card_id', name: 'card_card_id_idx_btree', algorithm: 'btree', columns: [
+      { accessor: 'card_id', name: 'cards_card_id_idx_btree', algorithm: 'btree', columns: [
         'cardId',
       ] },
+      { accessor: 'link', name: 'cards_link_idx_btree', algorithm: 'btree', columns: [
+        'link',
+      ] },
+      { accessor: 'zone', name: 'cards_zone_idx_btree', algorithm: 'btree', columns: [
+        'zone',
+      ] },
     ],
     constraints: [
-      { name: 'card_card_id_key', constraint: 'unique', columns: ['cardId'] },
+      { name: 'cards_card_id_key', constraint: 'unique', columns: ['cardId'] },
     ],
-  }, CardRow),
-  card_link: __table({
-    name: 'card_link',
+  }, CardsRow),
+  players: __table({
+    name: 'players',
     indexes: [
-      { accessor: 'card_id', name: 'card_link_card_id_idx_btree', algorithm: 'btree', columns: [
+      { accessor: 'card_id', name: 'players_card_id_idx_btree', algorithm: 'btree', columns: [
         'cardId',
       ] },
-      { accessor: 'linked_card_id', name: 'card_link_linked_card_id_idx_btree', algorithm: 'btree', columns: [
-        'linkedCardId',
-      ] },
-    ],
-    constraints: [
-      { name: 'card_link_card_id_key', constraint: 'unique', columns: ['cardId'] },
-    ],
-  }, CardLinkRow),
-  card_position: __table({
-    name: 'card_position',
-    indexes: [
-      { accessor: 'card_id', name: 'card_position_card_id_idx_btree', algorithm: 'btree', columns: [
-        'cardId',
-      ] },
-    ],
-    constraints: [
-      { name: 'card_position_card_id_key', constraint: 'unique', columns: ['cardId'] },
-    ],
-  }, CardPositionRow),
-  card_state: __table({
-    name: 'card_state',
-    indexes: [
-      { accessor: 'card_id', name: 'card_state_card_id_idx_btree', algorithm: 'btree', columns: [
-        'cardId',
-      ] },
-    ],
-    constraints: [
-      { name: 'card_state_card_id_key', constraint: 'unique', columns: ['cardId'] },
-    ],
-  }, CardStateRow),
-  card_var: __table({
-    name: 'card_var',
-    indexes: [
-      { accessor: 'id', name: 'card_var_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-    ],
-    constraints: [
-      { name: 'card_var_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, CardVarRow),
-  player: __table({
-    name: 'player',
-    indexes: [
-      { accessor: 'player_id', name: 'player_player_id_idx_btree', algorithm: 'btree', columns: [
+      { accessor: 'player_id', name: 'players_player_id_idx_btree', algorithm: 'btree', columns: [
         'playerId',
       ] },
-    ],
-    constraints: [
-      { name: 'player_player_id_key', constraint: 'unique', columns: ['playerId'] },
-    ],
-  }, PlayerRow),
-  soul_alignment: __table({
-    name: 'soul_alignment',
-    indexes: [
-      { accessor: 'card_id', name: 'soul_alignment_card_id_idx_btree', algorithm: 'btree', columns: [
-        'cardId',
+      { accessor: 'zone', name: 'players_zone_idx_btree', algorithm: 'btree', columns: [
+        'zone',
       ] },
     ],
     constraints: [
-      { name: 'soul_alignment_card_id_key', constraint: 'unique', columns: ['cardId'] },
+      { name: 'players_player_id_key', constraint: 'unique', columns: ['playerId'] },
     ],
-  }, SoulAlignmentRow),
+  }, PlayersRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
-  __reducerSchema("add_card_bits", AddCardBitsReducer),
-  __reducerSchema("bootstrap", BootstrapReducer),
-  __reducerSchema("create_card", CreateCardReducer),
-  __reducerSchema("create_player", CreatePlayerReducer),
-  __reducerSchema("delete_action_tracker", DeleteActionTrackerReducer),
+  __reducerSchema("complete_action", CompleteActionReducer),
+  __reducerSchema("delete_action", DeleteActionReducer),
   __reducerSchema("delete_card", DeleteCardReducer),
-  __reducerSchema("delete_card_link", DeleteCardLinkReducer),
-  __reducerSchema("delete_card_position", DeleteCardPositionReducer),
-  __reducerSchema("delete_card_state", DeleteCardStateReducer),
-  __reducerSchema("delete_card_var", DeleteCardVarReducer),
   __reducerSchema("delete_player", DeletePlayerReducer),
-  __reducerSchema("delete_soul_alignment", DeleteSoulAlignmentReducer),
-  __reducerSchema("remove_card_bits", RemoveCardBitsReducer),
-  __reducerSchema("set_card_bits", SetCardBitsReducer),
-  __reducerSchema("set_card_state", SetCardStateReducer),
-  __reducerSchema("set_card_var", SetCardVarReducer),
-  __reducerSchema("update_action_queue_times", UpdateActionQueueTimesReducer),
-  __reducerSchema("update_action_recipe", UpdateActionRecipeReducer),
-  __reducerSchema("update_card", UpdateCardReducer),
-  __reducerSchema("update_player_card", UpdatePlayerCardReducer),
-  __reducerSchema("upsert_action_tracker", UpsertActionTrackerReducer),
-  __reducerSchema("upsert_card_link", UpsertCardLinkReducer),
-  __reducerSchema("upsert_card_position", UpsertCardPositionReducer),
-  __reducerSchema("upsert_soul_alignment", UpsertSoulAlignmentReducer),
+  __reducerSchema("queue_action", QueueActionReducer),
+  __reducerSchema("set_card_flags", SetCardFlagsReducer),
+  __reducerSchema("start_action", StartActionReducer),
+  __reducerSchema("update_card_link", UpdateCardLinkReducer),
+  __reducerSchema("update_card_location", UpdateCardLocationReducer),
+  __reducerSchema("upsert_card", UpsertCardReducer),
+  __reducerSchema("upsert_player", UpsertPlayerReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

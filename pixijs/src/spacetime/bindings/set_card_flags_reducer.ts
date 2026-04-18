@@ -10,8 +10,7 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  cardId: __t.u32().primaryKey().name("card_id"),
-  bits0: __t.u64().name("bits_0"),
-  bits1: __t.u64().name("bits_1"),
-});
+export default {
+  cardId: __t.u32(),
+  flags: __t.u64(),
+};

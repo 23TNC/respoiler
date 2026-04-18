@@ -11,6 +11,9 @@ import {
 } from "spacetimedb";
 
 export default {
+  playerId: __t.u32(),
   cardId: __t.u32(),
-  name: __t.string(),
+  q: __t.i32(),
+  r: __t.i32(),
+  z: __t.u16(),
 };
