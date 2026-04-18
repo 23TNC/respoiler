@@ -5,6 +5,7 @@ import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
 import { createCardView } from "./ui/cardRenderer";
 import { drawPanel } from "./ui/panelRenderer";
+import { drawWorldBoardDebugTiles } from "./ui/worldBoardDebug";
 
 async function bootstrap(): Promise<void> {
   const root = document.getElementById("app");
@@ -36,7 +37,9 @@ async function bootstrap(): Promise<void> {
 
   const panelGraphics = new Graphics();
   const cardLayer = new Container();
+  const worldLayer = new Container();
   app.stage.addChild(panelGraphics);
+  app.stage.addChild(worldLayer);
   app.stage.addChild(cardLayer);
 
   const redrawLayout = (): void => {
@@ -50,9 +53,17 @@ async function bootstrap(): Promise<void> {
 
     panelGraphics.clear();
     cardLayer.removeChildren();
+    worldLayer.removeChildren();
 
     for (const layoutRect of layoutRects) {
       drawPanel(panelGraphics, layoutRect, panelPadding);
+    }
+
+
+    const worldPanelRect = layoutById.get("worldPanel");
+
+    if (worldPanelRect) {
+      drawWorldBoardDebugTiles(worldLayer, worldPanelRect, screenHeight);
     }
 
     const debugCardsByPanel = getDebugInventoryCards();
