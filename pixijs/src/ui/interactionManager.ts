@@ -145,6 +145,12 @@ export class InteractionManager {
       return;
     }
 
+    // Tile selection is applied on pointerdown for instant feedback.
+    if (!registration.draggable) {
+      event.stopPropagation();
+      return;
+    }
+
     const nowMs = performance.now();
     const lastClickAtMs = this.lastClickAtMs.get(registration.target) ?? 0;
     const pendingSingleClick = this.pendingSingleClicks.get(registration.target);
@@ -170,12 +176,13 @@ export class InteractionManager {
   }
 
   private onPointerDown(registration: InteractableRegistration, event: FederatedPointerEvent): void {
+    this.select(registration);
+
     if (!registration.draggable || this.dragState) {
       return;
     }
 
     this.cancelReturnTween(registration.target);
-    this.select(registration);
 
     const parent = registration.target.parent;
     if (!parent || !(parent instanceof Container)) {
