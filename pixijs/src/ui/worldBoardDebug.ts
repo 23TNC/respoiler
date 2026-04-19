@@ -1,15 +1,20 @@
 import { Container } from "pixi.js";
 
+import { getCardDefinitionByParts } from "../spacetime/cardDefinitions";
+import type { Zone } from "../spacetime/bindings/types";
+import { unpackZoneCoord } from "../spacetime/zoneMath";
 import { createHexCardView, isHexCardType } from "./hexCardRenderer";
 import { worldHexToPanelPixel } from "./hexGrid";
 import { computeHexTileSize } from "./hexLayout";
 import type { LayoutRect } from "./layout";
-import { getDebugWorldHexTiles } from "./debugHexTiles";
 
 export function drawWorldBoardDebugTiles(
   worldLayer: Container,
   worldPanelRect: LayoutRect,
   screenHeight: number,
+  zoneRow: Zone | undefined,
+  viewedWorldQ: number,
+  viewedWorldR: number,
 ): void {
   const hexSize = computeHexTileSize(screenHeight);
   const worldOrigin = {
@@ -17,21 +22,110 @@ export function drawWorldBoardDebugTiles(
     y: worldPanelRect.y + (worldPanelRect.height / 2),
   };
 
-  const debugTiles = getDebugWorldHexTiles();
+  if (!zoneRow) {
+    return;
+  }
 
-  for (const tile of debugTiles) {
-    if (!isHexCardType(tile.card.type)) {
-      continue;
+  const tiles = decodeZoneTiles(zoneRow);
+  const { zoneQ, zoneR } = unpackZoneCoord(zoneRow.zone);
+  console.debug("[ui] zone render triggered", { zone_id: zoneRow.zone, zone_q: zoneQ, zone_r: zoneR });
+
+  for (let localR = 0; localR < 8; localR += 1) {
+    for (let localQ = 0; localQ < 8; localQ += 1) {
+      const definitionByte = tiles[localR]?.[localQ] ?? 0;
+      const definition = getTileDefinition(definitionByte);
+      const worldQ = zoneQ * 8 + localQ;
+      const worldR = zoneR * 8 + localR;
+      const pixel = worldHexToPanelPixel(
+        { q: worldQ - viewedWorldQ, r: worldR - viewedWorldR },
+        hexSize,
+        worldOrigin,
+      );
+      const hexCard = createHexCardView(
+        {
+          id: `zone-${zoneRow.zone}-${localQ}-${localR}`,
+          type: 6,
+          name: definition.name,
+          colors: [definition.color, 0x242f4f, 0xf4f8ff],
+          progress: 0,
+          progressDirection: "clockwise",
+          progressFillColor: 0x1a2540,
+          progressEmptyColor: 0x1a2540,
+        },
+        {
+          centerX: pixel.x,
+          centerY: pixel.y,
+          size: hexSize,
+          screenHeight,
+        },
+      );
+
+      if (!isHexCardType(TILE_CARD_TYPE)) {
+        continue;
+      }
+
+      worldLayer.addChild(hexCard);
     }
-
-    const pixel = worldHexToPanelPixel(tile.world, hexSize, worldOrigin);
-    const hexCard = createHexCardView(tile.card, {
-      centerX: pixel.x,
-      centerY: pixel.y,
-      size: hexSize,
-      screenHeight,
-    });
-
-    worldLayer.addChild(hexCard);
   }
 }
+
+const TILE_CARD_TYPE = 6;
+
+const zoneRows = (zoneRow: Zone): bigint[] => [
+  zoneRow.t0,
+  zoneRow.t1,
+  zoneRow.t2,
+  zoneRow.t3,
+  zoneRow.t4,
+  zoneRow.t5,
+  zoneRow.t6,
+  zoneRow.t7,
+];
+
+export const decodeZoneTiles = (zoneRow: Zone): number[][] => {
+  const decoded: number[][] = [];
+  const rows = zoneRows(zoneRow);
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const packedRow = rows[rowIndex] ?? 0n;
+    const row: number[] = [];
+
+    for (let colIndex = 0; colIndex < 8; colIndex += 1) {
+      const shift = BigInt(colIndex * 8);
+      const tileByte = Number((packedRow >> shift) & 0xffn);
+      row.push(tileByte);
+    }
+
+    decoded.push(row);
+  }
+
+  console.debug("[ui] tile bytes decoded", { zone_id: zoneRow.zone, tiles: decoded });
+  return decoded;
+};
+
+const parseHexColor = (rawColor: unknown, fallback: number): number => {
+  if (typeof rawColor === "number" && Number.isFinite(rawColor)) {
+    return rawColor;
+  }
+
+  if (typeof rawColor !== "string") {
+    return fallback;
+  }
+
+  const normalized = rawColor.trim().replace("#", "");
+  const parsed = Number.parseInt(normalized, 16);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+export const getTileDefinition = (definitionByte: number): { name: string; color: number } => {
+  if (!Number.isInteger(definitionByte) || definitionByte <= 0) {
+    return { name: "Unknown", color: 0x365486 };
+  }
+
+  const definition = getCardDefinitionByParts(TILE_CARD_TYPE, definitionByte);
+  const color = parseHexColor(definition?.style?.color?.[0], 0x365486);
+  return {
+    name: definition?.name || `Tile ${definitionByte}`,
+    color,
+  };
+};

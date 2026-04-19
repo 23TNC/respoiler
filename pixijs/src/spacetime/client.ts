@@ -1,7 +1,8 @@
 import { DbConnection, type SubscriptionHandle } from "./bindings";
-import type { Player } from "./bindings/types";
+import type { Player, Zone } from "./bindings/types";
 import { createSpacetimeState, type SpacetimeState } from "./state/spacetimeState";
 import { subscribeToPlayersByName, type PlayersTableSubscription } from "./tables/players";
+import { signExtendI12, worldToZone } from "./zoneMath";
 
 export interface SpacetimeClientOptions {
   uri: string;
@@ -20,11 +21,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
   const state = createSpacetimeState();
   let playersSubscription: PlayersTableSubscription | undefined;
   const viewedPlayerSubscriptions = new Map<number, SubscriptionHandle>();
-
-  const signExtendI12 = (value: number): number => {
-    const masked = value & 0x0fff;
-    return (masked & 0x0800) !== 0 ? masked | ~0x0fff : masked;
-  };
+  const zoneSubscriptions = new Map<number, SubscriptionHandle>();
 
   const decodePlayerWorldPosition = (playerRow: Player): { world_q: number; world_r: number; z: number } => {
     // Server layout from packing.rs:
@@ -66,6 +63,44 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     state.world_q = decoded.world_q;
     state.world_r = decoded.world_r;
     state.view_z = decoded.z;
+    const zone = worldToZone(decoded.world_q, decoded.world_r, decoded.z);
+    state.current_zone_id = zone.zoneId;
+    console.debug("[spacetime] world position to zone conversion", {
+      world_q: decoded.world_q,
+      world_r: decoded.world_r,
+      z: decoded.z,
+      zone_q: zone.zoneQ,
+      zone_r: zone.zoneR,
+    });
+    console.debug("[spacetime] packed zone id", { zone_id: zone.zoneId });
+    ensureZoneSubscription(zone.zoneId);
+  };
+
+  const ensureCachedRowSubscription = <Row>(
+    key: number,
+    subscriptions: Map<number, SubscriptionHandle>,
+    rowCache: Map<number, Row>,
+    queryBuilder: (id: number) => string,
+  ): void => {
+    if (subscriptions.has(key)) {
+      console.debug("[spacetime] subscription cache hit", { key });
+      return;
+    }
+
+    console.debug("[spacetime] subscription cache miss", { key, cached_rows: rowCache.size });
+    const query = queryBuilder(key);
+    const subscriptionHandle = connection.subscriptionBuilder().subscribe(query);
+    subscriptions.set(key, subscriptionHandle);
+    console.debug("[spacetime] subscription created", { key, query });
+  };
+
+  const ensureZoneSubscription = (zoneId: number): void => {
+    ensureCachedRowSubscription<Zone>(
+      zoneId,
+      zoneSubscriptions,
+      state.cached_zone,
+      (id) => `select * from zones where zone == ${id}`,
+    );
   };
 
   const ensureViewedPlayerSubscription = (viewedId: number): void => {
@@ -115,6 +150,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
             state.world_q = 0;
             state.world_r = 0;
             state.view_z = 0;
+            state.current_zone_id = 0;
             notifyStateChanged();
             return;
           }
@@ -158,6 +194,32 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
           state.world_q = 0;
           state.world_r = 0;
           state.view_z = 0;
+          state.current_zone_id = 0;
+          notifyStateChanged();
+        }
+      });
+
+      connection.db.zones.onInsert((_ctx, row) => {
+        state.cached_zone.set(row.zone, row);
+        console.debug("[spacetime] zone row received", { zone_id: row.zone, event: "insert" });
+        if (row.zone === state.current_zone_id) {
+          notifyStateChanged();
+        }
+      });
+
+      connection.db.zones.onUpdate((_ctx, oldRow, row) => {
+        state.cached_zone.delete(oldRow.zone);
+        state.cached_zone.set(row.zone, row);
+        console.debug("[spacetime] zone row updated", { zone_id: row.zone, event: "update" });
+        if (row.zone === state.current_zone_id || oldRow.zone === state.current_zone_id) {
+          notifyStateChanged();
+        }
+      });
+
+      connection.db.zones.onDelete((_ctx, row) => {
+        state.cached_zone.delete(row.zone);
+        console.debug("[spacetime] zone row removed", { zone_id: row.zone, event: "delete" });
+        if (row.zone === state.current_zone_id) {
           notifyStateChanged();
         }
       });
@@ -175,11 +237,17 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       state.world_q = 0;
       state.world_r = 0;
       state.view_z = 0;
+      state.current_zone_id = 0;
       state.cached_player.clear();
+      state.cached_zone.clear();
       viewedPlayerSubscriptions.forEach((handle) => {
         handle.unsubscribe();
       });
       viewedPlayerSubscriptions.clear();
+      zoneSubscriptions.forEach((handle) => {
+        handle.unsubscribe();
+      });
+      zoneSubscriptions.clear();
       notifyStateChanged();
     })
     .build();
@@ -193,6 +261,10 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
         handle.unsubscribe();
       });
       viewedPlayerSubscriptions.clear();
+      zoneSubscriptions.forEach((handle) => {
+        handle.unsubscribe();
+      });
+      zoneSubscriptions.clear();
       connection.disconnect();
     },
   };
