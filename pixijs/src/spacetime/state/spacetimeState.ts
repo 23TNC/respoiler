@@ -7,6 +7,7 @@ export interface SpacetimeState {
   world_r: number;
   view_z: number;
   current_zone_id: number;
+  visible_zone_ids: number[];
   cached_player: Map<number, Player>;
   cached_zone: Map<number, Zone>;
 }
@@ -18,6 +19,7 @@ export const createSpacetimeState = (): SpacetimeState => ({
   world_r: 0,
   view_z: 0,
   current_zone_id: 0,
+  visible_zone_ids: [],
   cached_player: new Map<number, Player>(),
   cached_zone: new Map<number, Zone>(),
 });

@@ -75,6 +75,22 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     zoneSubscriptions.clear();
   };
 
+  const isVisibleZone = (zoneId: number): boolean => state.visible_zone_ids.includes(zoneId);
+
+  const areZoneSetsEqual = (left: number[], right: number[]): boolean => {
+    if (left.length !== right.length) {
+      return false;
+    }
+
+    for (let index = 0; index < left.length; index += 1) {
+      if (left[index] !== right[index]) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const decodePlayerWorldPosition = (
     playerRow: Player,
   ): { zoneQ: number; zoneR: number; localQ: number; localR: number; world_q: number; world_r: number; z: number } => {
@@ -127,7 +143,14 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       zone_r: zone.zoneR,
     });
     console.debug("[spacetime] packed zone id", { zone_id: zone.zoneId });
-    syncZoneSubscriptions(getRequiredZones(zone.zoneQ, zone.zoneR, decoded.z, decoded.localQ, decoded.localR));
+    const requiredZoneIds = getRequiredZones(zone.zoneQ, zone.zoneR, decoded.z, decoded.localQ, decoded.localR);
+    const visibleZonesChanged = !areZoneSetsEqual(state.visible_zone_ids, requiredZoneIds);
+    state.visible_zone_ids = requiredZoneIds;
+    syncZoneSubscriptions(requiredZoneIds);
+
+    if (visibleZonesChanged) {
+      notifyStateChanged();
+    }
   };
 
   const ensureCachedRowSubscription = <Row>(
@@ -196,6 +219,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
             state.world_r = 0;
             state.view_z = 0;
             state.current_zone_id = 0;
+            state.visible_zone_ids = [];
             clearZoneSubscriptions();
             notifyStateChanged();
             return;
@@ -241,6 +265,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
           state.world_r = 0;
           state.view_z = 0;
           state.current_zone_id = 0;
+          state.visible_zone_ids = [];
           clearZoneSubscriptions();
           notifyStateChanged();
         }
@@ -249,7 +274,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       connection.db.zones.onInsert((_ctx, row) => {
         state.cached_zone.set(row.zone, row);
         console.debug("[spacetime] zone row received", { zone_id: row.zone, event: "insert" });
-        if (row.zone === state.current_zone_id) {
+        if (isVisibleZone(row.zone)) {
           notifyStateChanged();
         }
       });
@@ -258,7 +283,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
         state.cached_zone.delete(oldRow.zone);
         state.cached_zone.set(row.zone, row);
         console.debug("[spacetime] zone row updated", { zone_id: row.zone, event: "update" });
-        if (row.zone === state.current_zone_id || oldRow.zone === state.current_zone_id) {
+        if (isVisibleZone(row.zone) || isVisibleZone(oldRow.zone)) {
           notifyStateChanged();
         }
       });
@@ -266,7 +291,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       connection.db.zones.onDelete((_ctx, row) => {
         state.cached_zone.delete(row.zone);
         console.debug("[spacetime] zone row removed", { zone_id: row.zone, event: "delete" });
-        if (row.zone === state.current_zone_id) {
+        if (isVisibleZone(row.zone)) {
           notifyStateChanged();
         }
       });
@@ -285,6 +310,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       state.world_r = 0;
       state.view_z = 0;
       state.current_zone_id = 0;
+      state.visible_zone_ids = [];
       state.cached_player.clear();
       state.cached_zone.clear();
       viewedPlayerSubscriptions.forEach((handle) => {
