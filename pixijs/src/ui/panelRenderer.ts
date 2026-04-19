@@ -5,11 +5,24 @@ import type { LayoutRect } from "./layout";
 const PANEL_FILL = 0x172233;
 const PANEL_STROKE = 0x8da6c6;
 
+export interface PanelInnerRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function computePanelInnerRect(layoutRect: LayoutRect, padding: number): PanelInnerRect {
+  return {
+    x: layoutRect.x + padding,
+    y: layoutRect.y + padding,
+    width: Math.max(0, layoutRect.width - 2 * padding),
+    height: Math.max(0, layoutRect.height - 2 * padding),
+  };
+}
+
 export function drawPanel(graphics: Graphics, layoutRect: LayoutRect, padding: number): void {
-  const innerX = layoutRect.x + padding;
-  const innerY = layoutRect.y + padding;
-  const innerWidth = Math.max(0, layoutRect.width - 2 * padding);
-  const innerHeight = Math.max(0, layoutRect.height - 2 * padding);
+  const { x: innerX, y: innerY, width: innerWidth, height: innerHeight } = computePanelInnerRect(layoutRect, padding);
   const cornerRadius = Math.max(0, padding * 2 );
 
   graphics

@@ -6,7 +6,7 @@ import { getDebugInventoryCards } from "./ui/debugCards";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
 import { createCardView } from "./ui/cardRenderer";
-import { drawPanel } from "./ui/panelRenderer";
+import { computePanelInnerRect, drawPanel } from "./ui/panelRenderer";
 import { drawWorldBoardDebugTiles } from "./ui/worldBoardDebug";
 
 interface ClientViewState {
@@ -49,6 +49,8 @@ async function bootstrap(): Promise<void> {
   const panelGraphics = new Graphics();
   const cardLayer = new Container();
   const worldLayer = new Container();
+  const worldTileLayer = new Container();
+  const worldTileMask = new Graphics();
   const titleText = new Text({
     text: "",
     style: {
@@ -57,6 +59,10 @@ async function bootstrap(): Promise<void> {
       fontFamily: "monospace",
     },
   });
+
+  worldLayer.addChild(worldTileMask);
+  worldLayer.addChild(worldTileLayer);
+  worldTileLayer.mask = worldTileMask;
 
   app.stage.addChild(panelGraphics);
   app.stage.addChild(worldLayer);
@@ -89,7 +95,7 @@ async function bootstrap(): Promise<void> {
 
     panelGraphics.clear();
     cardLayer.removeChildren();
-    worldLayer.removeChildren();
+    worldTileLayer.removeChildren();
 
     for (const layoutRect of layoutRects) {
       drawPanel(panelGraphics, layoutRect, panelPadding);
@@ -104,14 +110,27 @@ async function bootstrap(): Promise<void> {
     const worldPanelRect = layoutById.get("worldPanel");
 
     if (worldPanelRect) {
+      const worldPanelInnerRect = computePanelInnerRect(worldPanelRect, panelPadding);
+      worldTileMask
+        .clear()
+        .rect(
+          worldPanelInnerRect.x,
+          worldPanelInnerRect.y,
+          worldPanelInnerRect.width,
+          worldPanelInnerRect.height,
+        )
+        .fill({ color: 0xffffff, alpha: 1 });
+
       drawWorldBoardDebugTiles(
-        worldLayer,
-        worldPanelRect,
+        worldTileLayer,
+        worldPanelInnerRect,
         screenHeight,
         spacetimeClient.state.cached_zone.get(viewState.current_zone_id),
         viewState.world_q,
         viewState.world_r,
       );
+    } else {
+      worldTileMask.clear();
     }
 
     const debugCardsByPanel = getDebugInventoryCards();
