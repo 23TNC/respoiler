@@ -6,11 +6,11 @@ import { unpackZoneCoord } from "../spacetime/zoneMath";
 import { createHexCardView, isHexCardType } from "./hexCardRenderer";
 import { worldHexToPanelPixel } from "./hexGrid";
 import { computeHexTileSize } from "./hexLayout";
-import type { LayoutRect } from "./layout";
+import type { PanelInnerRect } from "./panelRenderer";
 
 export function drawWorldBoardDebugTiles(
   worldLayer: Container,
-  worldPanelRect: LayoutRect,
+  worldPanelRect: PanelInnerRect,
   screenHeight: number,
   zoneRow: Zone | undefined,
   viewedWorldQ: number,
@@ -41,6 +41,11 @@ export function drawWorldBoardDebugTiles(
         hexSize,
         worldOrigin,
       );
+
+      if (!doesHexIntersectPanel(pixel.x, pixel.y, hexSize, worldPanelRect)) {
+        continue;
+      }
+
       const hexCard = createHexCardView(
         {
           id: `zone-${zoneRow.zone}-${localQ}-${localR}`,
@@ -68,6 +73,29 @@ export function drawWorldBoardDebugTiles(
     }
   }
 }
+
+const SQRT3 = Math.sqrt(3);
+
+const doesHexIntersectPanel = (
+  centerX: number,
+  centerY: number,
+  hexSize: number,
+  panelRect: PanelInnerRect,
+): boolean => {
+  const halfWidth = (SQRT3 * hexSize) / 2;
+  const halfHeight = hexSize;
+  const hexMinX = centerX - halfWidth;
+  const hexMaxX = centerX + halfWidth;
+  const hexMinY = centerY - halfHeight;
+  const hexMaxY = centerY + halfHeight;
+  const panelMaxX = panelRect.x + panelRect.width;
+  const panelMaxY = panelRect.y + panelRect.height;
+
+  return hexMaxX >= panelRect.x
+    && hexMinX <= panelMaxX
+    && hexMaxY >= panelRect.y
+    && hexMinY <= panelMaxY;
+};
 
 const TILE_CARD_TYPE = 6;
 
