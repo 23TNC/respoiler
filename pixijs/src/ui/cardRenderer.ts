@@ -7,7 +7,7 @@ export type ProgressDirection = "clockwise" | "counterclockwise";
 export interface DebugCard {
   id: string;
   name: string;
-  colors: [number, number];
+  colors: [number, number, number];
   progress: number;
   progressDirection: ProgressDirection;
   progressFillColor: number;

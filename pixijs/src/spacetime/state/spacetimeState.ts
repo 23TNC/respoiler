@@ -1,4 +1,5 @@
 import type { Player, Zone } from "../bindings/types";
+import type { InventoryCardsByPanel } from "../inventory";
 
 export interface SpacetimeState {
   observer_id: number;
@@ -10,6 +11,7 @@ export interface SpacetimeState {
   visible_zone_ids: number[];
   cached_player: Map<number, Player>;
   cached_zone: Map<number, Zone>;
+  inventory_cards: InventoryCardsByPanel;
 }
 
 export const createSpacetimeState = (): SpacetimeState => ({
@@ -22,4 +24,11 @@ export const createSpacetimeState = (): SpacetimeState => ({
   visible_zone_ids: [],
   cached_player: new Map<number, Player>(),
   cached_zone: new Map<number, Zone>(),
+  inventory_cards: {
+    disciplinesPanel: [],
+    facultiesPanel: [],
+    requisitesPanel: [],
+    reveriesPanel: [],
+    soulsPanel: [],
+  },
 });

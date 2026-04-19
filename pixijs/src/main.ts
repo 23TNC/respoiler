@@ -3,7 +3,6 @@ import { Application, Container, Graphics, Text } from "pixi.js";
 import { initializeSpacetimeClient } from "./spacetime/client";
 import type { Zone } from "./spacetime/bindings/types";
 import { loadCardDefinitions } from "./spacetime/cardDefinitions";
-import { getDebugInventoryCards } from "./ui/debugCards";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
 import { createCardView } from "./ui/cardRenderer";
@@ -139,9 +138,9 @@ async function bootstrap(): Promise<void> {
       worldTileMask.clear();
     }
 
-    const debugCardsByPanel = getDebugInventoryCards();
+    const inventoryCardsByPanel = spacetimeClient.state.inventory_cards;
 
-    for (const [panelId, cards] of Object.entries(debugCardsByPanel)) {
+    for (const [panelId, cards] of Object.entries(inventoryCardsByPanel)) {
       const panelRect = layoutById.get(panelId as PanelId);
 
       if (!panelRect || cards.length === 0) {
