@@ -11,6 +11,9 @@ import { drawWorldBoardDebugTiles } from "./ui/worldBoardDebug";
 interface ClientViewState {
   observer_id: number;
   viewed_id: number;
+  world_q: number;
+  world_r: number;
+  view_z: number;
 }
 
 async function bootstrap(): Promise<void> {
@@ -61,10 +64,13 @@ async function bootstrap(): Promise<void> {
   const viewState: ClientViewState = {
     observer_id: 0,
     viewed_id: 0,
+    world_q: 0,
+    world_r: 0,
+    view_z: 0,
   };
 
   const updateTitleBar = (titlePanelRect: LayoutRect): void => {
-    titleText.text = `observer: ${viewState.observer_id || 0}, viewed: ${viewState.viewed_id || 0}`;
+    titleText.text = `observer: ${viewState.observer_id || 0}, viewed: ${viewState.viewed_id || 0}, q: ${viewState.world_q || 0}, r: ${viewState.world_r || 0}, z: ${viewState.view_z || 0}`;
     titleText.x = titlePanelRect.x + Math.max(8, titlePanelRect.height * 0.18);
     titleText.y = titlePanelRect.y + Math.max(2, titlePanelRect.height * 0.2);
   };
@@ -138,6 +144,9 @@ async function bootstrap(): Promise<void> {
     onStateChanged: (state) => {
       viewState.observer_id = state.observer_id;
       viewState.viewed_id = state.viewed_id;
+      viewState.world_q = state.world_q;
+      viewState.world_r = state.world_r;
+      viewState.view_z = state.view_z;
       redrawLayout();
     },
   });
