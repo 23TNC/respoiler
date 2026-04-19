@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 
-import { DbConnection } from "./spacetime/bindings";
+import { initializeSpacetimeClient } from "./spacetime/client";
 import { getDebugInventoryCards } from "./ui/debugCards";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
@@ -10,7 +10,7 @@ import { drawWorldBoardDebugTiles } from "./ui/worldBoardDebug";
 
 interface ClientViewState {
   observer_id: number;
-  view_id: number;
+  viewed_id: number;
 }
 
 async function bootstrap(): Promise<void> {
@@ -60,19 +60,11 @@ async function bootstrap(): Promise<void> {
 
   const viewState: ClientViewState = {
     observer_id: 0,
-    view_id: 0,
-  };
-
-  let viewInitialized = false;
-
-  const initializeView = (viewId: number): void => {
-    viewState.view_id = viewId;
-    viewInitialized = true;
-    console.debug("[spacetime] view initialized", { view_id: viewState.view_id });
+    viewed_id: 0,
   };
 
   const updateTitleBar = (titlePanelRect: LayoutRect): void => {
-    titleText.text = `observer: ${viewState.observer_id || 0}, viewed: ${viewState.view_id || 0}`;
+    titleText.text = `observer: ${viewState.observer_id || 0}, viewed: ${viewState.viewed_id || 0}`;
     titleText.x = titlePanelRect.x + Math.max(8, titlePanelRect.height * 0.18);
     titleText.y = titlePanelRect.y + Math.max(2, titlePanelRect.height * 0.2);
   };
@@ -136,74 +128,19 @@ async function bootstrap(): Promise<void> {
     }
   };
 
-  const syncObservedPlayer = (cardId: number, event: "received" | "updated"): void => {
-    console.debug("[spacetime] matching player row received", { event, card_id: cardId, name: "player1" });
-    viewState.observer_id = cardId;
-    console.debug("[spacetime] observer_id assigned", { observer_id: viewState.observer_id });
-
-    if (!viewInitialized) {
-      initializeView(viewState.observer_id);
-    } else {
-      viewState.view_id = viewState.observer_id;
-    }
-
-    redrawLayout();
-  };
-
   const spacetimeUri = (import.meta.env.VITE_SPACETIMEDB_URI as string | undefined) ?? "ws://localhost:3000";
   const spacetimeDatabase = (import.meta.env.VITE_SPACETIMEDB_DATABASE as string | undefined) ?? "respoiler";
 
-  const connection = DbConnection.builder()
-    .withUri(spacetimeUri)
-    .withDatabaseName(spacetimeDatabase)
-    .onConnect((dbConnection) => {
-      console.debug("[spacetime] subscription created", {
-        query: "select * from players where name == 'player1'",
-      });
-
-      dbConnection.db.players.onInsert((_ctx, row) => {
-        if (row.name !== "player1") {
-          return;
-        }
-
-        syncObservedPlayer(row.cardId, "received");
-      });
-
-      dbConnection.db.players.onUpdate((_ctx, oldRow, row) => {
-        if (row.name !== "player1" && oldRow.name !== "player1") {
-          return;
-        }
-
-        console.debug("[spacetime] player row updated", {
-          previous_card_id: oldRow.cardId,
-          card_id: row.cardId,
-          name: row.name,
-        });
-        syncObservedPlayer(row.cardId, "updated");
-      });
-
-      dbConnection.db.players.onDelete((_ctx, row) => {
-        if (row.name !== "player1") {
-          return;
-        }
-
-        console.debug("[spacetime] player row removed", { name: row.name, card_id: row.cardId });
-        viewState.observer_id = 0;
-        viewState.view_id = 0;
-        redrawLayout();
-      });
-
-      dbConnection
-        .subscriptionBuilder()
-        .subscribe("select * from players where name == 'player1'");
-    })
-    .onConnectError((_ctx, error) => {
-      console.error("[spacetime] connection error", error);
-    })
-    .onDisconnect((error) => {
-      console.warn("[spacetime] disconnected", error);
-    })
-    .build();
+  const spacetimeClient = initializeSpacetimeClient({
+    uri: spacetimeUri,
+    databaseName: spacetimeDatabase,
+    observedPlayerName: "player1",
+    onStateChanged: (state) => {
+      viewState.observer_id = state.observer_id;
+      viewState.viewed_id = state.viewed_id;
+      redrawLayout();
+    },
+  });
 
   const resizeApp = (): void => {
     const width = Math.max(1, root.clientWidth);
@@ -220,7 +157,7 @@ async function bootstrap(): Promise<void> {
   window.addEventListener("resize", resizeApp);
 
   window.addEventListener("beforeunload", () => {
-    connection.disconnect();
+    spacetimeClient.disconnect();
   });
 
   resizeApp();
