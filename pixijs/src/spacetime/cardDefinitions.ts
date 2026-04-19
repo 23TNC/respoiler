@@ -21,7 +21,7 @@ const CARD_TYPE_MIN = 1;
 const CARD_TYPE_MAX = 8;
 const DEFINITION_ID_MASK = 0x0fff;
 
-const cardDefinitionFiles = import.meta.glob("../../public/cards/*.json", {
+const cardDefinitionFiles = import.meta.glob("../cards/*.json", {
   eager: true,
   import: "default",
   query: "?raw",
