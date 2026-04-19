@@ -1,6 +1,7 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 
 import { initializeSpacetimeClient } from "./spacetime/client";
+import { loadCardDefinitions } from "./spacetime/cardDefinitions";
 import { getDebugInventoryCards } from "./ui/debugCards";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
@@ -133,6 +134,8 @@ async function bootstrap(): Promise<void> {
       }
     }
   };
+
+  await loadCardDefinitions();
 
   const spacetimeUri = (import.meta.env.VITE_SPACETIMEDB_URI as string | undefined) ?? "ws://localhost:3000";
   const spacetimeDatabase = (import.meta.env.VITE_SPACETIMEDB_DATABASE as string | undefined) ?? "respoiler";
