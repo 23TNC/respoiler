@@ -38,13 +38,23 @@ import CompleteActionReducer from "./complete_action_reducer";
 import DeleteActionReducer from "./delete_action_reducer";
 import DeleteCardReducer from "./delete_card_reducer";
 import DeletePlayerReducer from "./delete_player_reducer";
+import DeleteZoneReducer from "./delete_zone_reducer";
+import DeleteZoneAtReducer from "./delete_zone_at_reducer";
+import FillZoneReducer from "./fill_zone_reducer";
+import FillZoneAtReducer from "./fill_zone_at_reducer";
 import QueueActionReducer from "./queue_action_reducer";
 import SetCardFlagsReducer from "./set_card_flags_reducer";
+import SetZoneRowReducer from "./set_zone_row_reducer";
+import SetZoneRowAtReducer from "./set_zone_row_at_reducer";
+import SetZoneTileReducer from "./set_zone_tile_reducer";
+import SetZoneTileAtReducer from "./set_zone_tile_at_reducer";
 import StartActionReducer from "./start_action_reducer";
 import UpdateCardLinkReducer from "./update_card_link_reducer";
 import UpdateCardLocationReducer from "./update_card_location_reducer";
 import UpsertCardReducer from "./upsert_card_reducer";
 import UpsertPlayerReducer from "./upsert_player_reducer";
+import UpsertZoneReducer from "./upsert_zone_reducer";
+import UpsertZoneAtReducer from "./upsert_zone_at_reducer";
 
 // Import all procedure arg schemas
 
@@ -113,13 +123,23 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_action", DeleteActionReducer),
   __reducerSchema("delete_card", DeleteCardReducer),
   __reducerSchema("delete_player", DeletePlayerReducer),
+  __reducerSchema("delete_zone", DeleteZoneReducer),
+  __reducerSchema("delete_zone_at", DeleteZoneAtReducer),
+  __reducerSchema("fill_zone", FillZoneReducer),
+  __reducerSchema("fill_zone_at", FillZoneAtReducer),
   __reducerSchema("queue_action", QueueActionReducer),
   __reducerSchema("set_card_flags", SetCardFlagsReducer),
+  __reducerSchema("set_zone_row", SetZoneRowReducer),
+  __reducerSchema("set_zone_row_at", SetZoneRowAtReducer),
+  __reducerSchema("set_zone_tile", SetZoneTileReducer),
+  __reducerSchema("set_zone_tile_at", SetZoneTileAtReducer),
   __reducerSchema("start_action", StartActionReducer),
   __reducerSchema("update_card_link", UpdateCardLinkReducer),
   __reducerSchema("update_card_location", UpdateCardLocationReducer),
   __reducerSchema("upsert_card", UpsertCardReducer),
   __reducerSchema("upsert_player", UpsertPlayerReducer),
+  __reducerSchema("upsert_zone", UpsertZoneReducer),
+  __reducerSchema("upsert_zone_at", UpsertZoneAtReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

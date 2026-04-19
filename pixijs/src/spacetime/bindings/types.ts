@@ -39,3 +39,16 @@ export const Player = __t.object("Player", {
 });
 export type Player = __Infer<typeof Player>;
 
+export const Zone = __t.object("Zone", {
+  zone: __t.u32(),
+  t0: __t.u64(),
+  t1: __t.u64(),
+  t2: __t.u64(),
+  t3: __t.u64(),
+  t4: __t.u64(),
+  t5: __t.u64(),
+  t6: __t.u64(),
+  t7: __t.u64(),
+});
+export type Zone = __Infer<typeof Zone>;
+
