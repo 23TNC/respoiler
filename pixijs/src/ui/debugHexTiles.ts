@@ -13,7 +13,7 @@ export function getDebugWorldHexTiles(): DebugHexTile[] {
       card: {
         id: "debug-world-hex-0-0",
         type: 6,
-        name: "Origin",
+        name: "",
         colors: [0x365486, 0x242f4f],
         progress: 0.4,
         progressDirection: "clockwise",

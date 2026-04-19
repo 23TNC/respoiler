@@ -28,10 +28,10 @@ export function createCardView(
   const container = new Container();
   const graphics = new Graphics();
 
-  const innerX = layoutRect.x + cardPadding;
-  const innerY = layoutRect.y + cardPadding;
-  const innerWidth = Math.max(0, layoutRect.width - (2 * cardPadding));
-  const innerHeight = Math.max(0, layoutRect.height - (2 * cardPadding));
+  const innerX = layoutRect.x + 2*cardPadding;
+  const innerY = layoutRect.y + 2*cardPadding;
+  const innerWidth = Math.max(0, layoutRect.width - (4 * cardPadding));
+  const innerHeight = Math.max(0, layoutRect.height - (4 * cardPadding));
   const cornerRadius = Math.max(1, cardPadding * 1.5);
 
   const topSectionHeight = (5 / 8) * innerHeight;
@@ -56,17 +56,17 @@ export function createCardView(
   const text = new Text({
     text: card.name,
     style: {
-      fill: 0xf4f8ff,
-      fontFamily: "Arial",
-      fontSize: Math.max(11, screenHeight / 75),
+      fill: card.colors[2], // 0xf4f8ff,
+      fontFamily: "Segoe UI",
+      fontSize: Math.round(screenHeight/70), // Math.min(20, screenHeight / 70),
       fontWeight: "700",
       align: "center",
     },
   });
 
   text.anchor.set(0.5, 0.5);
-  text.x = innerX + (innerWidth / 2);
-  text.y = innerY + topSectionHeight + (bottomSectionHeight / 2);
+  text.x = Math.round( innerX + (innerWidth / 2) );
+  text.y = Math.round( innerY + topSectionHeight + (bottomSectionHeight / 2) );
 
   container.addChild(graphics);
   container.addChild(text);

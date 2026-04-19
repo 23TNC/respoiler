@@ -10,8 +10,8 @@ export function getDebugInventoryCards(): DebugCardsByPanel {
     disciplinesPanel: [
       {
         id: "debug-work-1",
-        name: "work",
-        colors: [0x4b6cb0, 0x2f4a85],
+        name: "Work",
+        colors: [0x4b6cb0, 0xead7a1, 0x2f2416],
         progress: 0.25,
         progressDirection: "clockwise",
         progressFillColor: 0x78e08f,
@@ -21,8 +21,8 @@ export function getDebugInventoryCards(): DebugCardsByPanel {
     facultiesPanel: [
       {
         id: "debug-health-1",
-        name: "health",
-        colors: [0xff8a65, 0xe65100],
+        name: "Might",
+        colors: [0xff8a65, 0xead7a1, 0x2f2416],
         progress: 0.6,
         progressDirection: "counterclockwise",
         progressFillColor: 0x57cc99,
@@ -30,8 +30,8 @@ export function getDebugInventoryCards(): DebugCardsByPanel {
       },
       {
         id: "debug-health-2",
-        name: "health",
-        colors: [0xffb74d, 0xef6c00],
+        name: "Despair",
+        colors: [0xffb74d, 0xdcc48e, 0x241c12],
         progress: 0.85,
         progressDirection: "clockwise",
         progressFillColor: 0x00b4d8,

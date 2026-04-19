@@ -1,7 +1,7 @@
 export const SLOT_PANEL_HEIGHT_RATIO = 60 / 240;
 export const SLOT_PANEL_RESERVED_PADDING_RATIO = 8 / 240;
 export const SLOT_PANEL_USABLE_HEIGHT_RATIO = SLOT_PANEL_HEIGHT_RATIO - SLOT_PANEL_RESERVED_PADDING_RATIO;
-export const HEX_TILE_SIZE_RATIO = 10 / 240;
+export const HEX_TILE_SIZE_RATIO = 20 / 240;
 
 export function computeSlotPanelHeight(screenHeight: number): number {
   return SLOT_PANEL_HEIGHT_RATIO * screenHeight;
