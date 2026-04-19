@@ -15,6 +15,7 @@ interface ClientViewState {
   world_q: number;
   world_r: number;
   view_z: number;
+  current_zone_id: number;
 }
 
 async function bootstrap(): Promise<void> {
@@ -68,6 +69,7 @@ async function bootstrap(): Promise<void> {
     world_q: 0,
     world_r: 0,
     view_z: 0,
+    current_zone_id: 0,
   };
 
   const updateTitleBar = (titlePanelRect: LayoutRect): void => {
@@ -102,7 +104,14 @@ async function bootstrap(): Promise<void> {
     const worldPanelRect = layoutById.get("worldPanel");
 
     if (worldPanelRect) {
-      drawWorldBoardDebugTiles(worldLayer, worldPanelRect, screenHeight);
+      drawWorldBoardDebugTiles(
+        worldLayer,
+        worldPanelRect,
+        screenHeight,
+        spacetimeClient.state.cached_zone.get(viewState.current_zone_id),
+        viewState.world_q,
+        viewState.world_r,
+      );
     }
 
     const debugCardsByPanel = getDebugInventoryCards();
@@ -150,6 +159,7 @@ async function bootstrap(): Promise<void> {
       viewState.world_q = state.world_q;
       viewState.world_r = state.world_r;
       viewState.view_z = state.view_z;
+      viewState.current_zone_id = state.current_zone_id;
       redrawLayout();
     },
   });
