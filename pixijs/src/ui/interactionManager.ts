@@ -25,6 +25,9 @@ interface DragState {
   pointerOffsetY: number;
   parent: Container;
   originalIndex: number;
+  homeX: number;
+  homeY: number;
+  moved: boolean;
 }
 
 interface InteractionManagerConfig {
@@ -49,6 +52,10 @@ export class InteractionManager {
 
   private readonly hexDropTargets = new Set<InteractableRegistration>();
 
+  private readonly suppressNextTap = new WeakSet<DisplayObject>();
+
+  private readonly returnTweenCancels = new WeakMap<DisplayObject, () => void>();
+
   public constructor(config: InteractionManagerConfig) {
     this.stage = config.stage;
     this.doubleClickThresholdMs = config.doubleClickThresholdMs ?? 250;
@@ -69,6 +76,7 @@ export class InteractionManager {
 
       registration.target.removeAllListeners();
       registration.setSelected(false);
+      this.cancelReturnTween(registration.target);
     }
 
     this.registrations.clear();
@@ -128,6 +136,11 @@ export class InteractionManager {
   }
 
   private onPointerTap(registration: InteractableRegistration, event: FederatedPointerEvent): void {
+    if (this.suppressNextTap.has(registration.target)) {
+      this.suppressNextTap.delete(registration.target);
+      return;
+    }
+
     if (this.dragState?.registration.target === registration.target) {
       return;
     }
@@ -161,6 +174,9 @@ export class InteractionManager {
       return;
     }
 
+    this.cancelReturnTween(registration.target);
+    this.select(registration);
+
     const parent = registration.target.parent;
     if (!parent || !(parent instanceof Container)) {
       return;
@@ -174,6 +190,9 @@ export class InteractionManager {
       pointerOffsetY: localPoint.y - registration.target.y,
       parent,
       originalIndex: parent.getChildIndex(registration.target),
+      homeX: registration.target.x,
+      homeY: registration.target.y,
+      moved: false,
     };
 
     parent.addChild(registration.target);
@@ -185,8 +204,17 @@ export class InteractionManager {
     }
 
     const localPoint = this.dragState.parent.toLocal(event.global);
-    this.dragState.registration.target.x = localPoint.x - this.dragState.pointerOffsetX;
-    this.dragState.registration.target.y = localPoint.y - this.dragState.pointerOffsetY;
+    const nextX = localPoint.x - this.dragState.pointerOffsetX;
+    const nextY = localPoint.y - this.dragState.pointerOffsetY;
+
+    if (!this.dragState.moved) {
+      const movedX = nextX - this.dragState.homeX;
+      const movedY = nextY - this.dragState.homeY;
+      this.dragState.moved = ((movedX * movedX) + (movedY * movedY)) > 9;
+    }
+
+    this.dragState.registration.target.x = nextX;
+    this.dragState.registration.target.y = nextY;
   }
 
   private onStagePointerUp(event: FederatedPointerEvent): void {
@@ -218,7 +246,14 @@ export class InteractionManager {
         "onto hex tile",
         dropTarget.metadata,
       );
+      return;
     }
+
+    if (activeDrag.moved) {
+      this.suppressNextTap.add(activeDrag.registration.target);
+    }
+
+    this.returnCardToHome(activeDrag);
   }
 
   private findHexDropTarget(globalPoint: PointData): InteractableRegistration | null {
@@ -226,18 +261,87 @@ export class InteractionManager {
 
     for (let index = targetsInDrawOrder.length - 1; index >= 0; index -= 1) {
       const target = targetsInDrawOrder[index];
+      if (!target?.target) {
+        continue;
+      }
+
       const localPoint = target.target.toLocal(globalPoint);
 
       if (containsHitAreaPoint(target.target.hitArea, localPoint.x, localPoint.y)) {
         return target;
       }
 
-      if (target.target.getBounds().contains(globalPoint.x, globalPoint.y)) {
+      const bounds = target.target.getBounds();
+      const isInsideBounds =
+        Number.isFinite(bounds.x)
+        && Number.isFinite(bounds.y)
+        && Number.isFinite(bounds.width)
+        && Number.isFinite(bounds.height)
+        &&
+        globalPoint.x >= bounds.x
+        && globalPoint.x <= (bounds.x + bounds.width)
+        && globalPoint.y >= bounds.y
+        && globalPoint.y <= (bounds.y + bounds.height);
+
+      if (isInsideBounds) {
         return target;
       }
     }
 
     return null;
+  }
+
+  private returnCardToHome(activeDrag: DragState): void {
+    const target = activeDrag.registration.target;
+    const startX = target.x;
+    const startY = target.y;
+    const durationMs = 150;
+    const startedAt = performance.now();
+    let rafId = 0;
+    let cancelled = false;
+
+    const cancel = (): void => {
+      cancelled = true;
+      if (rafId !== 0) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+
+    this.cancelReturnTween(target);
+    this.returnTweenCancels.set(target, cancel);
+
+    const step = (nowMs: number): void => {
+      if (cancelled) {
+        return;
+      }
+
+      const t = Math.min(1, (nowMs - startedAt) / durationMs);
+      const eased = 1 - ((1 - t) * (1 - t));
+
+      target.x = startX + ((activeDrag.homeX - startX) * eased);
+      target.y = startY + ((activeDrag.homeY - startY) * eased);
+
+      if (t < 1) {
+        rafId = requestAnimationFrame(step);
+        return;
+      }
+
+      target.x = activeDrag.homeX;
+      target.y = activeDrag.homeY;
+      this.returnTweenCancels.delete(target);
+    };
+
+    rafId = requestAnimationFrame(step);
+  }
+
+  private cancelReturnTween(target: DisplayObject): void {
+    const cancel = this.returnTweenCancels.get(target);
+    if (!cancel) {
+      return;
+    }
+
+    cancel();
+    this.returnTweenCancels.delete(target);
   }
 
   private select(nextSelection: InteractableRegistration): void {
