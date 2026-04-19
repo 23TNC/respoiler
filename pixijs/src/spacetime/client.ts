@@ -1,5 +1,6 @@
 import { DbConnection, type SubscriptionHandle } from "./bindings";
-import type { Player, Zone } from "./bindings/types";
+import type { Card, Player, Zone } from "./bindings/types";
+import { buildInventoryCards } from "./inventory";
 import { createSpacetimeState, type SpacetimeState } from "./state/spacetimeState";
 import { subscribeToPlayersByName, type PlayersTableSubscription } from "./tables/players";
 import { packZoneCoord, signExtendI12, worldToZone } from "./zoneMath";
@@ -22,6 +23,9 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
   let playersSubscription: PlayersTableSubscription | undefined;
   const viewedPlayerSubscriptions = new Map<number, SubscriptionHandle>();
   const zoneSubscriptions = new Map<number, SubscriptionHandle>();
+  const ownedCardsById = new Map<number, Card>();
+  let ownedCardsSubscription: SubscriptionHandle | undefined;
+  let ownedCardsSubscriptionViewId = 0;
 
   const getRequiredZones = (zoneQ: number, zoneR: number, z: number, localQ: number, localR: number): number[] => {
     const horizontalOffset = localQ < 4 ? -1 : localQ > 4 ? 1 : 0;
@@ -73,6 +77,37 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       handle.unsubscribe();
     });
     zoneSubscriptions.clear();
+  };
+
+  const clearOwnedCardsSubscription = (): void => {
+    ownedCardsSubscription?.unsubscribe();
+    ownedCardsSubscription = undefined;
+    ownedCardsSubscriptionViewId = 0;
+    ownedCardsById.clear();
+    state.inventory_cards = buildInventoryCards(ownedCardsById.values());
+  };
+
+  const refreshInventoryCards = (): void => {
+    state.inventory_cards = buildInventoryCards(ownedCardsById.values());
+    notifyStateChanged();
+  };
+
+  const syncOwnedCardsSubscription = (viewedId: number): void => {
+    if (viewedId === ownedCardsSubscriptionViewId) {
+      return;
+    }
+
+    clearOwnedCardsSubscription();
+
+    if (viewedId === 0) {
+      notifyStateChanged();
+      return;
+    }
+
+    const query = `select * from cards where link == ${viewedId}`;
+    ownedCardsSubscription = connection.subscriptionBuilder().subscribe(query);
+    ownedCardsSubscriptionViewId = viewedId;
+    console.debug("[spacetime] owned cards subscription created", { viewed_id: viewedId, query });
   };
 
   const isVisibleZone = (zoneId: number): boolean => state.visible_zone_ids.includes(zoneId);
@@ -221,6 +256,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
             state.current_zone_id = 0;
             state.visible_zone_ids = [];
             clearZoneSubscriptions();
+            clearOwnedCardsSubscription();
             notifyStateChanged();
             return;
           }
@@ -231,6 +267,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
             console.debug("[spacetime] viewed_id assigned", { viewed_id: state.viewed_id });
           }
           ensureViewedPlayerSubscription(state.viewed_id);
+          syncOwnedCardsSubscription(state.viewed_id);
           updateViewedWorldPosition();
           notifyStateChanged();
         },
@@ -267,6 +304,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
           state.current_zone_id = 0;
           state.visible_zone_ids = [];
           clearZoneSubscriptions();
+          clearOwnedCardsSubscription();
           notifyStateChanged();
         }
       });
@@ -296,6 +334,38 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
         }
       });
 
+      connection.db.cards.onInsert((_ctx, row) => {
+        if (row.link !== ownedCardsSubscriptionViewId) {
+          return;
+        }
+
+        ownedCardsById.set(row.cardId, row);
+        refreshInventoryCards();
+      });
+
+      connection.db.cards.onUpdate((_ctx, oldRow, row) => {
+        if (oldRow.link === ownedCardsSubscriptionViewId) {
+          ownedCardsById.delete(oldRow.cardId);
+        }
+
+        if (row.link === ownedCardsSubscriptionViewId) {
+          ownedCardsById.set(row.cardId, row);
+        }
+
+        if (oldRow.link === ownedCardsSubscriptionViewId || row.link === ownedCardsSubscriptionViewId) {
+          refreshInventoryCards();
+        }
+      });
+
+      connection.db.cards.onDelete((_ctx, row) => {
+        if (row.link !== ownedCardsSubscriptionViewId) {
+          return;
+        }
+
+        ownedCardsById.delete(row.cardId);
+        refreshInventoryCards();
+      });
+
       notifyStateChanged();
     })
     .onConnectError((_ctx, error) => {
@@ -313,6 +383,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       state.visible_zone_ids = [];
       state.cached_player.clear();
       state.cached_zone.clear();
+      clearOwnedCardsSubscription();
       viewedPlayerSubscriptions.forEach((handle) => {
         handle.unsubscribe();
       });
@@ -333,6 +404,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       viewedPlayerSubscriptions.clear();
       clearZoneSubscriptions();
       connection.disconnect();
+      clearOwnedCardsSubscription();
     },
   };
 };
