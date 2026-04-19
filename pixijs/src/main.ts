@@ -1,6 +1,7 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 
 import { initializeSpacetimeClient } from "./spacetime/client";
+import type { Zone } from "./spacetime/bindings/types";
 import { loadCardDefinitions } from "./spacetime/cardDefinitions";
 import { getDebugInventoryCards } from "./ui/debugCards";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
@@ -16,6 +17,7 @@ interface ClientViewState {
   world_r: number;
   view_z: number;
   current_zone_id: number;
+  visible_zone_ids: number[];
 }
 
 async function bootstrap(): Promise<void> {
@@ -76,6 +78,7 @@ async function bootstrap(): Promise<void> {
     world_r: 0,
     view_z: 0,
     current_zone_id: 0,
+    visible_zone_ids: [],
   };
 
   const updateTitleBar = (titlePanelRect: LayoutRect): void => {
@@ -111,6 +114,9 @@ async function bootstrap(): Promise<void> {
 
     if (worldPanelRect) {
       const worldPanelInnerRect = computePanelInnerRect(worldPanelRect, panelPadding);
+      const visibleZoneRows: Zone[] = viewState.visible_zone_ids
+        .map((zoneId) => spacetimeClient.state.cached_zone.get(zoneId))
+        .filter((zoneRow): zoneRow is Zone => zoneRow !== undefined);
       worldTileMask
         .clear()
         .rect(
@@ -125,7 +131,7 @@ async function bootstrap(): Promise<void> {
         worldTileLayer,
         worldPanelInnerRect,
         screenHeight,
-        spacetimeClient.state.cached_zone.get(viewState.current_zone_id),
+        visibleZoneRows,
         viewState.world_q,
         viewState.world_r,
       );
@@ -179,6 +185,7 @@ async function bootstrap(): Promise<void> {
       viewState.world_r = state.world_r;
       viewState.view_z = state.view_z;
       viewState.current_zone_id = state.current_zone_id;
+      viewState.visible_zone_ids = [...state.visible_zone_ids];
       redrawLayout();
     },
   });

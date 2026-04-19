@@ -12,7 +12,7 @@ export function drawWorldBoardDebugTiles(
   worldLayer: Container,
   worldPanelRect: PanelInnerRect,
   screenHeight: number,
-  zoneRow: Zone | undefined,
+  zoneRows: Zone[],
   viewedWorldQ: number,
   viewedWorldR: number,
 ): void {
@@ -22,54 +22,55 @@ export function drawWorldBoardDebugTiles(
     y: worldPanelRect.y + (worldPanelRect.height / 2),
   };
 
-  if (!zoneRow) {
+  if (zoneRows.length === 0) {
     return;
   }
+  for (const zoneRow of zoneRows) {
+    const tiles = decodeZoneTiles(zoneRow);
+    const { zoneQ, zoneR } = unpackZoneCoord(zoneRow.zone);
+    console.debug("[ui] zone render triggered", { zone_id: zoneRow.zone, zone_q: zoneQ, zone_r: zoneR });
 
-  const tiles = decodeZoneTiles(zoneRow);
-  const { zoneQ, zoneR } = unpackZoneCoord(zoneRow.zone);
-  console.debug("[ui] zone render triggered", { zone_id: zoneRow.zone, zone_q: zoneQ, zone_r: zoneR });
+    for (let localR = 0; localR < 8; localR += 1) {
+      for (let localQ = 0; localQ < 8; localQ += 1) {
+        const definitionByte = tiles[localR]?.[localQ] ?? 0;
+        const definition = getTileDefinition(definitionByte);
+        const worldQ = zoneQ * 8 + localQ;
+        const worldR = zoneR * 8 + localR;
+        const pixel = worldHexToPanelPixel(
+          { q: worldQ - viewedWorldQ, r: worldR - viewedWorldR },
+          hexSize,
+          worldOrigin,
+        );
 
-  for (let localR = 0; localR < 8; localR += 1) {
-    for (let localQ = 0; localQ < 8; localQ += 1) {
-      const definitionByte = tiles[localR]?.[localQ] ?? 0;
-      const definition = getTileDefinition(definitionByte);
-      const worldQ = zoneQ * 8 + localQ;
-      const worldR = zoneR * 8 + localR;
-      const pixel = worldHexToPanelPixel(
-        { q: worldQ - viewedWorldQ, r: worldR - viewedWorldR },
-        hexSize,
-        worldOrigin,
-      );
+        if (!doesHexIntersectPanel(pixel.x, pixel.y, hexSize, worldPanelRect)) {
+          continue;
+        }
 
-      if (!doesHexIntersectPanel(pixel.x, pixel.y, hexSize, worldPanelRect)) {
-        continue;
+        const hexCard = createHexCardView(
+          {
+            id: `zone-${zoneRow.zone}-${localQ}-${localR}`,
+            type: 6,
+            name: definition.name,
+            colors: [definition.color, 0x242f4f, 0xf4f8ff],
+            progress: 0,
+            progressDirection: "clockwise",
+            progressFillColor: 0x1a2540,
+            progressEmptyColor: 0x1a2540,
+          },
+          {
+            centerX: pixel.x,
+            centerY: pixel.y,
+            size: hexSize,
+            screenHeight,
+          },
+        );
+
+        if (!isHexCardType(TILE_CARD_TYPE)) {
+          continue;
+        }
+
+        worldLayer.addChild(hexCard);
       }
-
-      const hexCard = createHexCardView(
-        {
-          id: `zone-${zoneRow.zone}-${localQ}-${localR}`,
-          type: 6,
-          name: definition.name,
-          colors: [definition.color, 0x242f4f, 0xf4f8ff],
-          progress: 0,
-          progressDirection: "clockwise",
-          progressFillColor: 0x1a2540,
-          progressEmptyColor: 0x1a2540,
-        },
-        {
-          centerX: pixel.x,
-          centerY: pixel.y,
-          size: hexSize,
-          screenHeight,
-        },
-      );
-
-      if (!isHexCardType(TILE_CARD_TYPE)) {
-        continue;
-      }
-
-      worldLayer.addChild(hexCard);
     }
   }
 }
