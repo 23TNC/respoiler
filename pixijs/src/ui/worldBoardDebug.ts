@@ -8,6 +8,13 @@ import { worldHexToPanelPixel } from "./hexGrid";
 import { computeHexTileSize } from "./hexLayout";
 import type { PanelInnerRect } from "./panelRenderer";
 
+export interface RenderedHexTileInfo {
+  tile_id: string;
+  definition: string;
+  world_q: number;
+  world_r: number;
+}
+
 export function drawWorldBoardDebugTiles(
   worldLayer: Container,
   worldPanelRect: PanelInnerRect,
@@ -15,6 +22,7 @@ export function drawWorldBoardDebugTiles(
   zoneRows: Zone[],
   viewedWorldQ: number,
   viewedWorldR: number,
+  onHexTileRendered?: (tileView: Container, tileInfo: RenderedHexTileInfo) => void,
 ): void {
   const hexSize = computeHexTileSize(screenHeight);
   const worldOrigin = {
@@ -46,9 +54,10 @@ export function drawWorldBoardDebugTiles(
           continue;
         }
 
+        const tileId = `zone-${zoneRow.zone}-${localQ}-${localR}`;
         const hexCard = createHexCardView(
           {
-            id: `zone-${zoneRow.zone}-${localQ}-${localR}`,
+            id: tileId,
             type: 6,
             name: definition.name,
             colors: [definition.color, 0x242f4f, 0xf4f8ff],
@@ -70,6 +79,12 @@ export function drawWorldBoardDebugTiles(
         }
 
         worldLayer.addChild(hexCard);
+        onHexTileRendered?.(hexCard, {
+          tile_id: tileId,
+          definition: definition.name,
+          world_q: worldQ,
+          world_r: worldR,
+        });
       }
     }
   }

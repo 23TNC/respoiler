@@ -5,9 +5,11 @@ import type { Zone } from "./spacetime/bindings/types";
 import { loadCardDefinitions } from "./spacetime/cardDefinitions";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
-import { createCardView } from "./ui/cardRenderer";
+import { createCardView, setCardSelected } from "./ui/cardRenderer";
 import { computePanelInnerRect, drawPanel } from "./ui/panelRenderer";
 import { drawWorldBoardDebugTiles } from "./ui/worldBoardDebug";
+import { setHexCardSelected } from "./ui/hexCardRenderer";
+import { InteractionManager } from "./ui/interactionManager";
 
 interface ClientViewState {
   observer_id: number;
@@ -70,6 +72,8 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(cardLayer);
   app.stage.addChild(titleText);
 
+  const interactionManager = new InteractionManager({ stage: app.stage });
+
   const viewState: ClientViewState = {
     observer_id: 0,
     viewed_id: 0,
@@ -96,6 +100,7 @@ async function bootstrap(): Promise<void> {
     const layoutById = new Map<PanelId, LayoutRect>(layoutRects.map((rect) => [rect.id, rect]));
 
     panelGraphics.clear();
+    interactionManager.clear();
     cardLayer.removeChildren();
     worldTileLayer.removeChildren();
 
@@ -133,6 +138,21 @@ async function bootstrap(): Promise<void> {
         visibleZoneRows,
         viewState.world_q,
         viewState.world_r,
+        (hexTileView, tileInfo) => {
+          interactionManager.registerHexTile(
+            hexTileView,
+            {
+              kind: "hex-card",
+              tile_id: tileInfo.tile_id,
+              definition: tileInfo.definition,
+              world_q: tileInfo.world_q,
+              world_r: tileInfo.world_r,
+            },
+            (selected) => {
+              setHexCardSelected(hexTileView, selected);
+            },
+          );
+        },
       );
     } else {
       worldTileMask.clear();
@@ -164,6 +184,17 @@ async function bootstrap(): Promise<void> {
 
         const cardView = createCardView(cardData, cardLayoutRect, cardPadding, screenHeight);
         cardLayer.addChild(cardView);
+        interactionManager.registerRectCard(
+          cardView,
+          {
+            kind: "rect-card",
+            card_id: cardData.id,
+            definition: cardData.name,
+          },
+          (selected) => {
+            setCardSelected(cardView, selected);
+          },
+        );
       }
     }
   };

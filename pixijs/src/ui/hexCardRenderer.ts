@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Polygon, Text } from "pixi.js";
 
 import {
   buildHexPerimeterProgressPath,
@@ -7,6 +7,7 @@ import {
   drawClosedPolygonPath,
   type HexProgressDirection,
 } from "./hexGeometry";
+import { createHexSelectionOutline } from "./interactionManager";
 
 export interface HexCard {
   id: string;
@@ -93,10 +94,24 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
   container.addChild(progressLayer);
   container.addChild(labelLayer);
 
+  const hitAreaPoints = pathVertices.flatMap((point) => [point.x, point.y]);
+  container.hitArea = new Polygon(hitAreaPoints);
+
+  const selectionOutline = createHexSelectionOutline(hitAreaPoints);
+  selectionOutline.label = "selection-outline";
+  container.addChild(selectionOutline);
+
   container.label = `hex-card:${card.id}`;
   spriteLayer.label = `hex-card-sprite-layer:${card.id}`;
 
   return container;
+}
+
+export function setHexCardSelected(container: Container, selected: boolean): void {
+  const selectionOutline = container.children.find((child) => child.label === "selection-outline");
+  if (selectionOutline) {
+    selectionOutline.visible = selected;
+  }
 }
 
 interface DrawHexProgressConfig {
