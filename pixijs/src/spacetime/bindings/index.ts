@@ -34,6 +34,7 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import BootstrapReducer from "./bootstrap_reducer";
 import CompleteActionReducer from "./complete_action_reducer";
 import DeleteActionReducer from "./delete_action_reducer";
 import DeleteCardReducer from "./delete_card_reducer";
@@ -42,7 +43,9 @@ import DeleteZoneReducer from "./delete_zone_reducer";
 import DeleteZoneAtReducer from "./delete_zone_at_reducer";
 import FillZoneReducer from "./fill_zone_reducer";
 import FillZoneAtReducer from "./fill_zone_at_reducer";
+import InsertCardReducer from "./insert_card_reducer";
 import QueueActionReducer from "./queue_action_reducer";
+import ResetAndBootstrapReducer from "./reset_and_bootstrap_reducer";
 import SetCardFlagsReducer from "./set_card_flags_reducer";
 import SetZoneRowReducer from "./set_zone_row_reducer";
 import SetZoneRowAtReducer from "./set_zone_row_at_reducer";
@@ -51,7 +54,6 @@ import SetZoneTileAtReducer from "./set_zone_tile_at_reducer";
 import StartActionReducer from "./start_action_reducer";
 import UpdateCardLinkReducer from "./update_card_link_reducer";
 import UpdateCardLocationReducer from "./update_card_location_reducer";
-import UpsertCardReducer from "./upsert_card_reducer";
 import UpsertPlayerReducer from "./upsert_player_reducer";
 import UpsertZoneReducer from "./upsert_zone_reducer";
 import UpsertZoneAtReducer from "./upsert_zone_at_reducer";
@@ -62,6 +64,7 @@ import UpsertZoneAtReducer from "./upsert_zone_at_reducer";
 import ActionsRow from "./actions_table";
 import CardsRow from "./cards_table";
 import PlayersRow from "./players_table";
+import ZonesRow from "./zones_table";
 
 /** Type-only namespace exports for generated type groups. */
 
@@ -104,6 +107,9 @@ const tablesSchema = __schema({
       { accessor: 'card_id', name: 'players_card_id_idx_btree', algorithm: 'btree', columns: [
         'cardId',
       ] },
+      { accessor: 'name', name: 'players_name_idx_btree', algorithm: 'btree', columns: [
+        'name',
+      ] },
       { accessor: 'player_id', name: 'players_player_id_idx_btree', algorithm: 'btree', columns: [
         'playerId',
       ] },
@@ -112,13 +118,26 @@ const tablesSchema = __schema({
       ] },
     ],
     constraints: [
+      { name: 'players_name_key', constraint: 'unique', columns: ['name'] },
       { name: 'players_player_id_key', constraint: 'unique', columns: ['playerId'] },
     ],
   }, PlayersRow),
+  zones: __table({
+    name: 'zones',
+    indexes: [
+      { accessor: 'zone', name: 'zones_zone_idx_btree', algorithm: 'btree', columns: [
+        'zone',
+      ] },
+    ],
+    constraints: [
+      { name: 'zones_zone_key', constraint: 'unique', columns: ['zone'] },
+    ],
+  }, ZonesRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("bootstrap", BootstrapReducer),
   __reducerSchema("complete_action", CompleteActionReducer),
   __reducerSchema("delete_action", DeleteActionReducer),
   __reducerSchema("delete_card", DeleteCardReducer),
@@ -127,7 +146,9 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_zone_at", DeleteZoneAtReducer),
   __reducerSchema("fill_zone", FillZoneReducer),
   __reducerSchema("fill_zone_at", FillZoneAtReducer),
+  __reducerSchema("insert_card", InsertCardReducer),
   __reducerSchema("queue_action", QueueActionReducer),
+  __reducerSchema("reset_and_bootstrap", ResetAndBootstrapReducer),
   __reducerSchema("set_card_flags", SetCardFlagsReducer),
   __reducerSchema("set_zone_row", SetZoneRowReducer),
   __reducerSchema("set_zone_row_at", SetZoneRowAtReducer),
@@ -136,7 +157,6 @@ const reducersSchema = __reducers(
   __reducerSchema("start_action", StartActionReducer),
   __reducerSchema("update_card_link", UpdateCardLinkReducer),
   __reducerSchema("update_card_location", UpdateCardLocationReducer),
-  __reducerSchema("upsert_card", UpsertCardReducer),
   __reducerSchema("upsert_player", UpsertPlayerReducer),
   __reducerSchema("upsert_zone", UpsertZoneReducer),
   __reducerSchema("upsert_zone_at", UpsertZoneAtReducer),

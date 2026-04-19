@@ -1,9 +1,10 @@
 use crate::packing::pack_zone;
-use spacetimedb::{reducer, table, ReducerContext, Table};
+use spacetimedb::{reducer, ReducerContext, Table};
 
 const ZONE_SIZE: u8 = 8;
 
-#[table(accessor = zones)]
+#[spacetimedb::table(accessor = zones, public)]
+#[derive(Debug, Clone)]
 pub struct Zone {
   #[primary_key]
   pub zone: u32,

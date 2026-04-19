@@ -10,10 +10,12 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  playerId: __t.u32().primaryKey().name("player_id"),
-  name: __t.string(),
-  cardId: __t.u32().name("card_id"),
-  zone: __t.u32(),
-  position: __t.u8(),
-});
+export default {
+  cardType: __t.u8(),
+  definitionId: __t.u16(),
+  link: __t.u32(),
+  flags: __t.u64(),
+  q: __t.i32(),
+  r: __t.i32(),
+  z: __t.u16(),
+};

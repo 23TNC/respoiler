@@ -1,16 +1,17 @@
-[
-  {
-    "id": 2001,
-    "name": "Health",
-    "card_type": 2,
-    "style": {
-      "color": [ "#e67373", "#ecd6aa" ]
-    },
-    "flags": [
-      {
-        "flag": 0,
-        "name": "woodcutter"
-      }
-    ]
-  }
-]
+{
+  "card_type": 2,
+  "cards": [
+    {
+      "card_type": 2,
+      "id": 1,
+      "name": "Health",
+      "style": {
+        "color": [ "#e67373", "#ecd6aa" ]
+      },
+      "flags": [
+        [ "woodcutter", false, true, false ],
+        [ "forager",    false, true, false ]
+      ]
+    }
+  ]
+}

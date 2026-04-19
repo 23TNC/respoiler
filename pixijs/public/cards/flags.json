@@ -1,50 +1,27 @@
 [
   {
-    "flag": 0,
-    "name": "ready",
-    "default": false,
-    "show": false
+    "card_type": [ 1, 2, 3, 4, 5, 6, 7, 8 ],
+    "flags": [
+      [ "ready",       false, true, true ],
+      [ "progress",     true, true, true ],
+      [ "pos_lock",    false, true, true ],
+      [ "pos_hold",    false, true, true ],
+      [ "hidden",      false, true, true ],
+      [ "visible",      true, true, true ]
+    ]
   },
   {
-    "flag": 1,
-    "name": "progress_visible",
-    "default": false,
-    "show": false
+    "card_type": [ 1, 6, 7, 8 ],
+    "flags": [
+      [ "recipe_lock", false, true, true ],
+      [ "magnetic",    false, true, true ]
+    ]
   },
   {
-    "flag": 2,
-    "name": "position_lock",
-    "default": false,
-    "show": false
-  },
-  {
-    "flag": 3,
-    "name": "position_hold",
-    "default": false,
-    "show": false
-  },
-  {
-    "flag": 4,
-    "name": "hidden",
-    "default": false,
-    "show": false
-  },
-  {
-    "flag": 5,
-    "name": "not_visible",
-    "default": false,
-    "show": false
-  },
-  {
-    "flag": 6,
-    "name": "recipe_lock",
-    "default": false,
-    "show": false
-  },
-  {
-    "flag": 7,
-    "name": "magnetic_inputs",
-    "default": false,
-    "show": false
-  },
+    "card_type": [ 6 ],
+    "flags": [
+      ["impassable",   false,  true, false ],
+      ["blocks_sight",  true,  true, true  ]
+    ]
+  }
 ]

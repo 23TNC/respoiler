@@ -6,6 +6,7 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import BootstrapReducer from "../bootstrap_reducer";
 import CompleteActionReducer from "../complete_action_reducer";
 import DeleteActionReducer from "../delete_action_reducer";
 import DeleteCardReducer from "../delete_card_reducer";
@@ -14,7 +15,9 @@ import DeleteZoneReducer from "../delete_zone_reducer";
 import DeleteZoneAtReducer from "../delete_zone_at_reducer";
 import FillZoneReducer from "../fill_zone_reducer";
 import FillZoneAtReducer from "../fill_zone_at_reducer";
+import InsertCardReducer from "../insert_card_reducer";
 import QueueActionReducer from "../queue_action_reducer";
+import ResetAndBootstrapReducer from "../reset_and_bootstrap_reducer";
 import SetCardFlagsReducer from "../set_card_flags_reducer";
 import SetZoneRowReducer from "../set_zone_row_reducer";
 import SetZoneRowAtReducer from "../set_zone_row_at_reducer";
@@ -23,11 +26,11 @@ import SetZoneTileAtReducer from "../set_zone_tile_at_reducer";
 import StartActionReducer from "../start_action_reducer";
 import UpdateCardLinkReducer from "../update_card_link_reducer";
 import UpdateCardLocationReducer from "../update_card_location_reducer";
-import UpsertCardReducer from "../upsert_card_reducer";
 import UpsertPlayerReducer from "../upsert_player_reducer";
 import UpsertZoneReducer from "../upsert_zone_reducer";
 import UpsertZoneAtReducer from "../upsert_zone_at_reducer";
 
+export type BootstrapParams = __Infer<typeof BootstrapReducer>;
 export type CompleteActionParams = __Infer<typeof CompleteActionReducer>;
 export type DeleteActionParams = __Infer<typeof DeleteActionReducer>;
 export type DeleteCardParams = __Infer<typeof DeleteCardReducer>;
@@ -36,7 +39,9 @@ export type DeleteZoneParams = __Infer<typeof DeleteZoneReducer>;
 export type DeleteZoneAtParams = __Infer<typeof DeleteZoneAtReducer>;
 export type FillZoneParams = __Infer<typeof FillZoneReducer>;
 export type FillZoneAtParams = __Infer<typeof FillZoneAtReducer>;
+export type InsertCardParams = __Infer<typeof InsertCardReducer>;
 export type QueueActionParams = __Infer<typeof QueueActionReducer>;
+export type ResetAndBootstrapParams = __Infer<typeof ResetAndBootstrapReducer>;
 export type SetCardFlagsParams = __Infer<typeof SetCardFlagsReducer>;
 export type SetZoneRowParams = __Infer<typeof SetZoneRowReducer>;
 export type SetZoneRowAtParams = __Infer<typeof SetZoneRowAtReducer>;
@@ -45,7 +50,6 @@ export type SetZoneTileAtParams = __Infer<typeof SetZoneTileAtReducer>;
 export type StartActionParams = __Infer<typeof StartActionReducer>;
 export type UpdateCardLinkParams = __Infer<typeof UpdateCardLinkReducer>;
 export type UpdateCardLocationParams = __Infer<typeof UpdateCardLocationReducer>;
-export type UpsertCardParams = __Infer<typeof UpsertCardReducer>;
 export type UpsertPlayerParams = __Infer<typeof UpsertPlayerReducer>;
 export type UpsertZoneParams = __Infer<typeof UpsertZoneReducer>;
 export type UpsertZoneAtParams = __Infer<typeof UpsertZoneAtReducer>;

@@ -33,6 +33,7 @@ export type Card = __Infer<typeof Card>;
 
 export const Player = __t.object("Player", {
   playerId: __t.u32(),
+  name: __t.string(),
   cardId: __t.u32(),
   zone: __t.u32(),
   position: __t.u8(),

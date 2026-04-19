@@ -1,44 +1,49 @@
 {
   "player": [
-    { 
-      "player_id": 1, 
-      "card_id": 2
+    {
+      "name": "player1",
+      "card_type": 5,
+      "definition_id": 1,
+      "flags": 0,
+      "q": 0,
+      "r": 0,
+      "z": 1
     }
   ],
   "card": [
-    { "card_id": 2, "definition_id": 5001, "card_type": 5, "owner_card_id": 0 },
-    { "card_id": 6, "definition_id": 6001, "card_type": 6, "owner_card_id": 0 },
-    { "card_id": 3, "definition_id": 1001, "card_type": 1, "owner_card_id": 2 },
-    { "card_id": 4, "definition_id": 2001, "card_type": 2, "owner_card_id": 2 },
-    { "card_id": 5, "definition_id": 2001, "card_type": 2, "owner_card_id": 2 }
-  ],
-  "card_position": [
     {
-      "card_id": 2,
-      "q": 0,
-      "r": 0,
-      "z": 1
+      "card_type": 1,
+      "definition_id": 1,
+      "player": "player1",
+      "flags": 0
     },
     {
-      "card_id": 6,
-      "q": 0,
-      "r": 0,
-      "z": 1
+      "card_type": 2,
+      "definition_id": 1,
+      "player": "player1",
+      "flags": 0
+    },
+    {
+      "card_type": 2,
+      "definition_id": 1,
+      "player": "player1",
+      "flags": 0
     }
   ],
-  "card_link": [
+  "actions": [],
+  "zones": [
     {
-      "card_id": 3,
-      "linked_card_id": 6
-    },
-    {
-      "card_id": 4,
-      "linked_card_id": 3
-    },
-    {
-      "card_id": 5,
-      "linked_card_id": 3
+      "zone_q": 0,
+      "zone_r": 0,
+      "z": 1,
+      "t0": 72340172838076673,
+      "t1": 72340172838076673,
+      "t2": 72340172838076673,
+      "t3": 72340172838076673,
+      "t4": 72340172838076673,
+      "t5": 72340172838076673,
+      "t6": 72340172838076673,
+      "t7": 72340172838076673
     }
-  ],
-  "action_tracker": []
+  ]
 }
