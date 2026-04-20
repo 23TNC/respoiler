@@ -15,6 +15,9 @@ export interface ServerCard {
 }
 
 export interface ClientCard extends ServerCard {
+  card_type: number;
+  definition_id: number;
+
   stale: boolean;
   dirty: boolean;
   selected: boolean;
@@ -113,13 +116,20 @@ export function buildClientCard(server: ServerCard, previous?: ClientCard): Clie
   const { zone_q, zone_r, z } = unpackZone(server.zone);
   const { local_q, local_r } = unpackPosition(server.position);
 
+  const card_type = decodeCardType(server.definition);
+  const definition_id = decodeDefinitionId(server.definition);
+
   return {
     ...server,
+    card_type,
+    definition_id,
+
     stale: false,
     dirty: true,
     selected: previous?.selected ?? false,
     dragging: previous?.dragging ?? false,
     hidden: previous?.hidden ?? false,
+
     zone_q,
     zone_r,
     z,

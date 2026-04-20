@@ -1,5 +1,5 @@
 import { Application } from "pixi.js";
-
+import { bootstrap } from './spacetime/debug_data';
 import { GameView } from "./ui/game_view";
 
 async function bootstrap(): Promise<void> {
@@ -30,7 +30,8 @@ async function bootstrap(): Promise<void> {
   root.appendChild(app.canvas);
   app.canvas.style.display = "block";
 
-  const viewedId = "local-player";
+  bootstrap();
+  const viewedId = "1";
   const gameView = new GameView({ app, viewedId });
 
   const resizeApp = (): void => {
