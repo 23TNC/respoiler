@@ -1,8 +1,8 @@
 import { Application } from "pixi.js";
-import { bootstrap } from './spacetime/debug_data';
+import { bootstrap as loadDebugData } from './spacetime/debug_data';
 import { GameView } from "./ui/game_view";
 
-async function bootstrap(): Promise<void> {
+async function startApp(): Promise<void> {
   const root = document.getElementById("app");
 
   if (!root) {
@@ -30,7 +30,7 @@ async function bootstrap(): Promise<void> {
   root.appendChild(app.canvas);
   app.canvas.style.display = "block";
 
-  bootstrap();
+  loadDebugData();
   const viewedId: number = 1;
   const gameView = new GameView({ app, viewedId });
 
@@ -45,7 +45,8 @@ async function bootstrap(): Promise<void> {
   resizeObserver.observe(root);
   window.addEventListener("resize", resizeApp);
 
+  console.log("[respoiler] debug data loaded, rendering game view");
   gameView.render();
 }
 
-void bootstrap();
+void startApp();
