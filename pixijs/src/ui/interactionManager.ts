@@ -14,6 +14,7 @@ export interface InteractableMetadata {
   definition?: string;
   world_q?: number;
   world_r?: number;
+  z?: number;
 }
 
 interface InteractableRegistration {
@@ -112,6 +113,23 @@ export class InteractionManager {
   public registerHexTile(target: Container, metadata: InteractableMetadata, setSelected: (selected: boolean) => void): void {
     const registration = this.register({ target, metadata, draggable: false, setSelected });
     this.hexDropTargets.add(registration);
+  }
+
+  public restoreSelection(matches: (metadata: InteractableMetadata) => boolean): void {
+    if (this.selected) {
+      this.selected.setSelected(false);
+      this.selected = null;
+    }
+
+    for (const registration of this.registrations) {
+      if (!matches(registration.metadata)) {
+        continue;
+      }
+
+      this.selected = registration;
+      this.selected.setSelected(true);
+      break;
+    }
   }
 
   private register(registration: InteractableRegistration): InteractableRegistration {

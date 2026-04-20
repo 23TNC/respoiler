@@ -4,7 +4,7 @@ import { initializeSpacetimeClient } from "./spacetime/client";
 import type { Zone } from "./spacetime/bindings/types";
 import { loadCardDefinitions } from "./spacetime/cardDefinitions";
 import type { InventoryCard } from "./spacetime/inventory";
-import { worldToZone } from "./spacetime/zoneMath";
+import { packedZoneAndPositionToWorld, worldToZone } from "./spacetime/zoneMath";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
 import { createCardView, setCardSelected } from "./ui/cardRenderer";
@@ -29,13 +29,20 @@ const createSelectionCardFromMetadata = (
   viewedId: number,
 ): InventoryCard | null => {
   if (metadata.card_type === 6) {
+    const worldQ = metadata.world_q ?? 0;
+    const worldR = metadata.world_r ?? 0;
+    const worldZ = metadata.z ?? 0;
+    const zoneInfo = worldToZone(worldQ, worldR, worldZ);
+    const localQ = worldQ - (zoneInfo.zoneQ * 8);
+    const localR = worldR - (zoneInfo.zoneR * 8);
+
     return {
       id: metadata.tile_id ?? metadata.card_id ?? "tile",
       card_id: Number.parseInt(metadata.card_id ?? "0", 10),
       card_type: 6,
       linked: metadata.linked ?? viewedId,
-      zone: metadata.zone ?? 0,
-      position: metadata.position ?? 0,
+      zone: metadata.zone ?? zoneInfo.zoneId,
+      position: metadata.position ?? (((localQ & 0x07) << 3) | (localR & 0x07)),
       name: metadata.name ?? metadata.definition ?? "Unknown Tile",
       colors: [0x365486, 0x242f4f, 0xf4f8ff],
       progress: 0,
@@ -130,6 +137,26 @@ async function bootstrap(): Promise<void> {
 
   let selectedDetailsCard: InventoryCard | null = null;
 
+  const metadataMatchesSelectedCard = (metadata: InteractableMetadata): boolean => {
+    if (!selectedDetailsCard) {
+      return false;
+    }
+
+    if (selectedDetailsCard.card_type === 6) {
+      if (metadata.card_type !== 6) {
+        return false;
+      }
+
+      const selectedWorld = packedZoneAndPositionToWorld(selectedDetailsCard.zone, selectedDetailsCard.position);
+      return metadata.world_q === selectedWorld.worldQ
+        && metadata.world_r === selectedWorld.worldR
+        && metadata.z === selectedWorld.z;
+    }
+
+    return metadata.card_type === selectedDetailsCard.card_type
+      && Number.parseInt(metadata.card_id ?? "-1", 10) === selectedDetailsCard.card_id;
+  };
+
   const updateTitleBar = (titlePanelRect: LayoutRect): void => {
     titleText.text = `observer: ${viewState.observer_id || 0}, viewed: ${viewState.viewed_id || 0}, q: ${viewState.world_q || 0}, r: ${viewState.world_r || 0}, z: ${viewState.view_z || 0}`;
     titleText.x = titlePanelRect.x + Math.max(8, titlePanelRect.height * 0.18);
@@ -207,6 +234,7 @@ async function bootstrap(): Promise<void> {
               definition: tileInfo.definition,
               world_q: tileInfo.world_q,
               world_r: tileInfo.world_r,
+              z: viewState.view_z,
               linked: viewState.viewed_id,
               zone: zoneInfo.zoneId,
               position: ((localQ & 0x07) << 3) | (localR & 0x07),
@@ -266,6 +294,10 @@ async function bootstrap(): Promise<void> {
           },
         );
       }
+    }
+
+    if (selectedDetailsCard) {
+      interactionManager.restoreSelection(metadataMatchesSelectedCard);
     }
 
     const detailsPanelRect = layoutById.get("detailsPanel");
