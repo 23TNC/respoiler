@@ -31,7 +31,7 @@ async function bootstrap(): Promise<void> {
   app.canvas.style.display = "block";
 
   bootstrap();
-  const viewedId = "1";
+  const viewedId: number = 1;
   const gameView = new GameView({ app, viewedId });
 
   const resizeApp = (): void => {

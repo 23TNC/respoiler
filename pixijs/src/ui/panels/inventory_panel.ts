@@ -1,4 +1,4 @@
-import { client_cards, decodeCardType } from "../../spacetime/data";
+import { type ClientCard, client_cards, viewed_id } from "../../spacetime/data";
 import { computeInventoryCardLayoutRects } from "../rectangle/card_layout";
 import { createRectangleCardView } from "../rectangle/card_renderer";
 import type { LayoutRect } from "./layout";
@@ -13,44 +13,56 @@ export class InventoryPanel extends Panel {
   }
 
   override refresh(screenWidth: number, screenHeight: number): void {
-    this.clearContent();
+    this.removeChildren();
 
-    const panelCards = Object.values(client_cards)
-      .filter((card) => decodeCardType(card.definition) === this.cardType)
+    const cards = Object.values(client_cards)
+      .filter((card) => (
+        card.zone === 0
+        && card.card_type === this.cardType
+        && card.link === viewed_id
+      ))
       .sort((a, b) => a.card_id - b.card_id);
 
-    if (panelCards.length === 0) {
+    if (cards.length === 0) {
       return;
     }
 
-    const layoutRects = computeInventoryCardLayoutRects(this.getLayoutRect(), panelCards.length, screenWidth, screenHeight);
+    const layoutRects = computeInventoryCardLayoutRects(this.getLayoutRect(), cards.length, screenWidth, screenHeight);
     const cardPadding = screenHeight / 240;
 
-    for (let index = 0; index < panelCards.length; index += 1) {
-      const card = panelCards[index];
+    for (let index = 0; index < cards.length; index += 1) {
+      const card = cards[index];
       const layoutRect = layoutRects[index];
 
       if (!layoutRect) {
         continue;
       }
 
-      const cardView = createRectangleCardView(
-        {
-          id: String(card.card_id),
-          name: `#${card.card_id}`,
-          colors: inventoryColorsForType(this.cardType),
-          progress: 0,
-          progressDirection: "clockwise",
-          progressFillColor: 0xc9d8ed,
-          progressEmptyColor: 0x2f4258,
-        },
-        layoutRect,
-        cardPadding,
-        screenHeight,
-      );
-
-      this.content.addChild(cardView);
+      this.drawCard(card, layoutRect, cardPadding, screenHeight);
     }
+  }
+
+  private removeChildren(): void {
+    this.clearContent();
+  }
+
+  private drawCard(card: ClientCard, layoutRect: LayoutRect, cardPadding: number, screenHeight: number): void {
+    const cardView = createRectangleCardView(
+      {
+        id: String(card.card_id),
+        name: `#${card.card_id}`,
+        colors: inventoryColorsForType(this.cardType),
+        progress: 0,
+        progressDirection: "clockwise",
+        progressFillColor: 0xc9d8ed,
+        progressEmptyColor: 0x2f4258,
+      },
+      layoutRect,
+      cardPadding,
+      screenHeight,
+    );
+
+    this.content.addChild(cardView);
   }
 }
 

@@ -14,13 +14,13 @@ export interface GameViewData {
 
 interface GameViewOptions {
   app: Application;
-  viewedId: string;
+  viewedId: number;
   initialData?: Partial<GameViewData>;
 }
 
 export class GameView {
   private readonly app: Application;
-  private readonly viewedId: string;
+  private readonly viewedId: number;
   private readonly panelLayer: Container;
   private readonly panelById: Partial<Record<PanelId, Panel>>;
 
