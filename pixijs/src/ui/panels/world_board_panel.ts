@@ -35,14 +35,32 @@ export class WorldBoardPanel extends Panel {
 
     const viewport_zone_q = Math.floor(this.viewport_q / 8);
     const viewport_zone_r = Math.floor(this.viewport_r / 8);
-    const viewport_zone = packZone(viewport_zone_q, viewport_zone_r, this.z);
+    const viewport_local_q = ((this.viewport_q % 8) + 8) % 8;
+    const viewport_local_r = ((this.viewport_r % 8) + 8) % 8;
+    const neighbor_zone_q = viewport_local_q < 4 ? viewport_zone_q - 1 : viewport_zone_q + 1;
+    const neighbor_zone_r = viewport_local_r < 4 ? viewport_zone_r - 1 : viewport_zone_r + 1;
+
+    this.renderZone(viewport_zone_q, viewport_zone_r, this.z, hexSize, screenHeight, worldOrigin);
+    this.renderZone(neighbor_zone_q, viewport_zone_r, this.z, hexSize, screenHeight, worldOrigin);
+    this.renderZone(viewport_zone_q, neighbor_zone_r, this.z, hexSize, screenHeight, worldOrigin);
+    this.renderZone(neighbor_zone_q, neighbor_zone_r, this.z, hexSize, screenHeight, worldOrigin);
+  }
+
+  private renderZone(
+    zone_q: number,
+    zone_r: number,
+    z: number,
+    hexSize: number,
+    screenHeight: number,
+    worldOrigin: { x: number; y: number },
+  ): void {
+    const zone = packZone(zone_q, zone_r, z);
 
     for (let local_q = 0; local_q < 8; local_q += 1) {
       for (let local_r = 0; local_r < 8; local_r += 1) {
-        const world_q = viewport_zone_q * 8 + local_q;
-        const world_r = viewport_zone_r * 8 + local_r;
-
-        const tile = this.resolveDisplayedWorldTile(viewport_zone, world_q, world_r, local_q, local_r);
+        const world_q = zone_q * 8 + local_q;
+        const world_r = zone_r * 8 + local_r;
+        const tile = this.resolveDisplayedWorldTile(zone, world_q, world_r, local_q, local_r, z);
         if (!tile) {
           continue;
         }
@@ -86,15 +104,16 @@ export class WorldBoardPanel extends Panel {
     world_r: number,
     local_q: number,
     local_r: number,
+    z: number,
   ): DisplayWorldTile | null {
-    const clientTile = this.resolveClientWorldTile(zone, world_q, world_r);
+    const clientTile = this.resolveClientWorldTile(zone, world_q, world_r, z);
     if (clientTile) {
       return {
         card_type: 6,
         definition_id: clientTile.definition_id,
         world_q,
         world_r,
-        z: this.z,
+        z,
         id: String(clientTile.card_id),
       };
     }
@@ -109,12 +128,12 @@ export class WorldBoardPanel extends Panel {
       definition_id,
       world_q,
       world_r,
-      z: this.z,
+      z,
       id: `zone:${zone}:${local_q}:${local_r}`,
     };
   }
 
-  private resolveClientWorldTile(zone: number, world_q: number, world_r: number): ClientCard | null {
+  private resolveClientWorldTile(zone: number, world_q: number, world_r: number, z: number): ClientCard | null {
     const zoneCardIds = client_cards_by_zone[zone];
     if (!zoneCardIds) {
       return null;
@@ -130,7 +149,7 @@ export class WorldBoardPanel extends Panel {
         continue;
       }
 
-      if (card.world_q !== world_q || card.world_r !== world_r || card.z !== this.z) {
+      if (card.world_q !== world_q || card.world_r !== world_r || card.z !== z) {
         continue;
       }
 
