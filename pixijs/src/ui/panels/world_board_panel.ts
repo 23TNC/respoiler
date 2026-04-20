@@ -2,6 +2,7 @@ import { client_cards, client_cards_by_zone, packZone, server_zones, type Client
 import { createHexCardView } from "../hexagon/card_renderer";
 import { worldHexToPanelPixel } from "../hexagon/grid";
 import { computeHexTileSize } from "../hexagon/layout";
+import type { HitEntity } from "../input/types";
 import type { LayoutRect } from "./layout";
 import { Panel } from "./panel";
 
@@ -168,5 +169,31 @@ export class WorldBoardPanel extends Panel {
     const packedColumn = columns[local_q] ?? 0n;
     const shifted = packedColumn >> BigInt(local_r * 8);
     return Number(shifted & 0xffn);
+  }
+
+  protected override hitTest(x: number, y: number, options?: { ignoreEntity?: HitEntity | null }): HitEntity | null {
+    for (let index = this.content.children.length - 1; index >= 0; index -= 1) {
+      const child = this.content.children[index];
+      if (!child.getBounds().contains(x, y)) {
+        continue;
+      }
+
+      const match = /^hex-card:(.+)$/.exec(child.label ?? "");
+      if (!match) {
+        continue;
+      }
+
+      const id = match[1];
+      if (options?.ignoreEntity?.type === "tile" && String(options.ignoreEntity.id) === id) {
+        continue;
+      }
+
+      return {
+        type: "tile",
+        id,
+      };
+    }
+
+    return null;
   }
 }

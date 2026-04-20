@@ -78,6 +78,7 @@ export function createRectangleCardView(
 
   container.addChild(graphics);
   container.addChild(text);
+  container.label = `rectangle-card:${card.id}`;
 
   return container;
 }
