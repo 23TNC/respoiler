@@ -69,10 +69,18 @@ export class InventoryPanel extends Panel {
   protected override hitTest(x: number, y: number, options?: { ignoreEntity?: HitEntity | null }): HitEntity | null {
     for (let index = this.content.children.length - 1; index >= 0; index -= 1) {
       const child = this.content.children[index];
-      if (!child.getBounds().contains(x, y)) {
+
+      const bounds = child.getBounds();
+
+      if (
+        x < bounds.x ||
+        x > bounds.x + bounds.width ||
+        y < bounds.y ||
+        y > bounds.y + bounds.height
+      ) {
         continue;
       }
-
+      
       const match = /^rectangle-card:(\d+)$/.exec(child.label ?? "");
       if (!match) {
         continue;
