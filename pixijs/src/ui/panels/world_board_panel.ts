@@ -1,11 +1,24 @@
-import { client_cards, decodeCardType } from "../../spacetime/data";
+import { client_cards, client_cards_by_zone, packZone, server_zones, type ClientCard, type ServerZone } from "../../spacetime/data";
 import { createHexCardView } from "../hexagon/card_renderer";
 import { worldHexToPanelPixel } from "../hexagon/grid";
 import { computeHexTileSize } from "../hexagon/layout";
 import type { LayoutRect } from "./layout";
 import { Panel } from "./panel";
 
+interface DisplayWorldTile {
+  card_type: 6;
+  definition_id: number;
+  world_q: number;
+  world_r: number;
+  z: number;
+  id: string;
+}
+
 export class WorldBoardPanel extends Panel {
+  private readonly viewport_q = 0;
+  private readonly viewport_r = 0;
+  private readonly z = 1;
+
   constructor(layoutRect: LayoutRect, panelPadding: number) {
     super(layoutRect, panelPadding);
   }
@@ -20,32 +33,121 @@ export class WorldBoardPanel extends Panel {
       y: innerRect.y + (innerRect.height / 2),
     };
 
-    for (const card of Object.values(client_cards)) {
-      if (decodeCardType(card.definition) !== 6) {
+    const viewport_zone_q = Math.floor(this.viewport_q / 8);
+    const viewport_zone_r = Math.floor(this.viewport_r / 8);
+    const viewport_zone = packZone(viewport_zone_q, viewport_zone_r, this.z);
+
+    for (let local_q = 0; local_q < 8; local_q += 1) {
+      for (let local_r = 0; local_r < 8; local_r += 1) {
+        const world_q = viewport_zone_q * 8 + local_q;
+        const world_r = viewport_zone_r * 8 + local_r;
+
+        const tile = this.resolveDisplayedWorldTile(viewport_zone, world_q, world_r, local_q, local_r);
+        if (!tile) {
+          continue;
+        }
+
+        const pixel = worldHexToPanelPixel(
+          {
+            q: tile.world_q - this.viewport_q,
+            r: tile.world_r - this.viewport_r,
+          },
+          hexSize,
+          worldOrigin,
+        );
+
+        const hexCard = createHexCardView(
+          {
+            id: tile.id,
+            type: 6,
+            name: `#${tile.definition_id}`,
+            colors: [0xd3deef],
+            progress: 0,
+            progressDirection: "clockwise",
+            progressFillColor: 0x8da6c6,
+            progressEmptyColor: 0x32475f,
+          },
+          {
+            centerX: pixel.x,
+            centerY: pixel.y,
+            size: hexSize,
+            screenHeight,
+          },
+        );
+
+        this.content.addChild(hexCard);
+      }
+    }
+  }
+
+  private resolveDisplayedWorldTile(
+    zone: number,
+    world_q: number,
+    world_r: number,
+    local_q: number,
+    local_r: number,
+  ): DisplayWorldTile | null {
+    const clientTile = this.resolveClientWorldTile(zone, world_q, world_r);
+    if (clientTile) {
+      return {
+        card_type: 6,
+        definition_id: clientTile.definition_id,
+        world_q,
+        world_r,
+        z: this.z,
+        id: String(clientTile.card_id),
+      };
+    }
+
+    const definition_id = this.decodeServerZoneDefinitionId(server_zones[zone], local_q, local_r);
+    if (definition_id === 0) {
+      return null;
+    }
+
+    return {
+      card_type: 6,
+      definition_id,
+      world_q,
+      world_r,
+      z: this.z,
+      id: `zone:${zone}:${local_q}:${local_r}`,
+    };
+  }
+
+  private resolveClientWorldTile(zone: number, world_q: number, world_r: number): ClientCard | null {
+    const zoneCardIds = client_cards_by_zone[zone];
+    if (!zoneCardIds) {
+      return null;
+    }
+
+    for (const card_id of zoneCardIds) {
+      const card = client_cards[card_id];
+      if (!card) {
         continue;
       }
 
-      const pixel = worldHexToPanelPixel({ q: card.world_q, r: card.world_r }, hexSize, worldOrigin);
-      const hexCard = createHexCardView(
-        {
-          id: String(card.card_id),
-          type: 6,
-          name: `#${card.card_id}`,
-          colors: [0xd3deef],
-          progress: 0,
-          progressDirection: "clockwise",
-          progressFillColor: 0x8da6c6,
-          progressEmptyColor: 0x32475f,
-        },
-        {
-          centerX: pixel.x,
-          centerY: pixel.y,
-          size: hexSize,
-          screenHeight,
-        },
-      );
+      if (card.card_type !== 6) {
+        continue;
+      }
 
-      this.content.addChild(hexCard);
+      if (card.world_q !== world_q || card.world_r !== world_r || card.z !== this.z) {
+        continue;
+      }
+
+      return card;
     }
+
+    return null;
+  }
+
+  private decodeServerZoneDefinitionId(zone: ServerZone | undefined, local_q: number, local_r: number): number {
+    if (!zone) {
+      return 0;
+    }
+
+    const columns = [zone.t_0, zone.t_1, zone.t_2, zone.t_3, zone.t_4, zone.t_5, zone.t_6, zone.t_7];
+    const packedColumn = columns[local_q] ?? 0n;
+    const shifted = packedColumn >> BigInt(local_r * 8);
+    return Number(shifted & 0xffn);
   }
 }
