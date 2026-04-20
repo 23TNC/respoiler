@@ -2,7 +2,7 @@ import { Container, Graphics, Polygon, Text } from "pixi.js";
 
 import {
   buildHexPerimeterProgressPath,
-  buildPointyTopHexVertices,
+  buildFlatTopHexVertices,
   computeInsetHexSize,
   drawClosedPolygonPath,
   type HexProgressDirection,
@@ -44,7 +44,7 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
 
   const hexPathInset = strokeWidth / 2;
   const pathSize = computeInsetHexSize(config.size, strokeWidth);
-  const pathVertices = buildPointyTopHexVertices(config.centerX, config.centerY, pathSize);
+  const pathVertices = buildFlatTopHexVertices(config.centerX, config.centerY, pathSize);
 
   drawClosedPolygonPath(backgroundLayer, pathVertices);
   backgroundLayer
@@ -72,7 +72,7 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
       fontWeight: "700",
       align: "center",
       wordWrap: true,
-      wordWrapWidth: Math.sqrt(3) * pathSize * 0.75,
+      wordWrapWidth: (2 * pathSize) * 0.75,
       breakWords: true,
     },
   });
@@ -127,7 +127,7 @@ interface DrawHexProgressConfig {
 }
 
 function drawHexProgress(graphics: Graphics, config: DrawHexProgressConfig): void {
-  const outlineVertices = buildPointyTopHexVertices(config.centerX, config.centerY, config.size, config.inset);
+  const outlineVertices = buildFlatTopHexVertices(config.centerX, config.centerY, config.size, config.inset);
 
   drawClosedPolygonPath(graphics, outlineVertices);
   graphics.stroke({ color: config.emptyColor, width: config.strokeWidth, alpha: 1 });
