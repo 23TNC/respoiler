@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text } from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Text } from "pixi.js";
 
 import { initializeSpacetimeClient } from "./spacetime/client";
 import type { Zone } from "./spacetime/bindings/types";
@@ -118,6 +118,14 @@ async function bootstrap(): Promise<void> {
 
     if (worldPanelRect) {
       const worldPanelInnerRect = computePanelInnerRect(worldPanelRect, panelPadding);
+      interactionManager.setWorldDropBounds(
+        new Rectangle(
+          worldPanelInnerRect.x,
+          worldPanelInnerRect.y,
+          worldPanelInnerRect.width,
+          worldPanelInnerRect.height,
+        ),
+      );
       const visibleZoneRows: Zone[] = viewState.visible_zone_ids
         .map((zoneId) => spacetimeClient.state.cached_zone.get(zoneId))
         .filter((zoneRow): zoneRow is Zone => zoneRow !== undefined);
@@ -155,6 +163,7 @@ async function bootstrap(): Promise<void> {
         },
       );
     } else {
+      interactionManager.setWorldDropBounds(null);
       worldTileMask.clear();
     }
 
