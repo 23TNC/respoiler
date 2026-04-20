@@ -1,4 +1,4 @@
-import { type ClientCard, client_cards, viewed_id } from "../../spacetime/data";
+import { type ClientCard, client_cards, getCardDefinition, viewed_id } from "../../spacetime/data";
 import type { HitEntity } from "../input/types";
 import { computeInventoryCardLayoutRects } from "../rectangle/card_layout";
 import { createRectangleCardView } from "../rectangle/card_renderer";
@@ -49,11 +49,19 @@ export class InventoryPanel extends Panel {
   }
 
   private drawCard(card: ClientCard, layoutRect: LayoutRect, cardPadding: number, screenHeight: number): void {
+    const fallbackLabel = `#${card.card_id}`;
+    const fallbackColors = inventoryColorsForType(this.cardType);
+    const definition = getCardDefinition(card.definition);
+
+    const title = definition?.name ?? fallbackLabel;
+    const topColor = resolveStyleColor(definition, 0, fallbackColors[0]);
+    const bottomColor = resolveStyleColor(definition, 1, fallbackColors[1]);
+
     const cardView = createRectangleCardView(
       {
         id: String(card.card_id),
-        name: `#${card.card_id}`,
-        colors: inventoryColorsForType(this.cardType),
+        name: title,
+        colors: [topColor, bottomColor, fallbackColors[2]],
         progress: 0,
         progressDirection: "clockwise",
         progressFillColor: 0xc9d8ed,
@@ -112,4 +120,26 @@ function inventoryColorsForType(cardType: number): [number, number, number] {
   };
 
   return paletteByType[cardType] ?? [0x43617e, 0x2f4258, 0xf4f8ff];
+}
+
+function resolveStyleColor(
+  definition: { style?: { color?: Array<number | string> } } | undefined,
+  index: number,
+  fallback: number,
+): number {
+  const rawColor = definition?.style?.color?.[index];
+  if (typeof rawColor === "number") {
+    return rawColor;
+  }
+
+  if (typeof rawColor !== "string") {
+    return fallback;
+  }
+
+  const normalized = rawColor.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return fallback;
+  }
+
+  return Number.parseInt(normalized, 16);
 }

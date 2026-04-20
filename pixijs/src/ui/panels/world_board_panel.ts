@@ -1,4 +1,13 @@
-import { client_cards, client_cards_by_zone, packZone, server_zones, type ClientCard, type ServerZone } from "../../spacetime/data";
+import {
+  client_cards,
+  client_cards_by_zone,
+  getCardDefinition,
+  packDefinition,
+  packZone,
+  server_zones,
+  type ClientCard,
+  type ServerZone,
+} from "../../spacetime/data";
 import { createHexCardView } from "../hexagon/card_renderer";
 import { worldHexToPanelPixel } from "../hexagon/grid";
 import { computeHexTileSize } from "../hexagon/layout";
@@ -8,6 +17,7 @@ import { Panel } from "./panel";
 
 interface DisplayWorldTile {
   card_type: 6;
+  definition: number;
   definition_id: number;
   world_q: number;
   world_r: number;
@@ -79,8 +89,8 @@ export class WorldBoardPanel extends Panel {
           {
             id: tile.id,
             type: 6,
-            name: `#${tile.definition_id}`,
-            colors: [0xd3deef],
+            name: getCardDefinition(tile.definition)?.name ?? `#${tile.definition_id}`,
+            colors: [resolveStyleColor(getCardDefinition(tile.definition), 0, 0xd3deef)],
             progress: 0,
             progressDirection: "clockwise",
             progressFillColor: 0x8da6c6,
@@ -111,6 +121,7 @@ export class WorldBoardPanel extends Panel {
     if (clientTile) {
       return {
         card_type: 6,
+        definition: clientTile.definition,
         definition_id: clientTile.definition_id,
         world_q,
         world_r,
@@ -126,6 +137,7 @@ export class WorldBoardPanel extends Panel {
 
     return {
       card_type: 6,
+      definition: packDefinition(6, definition_id),
       definition_id,
       world_q,
       world_r,
@@ -203,4 +215,26 @@ export class WorldBoardPanel extends Panel {
 
     return null;
   }
+}
+
+function resolveStyleColor(
+  definition: { style?: { color?: Array<number | string> } } | undefined,
+  index: number,
+  fallback: number,
+): number {
+  const rawColor = definition?.style?.color?.[index];
+  if (typeof rawColor === "number") {
+    return rawColor;
+  }
+
+  if (typeof rawColor !== "string") {
+    return fallback;
+  }
+
+  const normalized = rawColor.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return fallback;
+  }
+
+  return Number.parseInt(normalized, 16);
 }
