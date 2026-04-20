@@ -94,6 +94,10 @@ export class DetailsPanel extends Panel {
       return {
         card_type: selectedCard.card_type,
         definition_id: selectedCard.definition_id,
+        world_q: selectedCard.world_q,
+        world_r: selectedCard.world_r,
+        z: selectedCard.z,
+
       };
     }
 
