@@ -18,6 +18,9 @@ import {
   setObserverId,
   clearSelectedState,
   upsertClientCard,
+  clearCardDefinitions,
+  packDefinition,
+  upsertCardDefinition,
 } from './data';
 
 function clearRecord<T>(record: Record<number, T>): void {
@@ -33,6 +36,8 @@ export function bootstrap(): void {
   clearRecord(server_actions);
   clearRecord(server_zones);
   clearRecord(client_cards);
+  clearCardDefinitions();
+  seedDebugDefinitions();
 
   setViewedId(1);
   setObserverId(1);
@@ -115,4 +120,34 @@ export function bootstrap(): void {
 
   
   clearSelectedState();
+}
+
+function seedDebugDefinitions(): void {
+  const definitionsByCardType: Record<number, Array<{ name: string; style?: { color?: string[] } }>> = {
+    1: [
+      { name: "Might", style: { color: ["#E67E7E", "#ecd6aa"] } },
+      { name: "Finesse", style: { color: ["#97e3a7", "#ecd6aa"] } },
+      { name: "Insight", style: { color: ["#7D96E3", "#ecd6aa"] } },
+    ],
+    2: [
+      { name: "Health", style: { color: ["#e67373", "#ecd6aa"] } },
+    ],
+    5: [
+      { name: "Human", style: { color: ["#a8e0e6", "#ecd6aa"] } },
+    ],
+    6: [
+      { name: "Plains", style: { color: ["#799E50", "#7fb377", "#0b160b"] } },
+      { name: "Forest", style: { color: ["#395C39", "#7fb377", "#0b160b"] } },
+    ],
+  };
+
+  for (const cardTypeKey in definitionsByCardType) {
+    const card_type = Number(cardTypeKey);
+    const entries = definitionsByCardType[card_type];
+
+    for (let index = 0; index < entries.length; index += 1) {
+      const definition_id = index + 1;
+      upsertCardDefinition(packDefinition(card_type, definition_id), entries[index]);
+    }
+  }
 }
