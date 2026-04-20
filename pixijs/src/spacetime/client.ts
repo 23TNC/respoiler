@@ -1,6 +1,7 @@
 import { DbConnection, type SubscriptionHandle } from "./bindings";
-import type { Card, Player, Zone } from "./bindings/types";
+import type { Player, Zone } from "./bindings/types";
 import { buildInventoryCards } from "./inventory";
+import { rebuildLocalCards } from "./localCards";
 import { createSpacetimeState, type SpacetimeState } from "./state/spacetimeState";
 import { subscribeToPlayersByName, type PlayersTableSubscription } from "./tables/players";
 import { packZoneCoord, signExtendI12, worldToZone } from "./zoneMath";
@@ -21,11 +22,19 @@ export interface SpacetimeClient {
 export const initializeSpacetimeClient = (options: SpacetimeClientOptions): SpacetimeClient => {
   const state = createSpacetimeState();
   let playersSubscription: PlayersTableSubscription | undefined;
+  let cardsSubscription: SubscriptionHandle | undefined;
+  let actionsSubscription: SubscriptionHandle | undefined;
   const viewedPlayerSubscriptions = new Map<number, SubscriptionHandle>();
   const zoneSubscriptions = new Map<number, SubscriptionHandle>();
-  const ownedCardsById = new Map<number, Card>();
-  let ownedCardsSubscription: SubscriptionHandle | undefined;
-  let ownedCardsSubscriptionViewId = 0;
+
+  const notifyStateChanged = (): void => {
+    options.onStateChanged?.(state);
+  };
+
+  const rebuildLocalCardsFromCaches = (): void => {
+    state.local_cards = rebuildLocalCards(state.cached_cards, state.cached_zones);
+    state.inventory_cards = buildInventoryCards(state.local_cards.values(), state.viewed_id);
+  };
 
   const getRequiredZones = (zoneQ: number, zoneR: number, z: number, localQ: number, localR: number): number[] => {
     const horizontalOffset = localQ < 4 ? -1 : localQ > 4 ? 1 : 0;
@@ -52,6 +61,24 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     return [...zoneIds];
   };
 
+  const ensureCachedRowSubscription = <Row>(
+    key: number,
+    subscriptions: Map<number, SubscriptionHandle>,
+    rowCache: Map<number, Row>,
+    queryBuilder: (id: number) => string,
+  ): void => {
+    if (subscriptions.has(key)) {
+      console.debug("[spacetime] subscription cache hit", { key });
+      return;
+    }
+
+    console.debug("[spacetime] subscription cache miss", { key, cached_rows: rowCache.size });
+    const query = queryBuilder(key);
+    const subscriptionHandle = connection.subscriptionBuilder().subscribe(query);
+    subscriptions.set(key, subscriptionHandle);
+    console.debug("[spacetime] subscription created", { key, query });
+  };
+
   const syncZoneSubscriptions = (requiredZoneIds: number[]): void => {
     const required = new Set(requiredZoneIds);
 
@@ -59,7 +86,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       ensureCachedRowSubscription<Zone>(
         zoneId,
         zoneSubscriptions,
-        state.cached_zone,
+        state.cached_zones,
         (id) => `select * from zones where zone == ${id}`,
       );
     });
@@ -79,38 +106,11 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     zoneSubscriptions.clear();
   };
 
-  const clearOwnedCardsSubscription = (): void => {
-    ownedCardsSubscription?.unsubscribe();
-    ownedCardsSubscription = undefined;
-    ownedCardsSubscriptionViewId = 0;
-    ownedCardsById.clear();
-    state.inventory_cards = buildInventoryCards(ownedCardsById.values());
+  const clearCardCaches = (): void => {
+    state.cached_cards.clear();
+    state.cached_actions.clear();
+    rebuildLocalCardsFromCaches();
   };
-
-  const refreshInventoryCards = (): void => {
-    state.inventory_cards = buildInventoryCards(ownedCardsById.values());
-    notifyStateChanged();
-  };
-
-  const syncOwnedCardsSubscription = (viewedId: number): void => {
-    if (viewedId === ownedCardsSubscriptionViewId) {
-      return;
-    }
-
-    clearOwnedCardsSubscription();
-
-    if (viewedId === 0) {
-      notifyStateChanged();
-      return;
-    }
-
-    const query = `select * from cards where link == ${viewedId}`;
-    ownedCardsSubscription = connection.subscriptionBuilder().subscribe(query);
-    ownedCardsSubscriptionViewId = viewedId;
-    console.debug("[spacetime] owned cards subscription created", { viewed_id: viewedId, query });
-  };
-
-  const isVisibleZone = (zoneId: number): boolean => state.visible_zone_ids.includes(zoneId);
 
   const areZoneSetsEqual = (left: number[], right: number[]): boolean => {
     if (left.length !== right.length) {
@@ -129,9 +129,6 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
   const decodePlayerWorldPosition = (
     playerRow: Player,
   ): { zoneQ: number; zoneR: number; localQ: number; localR: number; world_q: number; world_r: number; z: number } => {
-    // Server layout from packing.rs:
-    // zone bits [20..31] = zone_q (i12), [8..19] = zone_r (i12), [0..7] = z (u8)
-    // position bits [3..5] = q (u3), [0..2] = r (u3)
     const zoneQ = signExtendI12((playerRow.zone >>> 20) & 0x0fff);
     const zoneR = signExtendI12((playerRow.zone >>> 8) & 0x0fff);
     const z = playerRow.zone & 0xff;
@@ -141,15 +138,6 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     const world_q = zoneQ * 8 + localQ;
     const world_r = zoneR * 8 + localR;
 
-    console.debug("[spacetime] viewed player decoded", {
-      zone_q: zoneQ,
-      zone_r: zoneR,
-      local_q: localQ,
-      local_r: localR,
-      z,
-    });
-    console.debug("[spacetime] viewed player world", { world_q, world_r, z });
-
     return { zoneQ, zoneR, localQ, localR, world_q, world_r, z };
   };
 
@@ -158,7 +146,7 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       return;
     }
 
-    const viewedPlayer = state.cached_player.get(state.viewed_id);
+    const viewedPlayer = state.cached_players.get(state.viewed_id);
 
     if (!viewedPlayer) {
       return;
@@ -170,40 +158,15 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     state.view_z = decoded.z;
     const zone = worldToZone(decoded.world_q, decoded.world_r, decoded.z);
     state.current_zone_id = zone.zoneId;
-    console.debug("[spacetime] world position to zone conversion", {
-      world_q: decoded.world_q,
-      world_r: decoded.world_r,
-      z: decoded.z,
-      zone_q: zone.zoneQ,
-      zone_r: zone.zoneR,
-    });
-    console.debug("[spacetime] packed zone id", { zone_id: zone.zoneId });
     const requiredZoneIds = getRequiredZones(zone.zoneQ, zone.zoneR, decoded.z, decoded.localQ, decoded.localR);
     const visibleZonesChanged = !areZoneSetsEqual(state.visible_zone_ids, requiredZoneIds);
     state.visible_zone_ids = requiredZoneIds;
     syncZoneSubscriptions(requiredZoneIds);
 
     if (visibleZonesChanged) {
+      rebuildLocalCardsFromCaches();
       notifyStateChanged();
     }
-  };
-
-  const ensureCachedRowSubscription = <Row>(
-    key: number,
-    subscriptions: Map<number, SubscriptionHandle>,
-    rowCache: Map<number, Row>,
-    queryBuilder: (id: number) => string,
-  ): void => {
-    if (subscriptions.has(key)) {
-      console.debug("[spacetime] subscription cache hit", { key });
-      return;
-    }
-
-    console.debug("[spacetime] subscription cache miss", { key, cached_rows: rowCache.size });
-    const query = queryBuilder(key);
-    const subscriptionHandle = connection.subscriptionBuilder().subscribe(query);
-    subscriptions.set(key, subscriptionHandle);
-    console.debug("[spacetime] subscription created", { key, query });
   };
 
   const ensureViewedPlayerSubscription = (viewedId: number): void => {
@@ -211,16 +174,13 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
       return;
     }
 
-    const cached = state.cached_player.get(viewedId);
+    const cached = state.cached_players.get(viewedId);
 
     if (cached) {
-      console.debug("[spacetime] viewed player cache hit", { viewed_id: viewedId });
       updateViewedWorldPosition();
       notifyStateChanged();
       return;
     }
-
-    console.debug("[spacetime] viewed player cache miss", { viewed_id: viewedId });
 
     if (viewedPlayerSubscriptions.has(viewedId)) {
       return;
@@ -232,31 +192,27 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     console.debug("[spacetime] viewed player subscription created", { viewed_id: viewedId, query });
   };
 
-  const notifyStateChanged = (): void => {
-    options.onStateChanged?.(state);
+  const resetViewState = (): void => {
+    state.observer_id = 0;
+    state.viewed_id = 0;
+    state.world_q = 0;
+    state.world_r = 0;
+    state.view_z = 0;
+    state.current_zone_id = 0;
+    state.visible_zone_ids = [];
   };
 
   const connection = DbConnection.builder()
     .withUri(options.uri)
     .withDatabaseName(options.databaseName)
     .onConnect((dbConnection) => {
-      console.debug("[spacetime] subscription created", {
-        query: `select * from players where name == '${options.observedPlayerName}'`,
-      });
-
       playersSubscription = subscribeToPlayersByName(dbConnection, {
         name: options.observedPlayerName,
         onMatchedPlayerChanged: (player) => {
           if (!player) {
-            state.observer_id = 0;
-            state.viewed_id = 0;
-            state.world_q = 0;
-            state.world_r = 0;
-            state.view_z = 0;
-            state.current_zone_id = 0;
-            state.visible_zone_ids = [];
+            resetViewState();
             clearZoneSubscriptions();
-            clearOwnedCardsSubscription();
+            clearCardCaches();
             notifyStateChanged();
             return;
           }
@@ -264,108 +220,105 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
           state.observer_id = player.cardId;
           if (state.viewed_id === 0) {
             state.viewed_id = state.observer_id;
-            console.debug("[spacetime] viewed_id assigned", { viewed_id: state.viewed_id });
           }
           ensureViewedPlayerSubscription(state.viewed_id);
-          syncOwnedCardsSubscription(state.viewed_id);
           updateViewedWorldPosition();
+          rebuildLocalCardsFromCaches();
           notifyStateChanged();
         },
       });
 
+      cardsSubscription = connection.subscriptionBuilder().subscribe("select * from cards");
+      actionsSubscription = connection.subscriptionBuilder().subscribe("select * from actions");
+
       connection.db.players.onInsert((_ctx, row) => {
-        state.cached_player.set(row.cardId, row);
+        state.cached_players.set(row.cardId, row);
 
         if (row.cardId === state.viewed_id) {
-          console.debug("[spacetime] viewed player row received", { viewed_id: state.viewed_id, event: "insert" });
           updateViewedWorldPosition();
-          notifyStateChanged();
         }
+
+        notifyStateChanged();
       });
 
       connection.db.players.onUpdate((_ctx, oldRow, row) => {
-        state.cached_player.delete(oldRow.cardId);
-        state.cached_player.set(row.cardId, row);
+        state.cached_players.delete(oldRow.cardId);
+        state.cached_players.set(row.cardId, row);
 
         if (row.cardId === state.viewed_id || oldRow.cardId === state.viewed_id) {
-          console.debug("[spacetime] viewed player row received", { viewed_id: state.viewed_id, event: "update" });
           updateViewedWorldPosition();
-          notifyStateChanged();
         }
+
+        notifyStateChanged();
       });
 
       connection.db.players.onDelete((_ctx, row) => {
-        state.cached_player.delete(row.cardId);
+        state.cached_players.delete(row.cardId);
 
         if (row.cardId === state.viewed_id) {
-          state.world_q = 0;
-          state.world_r = 0;
-          state.view_z = 0;
-          state.current_zone_id = 0;
-          state.visible_zone_ids = [];
+          resetViewState();
           clearZoneSubscriptions();
-          clearOwnedCardsSubscription();
-          notifyStateChanged();
+          clearCardCaches();
         }
-      });
 
-      connection.db.zones.onInsert((_ctx, row) => {
-        state.cached_zone.set(row.zone, row);
-        console.debug("[spacetime] zone row received", { zone_id: row.zone, event: "insert" });
-        if (isVisibleZone(row.zone)) {
-          notifyStateChanged();
-        }
-      });
-
-      connection.db.zones.onUpdate((_ctx, oldRow, row) => {
-        state.cached_zone.delete(oldRow.zone);
-        state.cached_zone.set(row.zone, row);
-        console.debug("[spacetime] zone row updated", { zone_id: row.zone, event: "update" });
-        if (isVisibleZone(row.zone) || isVisibleZone(oldRow.zone)) {
-          notifyStateChanged();
-        }
-      });
-
-      connection.db.zones.onDelete((_ctx, row) => {
-        state.cached_zone.delete(row.zone);
-        console.debug("[spacetime] zone row removed", { zone_id: row.zone, event: "delete" });
-        if (isVisibleZone(row.zone)) {
-          notifyStateChanged();
-        }
+        notifyStateChanged();
       });
 
       connection.db.cards.onInsert((_ctx, row) => {
-        if (row.link !== ownedCardsSubscriptionViewId) {
-          return;
-        }
-
-        ownedCardsById.set(row.cardId, row);
-        refreshInventoryCards();
+        state.cached_cards.set(row.cardId, row);
+        rebuildLocalCardsFromCaches();
+        notifyStateChanged();
       });
 
       connection.db.cards.onUpdate((_ctx, oldRow, row) => {
-        if (oldRow.link === ownedCardsSubscriptionViewId) {
-          ownedCardsById.delete(oldRow.cardId);
-        }
-
-        if (row.link === ownedCardsSubscriptionViewId) {
-          ownedCardsById.set(row.cardId, row);
-        }
-
-        if (oldRow.link === ownedCardsSubscriptionViewId || row.link === ownedCardsSubscriptionViewId) {
-          refreshInventoryCards();
-        }
+        state.cached_cards.delete(oldRow.cardId);
+        state.cached_cards.set(row.cardId, row);
+        rebuildLocalCardsFromCaches();
+        notifyStateChanged();
       });
 
       connection.db.cards.onDelete((_ctx, row) => {
-        if (row.link !== ownedCardsSubscriptionViewId) {
-          return;
-        }
-
-        ownedCardsById.delete(row.cardId);
-        refreshInventoryCards();
+        state.cached_cards.delete(row.cardId);
+        rebuildLocalCardsFromCaches();
+        notifyStateChanged();
       });
 
+      connection.db.zones.onInsert((_ctx, row) => {
+        state.cached_zones.set(row.zone, row);
+        rebuildLocalCardsFromCaches();
+        notifyStateChanged();
+      });
+
+      connection.db.zones.onUpdate((_ctx, oldRow, row) => {
+        state.cached_zones.delete(oldRow.zone);
+        state.cached_zones.set(row.zone, row);
+        rebuildLocalCardsFromCaches();
+        notifyStateChanged();
+      });
+
+      connection.db.zones.onDelete((_ctx, row) => {
+        state.cached_zones.delete(row.zone);
+        rebuildLocalCardsFromCaches();
+        notifyStateChanged();
+      });
+
+      connection.db.actions.onInsert((_ctx, row) => {
+        state.cached_actions.set(row.cardId, row);
+        notifyStateChanged();
+      });
+
+      connection.db.actions.onUpdate((_ctx, oldRow, row) => {
+        state.cached_actions.delete(oldRow.cardId);
+        state.cached_actions.set(row.cardId, row);
+        notifyStateChanged();
+      });
+
+      connection.db.actions.onDelete((_ctx, row) => {
+        state.cached_actions.delete(row.cardId);
+        notifyStateChanged();
+      });
+
+      rebuildLocalCardsFromCaches();
       notifyStateChanged();
     })
     .onConnectError((_ctx, error) => {
@@ -374,16 +327,12 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     .onDisconnect((error) => {
       console.warn("[spacetime] disconnected", error);
       playersSubscription?.unsubscribe();
-      state.observer_id = 0;
-      state.viewed_id = 0;
-      state.world_q = 0;
-      state.world_r = 0;
-      state.view_z = 0;
-      state.current_zone_id = 0;
-      state.visible_zone_ids = [];
-      state.cached_player.clear();
-      state.cached_zone.clear();
-      clearOwnedCardsSubscription();
+      cardsSubscription?.unsubscribe();
+      actionsSubscription?.unsubscribe();
+      resetViewState();
+      state.cached_players.clear();
+      state.cached_zones.clear();
+      clearCardCaches();
       viewedPlayerSubscriptions.forEach((handle) => {
         handle.unsubscribe();
       });
@@ -398,13 +347,14 @@ export const initializeSpacetimeClient = (options: SpacetimeClientOptions): Spac
     connection,
     disconnect() {
       playersSubscription?.unsubscribe();
+      cardsSubscription?.unsubscribe();
+      actionsSubscription?.unsubscribe();
       viewedPlayerSubscriptions.forEach((handle) => {
         handle.unsubscribe();
       });
       viewedPlayerSubscriptions.clear();
       clearZoneSubscriptions();
       connection.disconnect();
-      clearOwnedCardsSubscription();
     },
   };
 };

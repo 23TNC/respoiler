@@ -1,13 +1,16 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 
 import { initializeSpacetimeClient } from "./spacetime/client";
-import type { Zone } from "./spacetime/bindings/types";
-import { loadCardDefinitions } from "./spacetime/cardDefinitions";
+import { loadCardDefinitions, getCardDefinitionByParts } from "./spacetime/cardDefinitions";
+import { decodeCardType, decodeLocalPosition, type LocalCard } from "./spacetime/localCards";
+import { unpackZoneCoord } from "./spacetime/zoneMath";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
 import { createCardView } from "./ui/cardRenderer";
-import { computePanelInnerRect, drawPanel } from "./ui/panelRenderer";
-import { drawWorldBoardDebugTiles } from "./ui/worldBoardDebug";
+import { computePanelInnerRect, drawPanel, type PanelInnerRect } from "./ui/panelRenderer";
+import { createHexCardView, isHexCardType } from "./ui/hexCardRenderer";
+import { worldHexToPanelPixel } from "./ui/hexGrid";
+import { computeHexTileSize } from "./ui/hexLayout";
 
 interface ClientViewState {
   observer_id: number;
@@ -18,6 +21,113 @@ interface ClientViewState {
   current_zone_id: number;
   visible_zone_ids: number[];
 }
+
+const SQRT3 = Math.sqrt(3);
+
+const doesHexIntersectPanel = (
+  centerX: number,
+  centerY: number,
+  hexSize: number,
+  panelRect: PanelInnerRect,
+): boolean => {
+  const halfWidth = hexSize;
+  const halfHeight = (SQRT3 * hexSize) / 2;
+  const hexMinX = centerX - halfWidth;
+  const hexMaxX = centerX + halfWidth;
+  const hexMinY = centerY - halfHeight;
+  const hexMaxY = centerY + halfHeight;
+  const panelMaxX = panelRect.x + panelRect.width;
+  const panelMaxY = panelRect.y + panelRect.height;
+
+  return hexMaxX >= panelRect.x
+    && hexMinX <= panelMaxX
+    && hexMaxY >= panelRect.y
+    && hexMinY <= panelMaxY;
+};
+
+const parseHexColor = (rawColor: unknown, fallback: number): number => {
+  if (typeof rawColor === "number" && Number.isFinite(rawColor)) {
+    return rawColor;
+  }
+
+  if (typeof rawColor !== "string") {
+    return fallback;
+  }
+
+  const normalized = rawColor.trim().replace("#", "");
+  const parsed = Number.parseInt(normalized, 16);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+const buildWorldHexCards = (
+  localCards: Iterable<LocalCard>,
+  visibleZoneIds: readonly number[],
+  viewedWorldQ: number,
+  viewedWorldR: number,
+  worldPanelRect: PanelInnerRect,
+  screenHeight: number,
+): Container[] => {
+  const visibleZones = new Set(visibleZoneIds);
+  const hexSize = computeHexTileSize(screenHeight);
+  const worldOrigin = {
+    x: worldPanelRect.x + (worldPanelRect.width / 2),
+    y: worldPanelRect.y + (worldPanelRect.height / 2),
+  };
+  const containers: Container[] = [];
+
+  for (const localCard of localCards) {
+    const cardType = decodeCardType(localCard.definition);
+
+    if (!isHexCardType(cardType)) {
+      continue;
+    }
+
+    if (!visibleZones.has(localCard.zone)) {
+      continue;
+    }
+
+    const { zoneQ, zoneR } = unpackZoneCoord(localCard.zone);
+    const { q: localQ, r: localR } = decodeLocalPosition(localCard.position);
+    const worldQ = zoneQ * 8 + localQ;
+    const worldR = zoneR * 8 + localR;
+    const pixel = worldHexToPanelPixel(
+      { q: worldQ - viewedWorldQ, r: worldR - viewedWorldR },
+      hexSize,
+      worldOrigin,
+    );
+
+    if (!doesHexIntersectPanel(pixel.x, pixel.y, hexSize, worldPanelRect)) {
+      continue;
+    }
+
+    const definitionId = localCard.definition & 0x0fff;
+    const definition = getCardDefinitionByParts(cardType, definitionId);
+    const topColor = parseHexColor(definition?.style?.color?.[0], 0x365486);
+
+    containers.push(
+      createHexCardView(
+        {
+          id: localCard.localKey,
+          type: cardType,
+          name: definition?.name ?? (cardType === 6 ? `Tile ${definitionId}` : `Card ${localCard.cardId}`),
+          colors: [topColor, 0x242f4f, 0xf4f8ff],
+          progress: 0,
+          progressDirection: "clockwise",
+          progressFillColor: 0x1a2540,
+          progressEmptyColor: 0x1a2540,
+        },
+        {
+          centerX: pixel.x,
+          centerY: pixel.y,
+          size: hexSize,
+          screenHeight,
+        },
+      ),
+    );
+  }
+
+  return containers;
+};
 
 async function bootstrap(): Promise<void> {
   const root = document.getElementById("app");
@@ -113,9 +223,6 @@ async function bootstrap(): Promise<void> {
 
     if (worldPanelRect) {
       const worldPanelInnerRect = computePanelInnerRect(worldPanelRect, panelPadding);
-      const visibleZoneRows: Zone[] = viewState.visible_zone_ids
-        .map((zoneId) => spacetimeClient.state.cached_zone.get(zoneId))
-        .filter((zoneRow): zoneRow is Zone => zoneRow !== undefined);
       worldTileMask
         .clear()
         .rect(
@@ -126,14 +233,18 @@ async function bootstrap(): Promise<void> {
         )
         .fill({ color: 0xffffff, alpha: 1 });
 
-      drawWorldBoardDebugTiles(
-        worldTileLayer,
-        worldPanelInnerRect,
-        screenHeight,
-        visibleZoneRows,
+      const worldCards = buildWorldHexCards(
+        spacetimeClient.state.local_cards.values(),
+        viewState.visible_zone_ids,
         viewState.world_q,
         viewState.world_r,
+        worldPanelInnerRect,
+        screenHeight,
       );
+
+      for (const worldCard of worldCards) {
+        worldTileLayer.addChild(worldCard);
+      }
     } else {
       worldTileMask.clear();
     }

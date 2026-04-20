@@ -1,5 +1,5 @@
-import type { Card } from "./bindings/types";
 import { getCardDefinitionByParts } from "./cardDefinitions";
+import { decodeCardType, decodeLocalPosition, type LocalCard } from "./localCards";
 import { unpackZoneCoord } from "./zoneMath";
 import type { DebugCard } from "../ui/cardRenderer";
 
@@ -14,11 +14,6 @@ export interface InventoryCardsByPanel {
 interface DecodedDefinition {
   cardType: number;
   definitionId: number;
-}
-
-interface DecodedPosition {
-  q: number;
-  r: number;
 }
 
 const INVENTORY_CARD_TYPES = new Map<number, keyof InventoryCardsByPanel>([
@@ -42,13 +37,8 @@ const emptyInventoryPanels = (): InventoryCardsByPanel => ({
 });
 
 const decodeDefinition = (definition: number): DecodedDefinition => ({
-  cardType: (definition >> 12) & 0x0f,
+  cardType: decodeCardType(definition),
   definitionId: definition & 0x0fff,
-});
-
-const decodePosition = (position: number): DecodedPosition => ({
-  q: (position >> 3) & 0x07,
-  r: position & 0x07,
 });
 
 const parseColor = (rawColor: unknown, fallback: number): number => {
@@ -64,14 +54,17 @@ const parseColor = (rawColor: unknown, fallback: number): number => {
   return fallback;
 };
 
-export const buildInventoryCards = (ownedCards: Iterable<Card>): InventoryCardsByPanel => {
-  const cards = [...ownedCards].sort((left, right) => left.cardId - right.cardId);
+export const buildInventoryCards = (localCards: Iterable<LocalCard>, viewedId: number): InventoryCardsByPanel => {
+  const cards = [...localCards]
+    .filter((localCard) => localCard.source === "card")
+    .filter((localCard) => localCard.link === viewedId)
+    .sort((left, right) => left.cardId - right.cardId);
   const inventoryPanels = emptyInventoryPanels();
 
   for (const cardRow of cards) {
     const decodedDefinition = decodeDefinition(cardRow.definition);
     const decodedZone = unpackZoneCoord(cardRow.zone);
-    const decodedPosition = decodePosition(cardRow.position);
+    const decodedPosition = decodeLocalPosition(cardRow.position);
     void decodedPosition;
 
     if (decodedZone.z !== 0) {
@@ -89,7 +82,7 @@ export const buildInventoryCards = (ownedCards: Iterable<Card>): InventoryCardsB
     const bottomColor = parseColor(cardColors[1], DEFAULT_BOTTOM_COLOR);
 
     inventoryPanels[targetPanelId].push({
-      id: String(cardRow.cardId),
+      id: cardRow.localKey,
       name: cardDefinition?.name ?? `Card ${cardRow.cardId}`,
       colors: [topColor, bottomColor, DEFAULT_TEXT_COLOR],
       progress: 0,
