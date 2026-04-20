@@ -83,6 +83,15 @@ export function setSelectedCardId(id: number): void {
   selected_card_id = id;
 }
 
+
+export function decodeCardType(definition: number): number {
+  return (definition >>> 12) & 0x000f;
+}
+
+export function decodeDefinitionId(definition: number): number {
+  return definition & 0x0fff;
+}
+
 export function unpackZone(zone: number): { zone_q: number; zone_r: number; z: number } {
   const z = zone & 0xff;
   let zone_r = (zone >>> 8) & 0xfff;
