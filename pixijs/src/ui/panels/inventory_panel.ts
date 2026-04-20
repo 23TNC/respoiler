@@ -21,6 +21,7 @@ export class InventoryPanel extends Panel {
         card.zone === 0
         && card.card_type === this.cardType
         && card.link === viewed_id
+        && !card.dragging
       ))
       .sort((a, b) => a.card_id - b.card_id);
 
