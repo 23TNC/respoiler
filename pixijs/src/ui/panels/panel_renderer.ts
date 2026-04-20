@@ -10,7 +10,7 @@ export function drawPanel(graphics: Graphics, layoutRect: LayoutRect, padding: n
   const innerY = layoutRect.y + padding;
   const innerWidth = Math.max(0, layoutRect.width - 2 * padding);
   const innerHeight = Math.max(0, layoutRect.height - 2 * padding);
-  const cornerRadius = Math.max(0, padding * 2 );
+  const cornerRadius = Math.max(0, padding * 2);
 
   graphics
     .roundRect(innerX, innerY, innerWidth, innerHeight, cornerRadius)

@@ -1,4 +1,4 @@
-import type { LayoutRect } from "./layout";
+import type { LayoutRect } from "../panels/layout";
 
 export interface CardLayoutRect {
   x: number;

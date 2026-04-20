@@ -5,6 +5,17 @@ export interface HexPoint {
 
 const FLAT_TOP_HEX_CORNER_ANGLES_DEG = [0, 60, 120, 180, 240, 300];
 
+export type HexProgressDirection = "clockwise" | "counterclockwise";
+
+interface HexPerimeterProgressConfig {
+  centerX: number;
+  centerY: number;
+  size: number;
+  inset?: number;
+  value: number;
+  direction: HexProgressDirection;
+}
+
 export function computeInsetHexSize(size: number, strokeWidth: number): number {
   return Math.max(0, size - (strokeWidth / 2));
 }
@@ -17,7 +28,6 @@ export function buildPointyTopHexVertices(
 ): HexPoint[] {
   const effectiveSize = Math.max(0, size - inset);
 
-  // NOTE: Kept legacy function name for API compatibility; geometry is flat-top.
   return FLAT_TOP_HEX_CORNER_ANGLES_DEG.map((angleDeg) => {
     const angleRad = (Math.PI / 180) * angleDeg;
 
@@ -29,7 +39,7 @@ export function buildPointyTopHexVertices(
 }
 
 export function drawClosedPolygonPath(
-  graphics: { moveTo: (x: number, y: number) => unknown; lineTo: (x: number, y: number) => unknown; closePath: () => unknown; },
+  graphics: { moveTo: (x: number, y: number) => unknown; lineTo: (x: number, y: number) => unknown; closePath: () => unknown },
   vertices: HexPoint[],
 ): void {
   if (vertices.length === 0) {
@@ -43,17 +53,6 @@ export function drawClosedPolygonPath(
   }
 
   graphics.closePath();
-}
-
-export type HexProgressDirection = "clockwise" | "counterclockwise";
-
-interface HexPerimeterProgressConfig {
-  centerX: number;
-  centerY: number;
-  size: number;
-  inset?: number;
-  value: number;
-  direction: HexProgressDirection;
 }
 
 export function buildHexPerimeterProgressPath(config: HexPerimeterProgressConfig): HexPoint[] {
