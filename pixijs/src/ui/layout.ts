@@ -23,18 +23,18 @@ export function computePanelLayout(
   screenHeight: number,
 ): LayoutRect[] {
   const row1Height = (6 / 120) * screenHeight;
-  const row2Height = (75 / 120) * screenHeight;
-  const row3Height = (39 / 120) * screenHeight;
+  const row2Height = (84 / 120) * screenHeight;
+  const row3Height = (30 / 120) * screenHeight;
 
   const row1Y = 0;
   const row2Y = row1Y + row1Height;
   const row3Y = row2Y + row2Height;
 
   const row2Col1Width = (30 / 240) * screenWidth;
-  const row2Col2Width = (155 / 240) * screenWidth;
-  const row2Col3Width = (55 / 240) * screenWidth;
+  const row2Col2Width = (162 / 240) * screenWidth;
+  const row2Col3Width = (48 / 240) * screenWidth;
 
-  const row2Col1TopHeight = (45 / 120) * screenHeight;
+  const row2Col1TopHeight = (54 / 120) * screenHeight;
   const row2Col1BottomHeight = (30 / 120) * screenHeight;
 
   const row3ColumnWidth = (48 / 240) * screenWidth;

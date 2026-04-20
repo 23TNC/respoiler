@@ -7,7 +7,8 @@
       [ "pos_lock",    false, true, true ],
       [ "pos_hold",    false, true, true ],
       [ "hidden",      false, true, true ],
-      [ "visible",      true, true, true ]
+      [ "visible",      true, true, true ],
+      [ "stackable",   false, true, true ]
     ]
   },
   {
