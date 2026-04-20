@@ -4,6 +4,8 @@ import {
   type ClientCard,
   client_cards,
   client_cards_by_zone,
+  getCardDefinition,
+  packDefinition,
   selected_card_id,
   selected_position,
   selected_zone,
@@ -19,6 +21,7 @@ import { Panel } from "./panel";
 interface DetailItem {
   card_type: number;
   definition_id: number;
+  definition: number;
   world_q?: number;
   world_r?: number;
   z?: number;
@@ -40,31 +43,14 @@ export class DetailsPanel extends Panel {
       return;
     }
 
-    const lines: string[] = [
-      `card_type: ${selected.card_type}`,
-      `definition_id: ${selected.definition_id}`,
-    ];
-
-    if (selected.card_type === 6) {
-      lines.push(`q: ${selected.world_q ?? 0}`);
-      lines.push(`r: ${selected.world_r ?? 0}`);
-      lines.push(`z: ${selected.z ?? 0}`);
-
-      const sharedLocationCards = this.getSharedLocationCards();
-      for (const card of sharedLocationCards) {
-        lines.push("");
-        lines.push(`card_type: ${card.card_type}`);
-        lines.push(`definition_id: ${card.definition_id}`);
-      }
-    }
-
     const innerRect = this.getInnerRect();
+    const fontSize = Math.max(12, Math.round(screenHeight / 70));
     const label = new Text({
-      text: lines.join("\n"),
+      text: this.buildPrimaryLabel(selected),
       style: {
         fill: 0xf4f8ff,
         fontFamily: "Segoe UI",
-        fontSize: Math.max(12, Math.round(screenHeight / 70)),
+        fontSize,
         align: "left",
       },
     });
@@ -72,6 +58,10 @@ export class DetailsPanel extends Panel {
     label.x = Math.round(innerRect.x + this.panelPadding);
     label.y = Math.round(innerRect.y + this.panelPadding);
     this.content.addChild(label);
+
+    if (selected.card_type === 6) {
+      this.drawTypeOneGroupPanel(innerRect, label.y + label.height + Math.round(this.panelPadding * 1.5), fontSize);
+    }
 
     if (selected.card_type === 6 && this.getCancelableSharedLocationCards().length > 0) {
       this.drawCancelButton(innerRect, screenHeight);
@@ -110,6 +100,7 @@ export class DetailsPanel extends Panel {
       return {
         card_type: selectedCard.card_type,
         definition_id: selectedCard.definition_id,
+        definition: selectedCard.definition,
         world_q: selectedCard.world_q,
         world_r: selectedCard.world_r,
         z: selectedCard.z,
@@ -132,6 +123,7 @@ export class DetailsPanel extends Panel {
     return {
       card_type: 6,
       definition_id,
+      definition: packDefinition(6, definition_id),
       world_q: zone_q * 8 + local_q,
       world_r: zone_r * 8 + local_r,
       z,
@@ -219,5 +211,101 @@ export class DetailsPanel extends Panel {
 
   private getCancelableSharedLocationCards(): ClientCard[] {
     return this.getSharedLocationCards().filter((card) => card.card_type !== 6);
+  }
+
+  private buildPrimaryLabel(selected: DetailItem): string {
+    if (selected.card_type !== 6) {
+      return this.resolveDisplayName(selected.definition, selected.definition_id);
+    }
+
+    const typeName = this.resolveDisplayName(selected.definition, selected.definition_id);
+    return `${typeName}    q: ${selected.world_q ?? 0} r: ${selected.world_r ?? 0} z: ${selected.z ?? 0}`;
+  }
+
+  private drawTypeOneGroupPanel(innerRect: LayoutRect, yStart: number, fontSize: number): void {
+    const sharedLocationCards = this.getSharedLocationCards();
+    if (sharedLocationCards.length === 0) {
+      return;
+    }
+
+    const typeOneCard = sharedLocationCards.find((card) => card.card_type === 1);
+    if (!typeOneCard) {
+      return;
+    }
+
+    const additionalCards = sharedLocationCards.filter((card) => card.card_id !== typeOneCard.card_id);
+    const title = this.resolveCardDisplayName(typeOneCard);
+    const bodyLines = additionalCards.map((card) => this.resolveCardDisplayName(card));
+    const panelText = bodyLines.length > 0 ? bodyLines.join("\n") : "";
+
+    const panelPadding = Math.max(8, Math.round(this.panelPadding * 1.5));
+    const titleText = new Text({
+      text: title,
+      style: {
+        fill: 0xf4f8ff,
+        fontFamily: "Segoe UI",
+        fontSize: Math.max(fontSize + 1, 13),
+        fontWeight: "600",
+      },
+    });
+
+    const bodyText = new Text({
+      text: panelText,
+      style: {
+        fill: 0xdfe8f6,
+        fontFamily: "Segoe UI",
+        fontSize,
+        align: "left",
+      },
+    });
+
+    const usableWidth = Math.max(0, innerRect.width - panelPadding * 2);
+    titleText.style.wordWrap = true;
+    titleText.style.wordWrapWidth = usableWidth;
+    bodyText.style.wordWrap = true;
+    bodyText.style.wordWrapWidth = usableWidth;
+
+    const panelHeight = Math.max(
+      Math.round(fontSize * 2.4),
+      panelPadding + titleText.height + (bodyLines.length > 0 ? Math.round(panelPadding * 0.75) + bodyText.height : 0) + panelPadding,
+    );
+
+    const panelX = Math.round(innerRect.x);
+    const panelY = Math.round(yStart);
+    const panelWidth = Math.round(innerRect.width);
+
+    const subPanel = new Graphics();
+    subPanel
+      .roundRect(panelX, panelY, panelWidth, panelHeight, Math.max(4, Math.round(this.panelPadding)))
+      .fill({ color: 0x233447, alpha: 0.78 })
+      .stroke({ color: 0x7a90aa, width: 1, alpha: 0.95 });
+    this.content.addChild(subPanel);
+
+    titleText.x = Math.round(panelX + panelPadding);
+    titleText.y = Math.round(panelY + panelPadding);
+    this.content.addChild(titleText);
+
+    if (bodyLines.length > 0) {
+      bodyText.x = Math.round(panelX + panelPadding);
+      bodyText.y = Math.round(titleText.y + titleText.height + Math.round(panelPadding * 0.75));
+      this.content.addChild(bodyText);
+    }
+  }
+
+  private resolveCardDisplayName(card: ClientCard): string {
+    return this.resolveDisplayName(card.definition, card.definition_id);
+  }
+
+  private resolveDisplayName(definition: number, definitionId: number): string {
+    const name = getCardDefinition(definition)?.name?.trim();
+    if (name) {
+      return name;
+    }
+
+    if (definitionId > 0) {
+      return `Unknown ${definitionId}`;
+    }
+
+    return "Unknown";
   }
 }
