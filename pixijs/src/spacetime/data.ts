@@ -1,18 +1,13 @@
 // pixijs/src/spacetime/data.ts
+import {
+  getCardDefinition as getLoadedCardDefinition,
+  type CardDefinition,
+} from "../cards/definitions";
 
 export type CardId = number;
 export type PlayerId = number;
 export type ZoneId = number;
 export type PackedPosition = number;
-
-export interface DefinitionStyle {
-  color?: Array<number | string>;
-}
-
-export interface CardDefinition {
-  name?: string;
-  style?: DefinitionStyle;
-}
 
 export interface ServerCard {
   card_id: CardId;
@@ -80,7 +75,6 @@ export const server_zones: Record<ZoneId, ServerZone> = {};
 
 export const client_cards: Record<CardId, ClientCard> = {};
 export const client_cards_by_zone: Record<ZoneId, Set<CardId>> = {};
-export const card_definitions: Record<number, CardDefinition> = {};
 
 export let observer_id = 0;
 export let viewed_id = 0;
@@ -132,18 +126,8 @@ export function packDefinition(card_type: number, definition_id: number): number
   return (((card_type & 0x0f) << 12) | (definition_id & 0x0fff)) >>> 0;
 }
 
-export function upsertCardDefinition(definition: number, entry: CardDefinition): void {
-  card_definitions[definition] = entry;
-}
-
-export function clearCardDefinitions(): void {
-  for (const key in card_definitions) {
-    delete card_definitions[Number(key)];
-  }
-}
-
 export function getCardDefinition(definition: number): CardDefinition | undefined {
-  return card_definitions[definition];
+  return getLoadedCardDefinition(definition);
 }
 
 export function packZone(zone_q: number, zone_r: number, z: number): number {
