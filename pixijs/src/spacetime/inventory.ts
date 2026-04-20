@@ -3,12 +3,20 @@ import { getCardDefinitionByParts } from "./cardDefinitions";
 import { unpackZoneCoord } from "./zoneMath";
 import type { DebugCard } from "../ui/cardRenderer";
 
+export interface InventoryCard extends DebugCard {
+  card_id: number;
+  card_type: number;
+  linked: number;
+  zone: number;
+  position: number;
+}
+
 export interface InventoryCardsByPanel {
-  disciplinesPanel: DebugCard[];
-  facultiesPanel: DebugCard[];
-  requisitesPanel: DebugCard[];
-  reveriesPanel: DebugCard[];
-  soulsPanel: DebugCard[];
+  disciplinesPanel: InventoryCard[];
+  facultiesPanel: InventoryCard[];
+  requisitesPanel: InventoryCard[];
+  reveriesPanel: InventoryCard[];
+  soulsPanel: InventoryCard[];
 }
 
 interface DecodedDefinition {
@@ -91,6 +99,11 @@ export const buildInventoryCards = (ownedCards: Iterable<Card>): InventoryCardsB
     inventoryPanels[targetPanelId].push({
       id: String(cardRow.cardId),
       name: cardDefinition?.name ?? `Card ${cardRow.cardId}`,
+      card_id: cardRow.cardId,
+      card_type: decodedDefinition.cardType,
+      linked: cardRow.link,
+      zone: cardRow.zone,
+      position: cardRow.position,
       colors: [topColor, bottomColor, DEFAULT_TEXT_COLOR],
       progress: 0,
       progressDirection: "clockwise",

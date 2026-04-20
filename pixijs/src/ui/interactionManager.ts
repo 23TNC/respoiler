@@ -4,7 +4,12 @@ export type InteractableKind = "rect-card" | "hex-card";
 
 export interface InteractableMetadata {
   kind: InteractableKind;
+  name?: string;
+  card_type?: number;
   card_id?: string;
+  linked?: number;
+  zone?: number;
+  position?: number;
   tile_id?: string;
   definition?: string;
   world_q?: number;
@@ -42,10 +47,12 @@ interface PointerInteractionState {
 
 interface InteractionManagerConfig {
   stage: Container;
+  onSelectionChanged?: (metadata: InteractableMetadata | null) => void;
 }
 
 export class InteractionManager {
   private readonly stage: Container;
+  private readonly onSelectionChanged?: (metadata: InteractableMetadata | null) => void;
 
   private readonly registrations = new Set<InteractableRegistration>();
 
@@ -65,6 +72,7 @@ export class InteractionManager {
 
   public constructor(config: InteractionManagerConfig) {
     this.stage = config.stage;
+    this.onSelectionChanged = config.onSelectionChanged;
 
     this.stage.eventMode = "static";
     this.stage.on("pointermove", this.onStagePointerMove, this);
@@ -355,6 +363,7 @@ export class InteractionManager {
 
     this.selected = nextSelection;
     this.selected.setSelected(true);
+    this.onSelectionChanged?.(this.selected.metadata);
   }
 }
 

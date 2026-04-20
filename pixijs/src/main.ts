@@ -3,13 +3,16 @@ import { Application, Container, Graphics, Rectangle, Text } from "pixi.js";
 import { initializeSpacetimeClient } from "./spacetime/client";
 import type { Zone } from "./spacetime/bindings/types";
 import { loadCardDefinitions } from "./spacetime/cardDefinitions";
+import type { InventoryCard } from "./spacetime/inventory";
+import { worldToZone } from "./spacetime/zoneMath";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./ui/layout";
 import { computeInventoryCardLayoutRects } from "./ui/cardLayout";
 import { createCardView, setCardSelected } from "./ui/cardRenderer";
+import { buildDetailsPanelData, renderDetailsPanel } from "./ui/detailsPanel";
 import { computePanelInnerRect, drawPanel } from "./ui/panelRenderer";
 import { drawWorldBoardDebugTiles } from "./ui/worldBoardDebug";
 import { setHexCardSelected } from "./ui/hexCardRenderer";
-import { InteractionManager } from "./ui/interactionManager";
+import { InteractionManager, type InteractableMetadata } from "./ui/interactionManager";
 
 interface ClientViewState {
   observer_id: number;
@@ -20,6 +23,47 @@ interface ClientViewState {
   current_zone_id: number;
   visible_zone_ids: number[];
 }
+
+const createSelectionCardFromMetadata = (
+  metadata: InteractableMetadata,
+  viewedId: number,
+): InventoryCard | null => {
+  if (metadata.card_type === 6) {
+    return {
+      id: metadata.tile_id ?? metadata.card_id ?? "tile",
+      card_id: Number.parseInt(metadata.card_id ?? "0", 10),
+      card_type: 6,
+      linked: metadata.linked ?? viewedId,
+      zone: metadata.zone ?? 0,
+      position: metadata.position ?? 0,
+      name: metadata.name ?? metadata.definition ?? "Unknown Tile",
+      colors: [0x365486, 0x242f4f, 0xf4f8ff],
+      progress: 0,
+      progressDirection: "clockwise",
+      progressFillColor: 0,
+      progressEmptyColor: 0,
+    };
+  }
+
+  if (!metadata.card_id || !metadata.card_type) {
+    return null;
+  }
+
+  return {
+    id: metadata.card_id,
+    card_id: Number.parseInt(metadata.card_id, 10),
+    card_type: metadata.card_type,
+    linked: metadata.linked ?? viewedId,
+    zone: metadata.zone ?? 0,
+    position: metadata.position ?? 0,
+    name: metadata.name ?? metadata.definition ?? `Card ${metadata.card_id}`,
+    colors: [0, 0, 0],
+    progress: 0,
+    progressDirection: "clockwise",
+    progressFillColor: 0,
+    progressEmptyColor: 0,
+  };
+};
 
 async function bootstrap(): Promise<void> {
   const root = document.getElementById("app");
@@ -53,6 +97,7 @@ async function bootstrap(): Promise<void> {
   const cardLayer = new Container();
   const worldLayer = new Container();
   const worldTileLayer = new Container();
+  const detailsLayer = new Container();
   const worldTileMask = new Graphics();
   const titleText = new Text({
     text: "",
@@ -70,9 +115,8 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(panelGraphics);
   app.stage.addChild(worldLayer);
   app.stage.addChild(cardLayer);
+  app.stage.addChild(detailsLayer);
   app.stage.addChild(titleText);
-
-  const interactionManager = new InteractionManager({ stage: app.stage });
 
   const viewState: ClientViewState = {
     observer_id: 0,
@@ -83,6 +127,8 @@ async function bootstrap(): Promise<void> {
     current_zone_id: 0,
     visible_zone_ids: [],
   };
+
+  let selectedDetailsCard: InventoryCard | null = null;
 
   const updateTitleBar = (titlePanelRect: LayoutRect): void => {
     titleText.text = `observer: ${viewState.observer_id || 0}, viewed: ${viewState.viewed_id || 0}, q: ${viewState.world_q || 0}, r: ${viewState.world_r || 0}, z: ${viewState.view_z || 0}`;
@@ -103,6 +149,7 @@ async function bootstrap(): Promise<void> {
     interactionManager.clear();
     cardLayer.removeChildren();
     worldTileLayer.removeChildren();
+    detailsLayer.removeChildren();
 
     for (const layoutRect of layoutRects) {
       drawPanel(panelGraphics, layoutRect, panelPadding);
@@ -147,14 +194,22 @@ async function bootstrap(): Promise<void> {
         viewState.world_q,
         viewState.world_r,
         (hexTileView, tileInfo) => {
+          const zoneInfo = worldToZone(tileInfo.world_q, tileInfo.world_r, viewState.view_z);
+          const localQ = tileInfo.world_q - (zoneInfo.zoneQ * 8);
+          const localR = tileInfo.world_r - (zoneInfo.zoneR * 8);
           interactionManager.registerHexTile(
             hexTileView,
             {
               kind: "hex-card",
+              card_type: 6,
               tile_id: tileInfo.tile_id,
+              name: tileInfo.definition,
               definition: tileInfo.definition,
               world_q: tileInfo.world_q,
               world_r: tileInfo.world_r,
+              linked: viewState.viewed_id,
+              zone: zoneInfo.zoneId,
+              position: ((localQ & 0x07) << 3) | (localR & 0x07),
             },
             (selected) => {
               setHexCardSelected(hexTileView, selected);
@@ -168,6 +223,7 @@ async function bootstrap(): Promise<void> {
     }
 
     const inventoryCardsByPanel = spacetimeClient.state.inventory_cards;
+    const allOwnedCards = Object.values(inventoryCardsByPanel).flat();
 
     for (const [panelId, cards] of Object.entries(inventoryCardsByPanel)) {
       const panelRect = layoutById.get(panelId as PanelId);
@@ -198,6 +254,11 @@ async function bootstrap(): Promise<void> {
           {
             kind: "rect-card",
             card_id: cardData.id,
+            card_type: cardData.card_type,
+            linked: cardData.linked,
+            zone: cardData.zone,
+            position: cardData.position,
+            name: cardData.name,
             definition: cardData.name,
           },
           (selected) => {
@@ -206,7 +267,31 @@ async function bootstrap(): Promise<void> {
         );
       }
     }
+
+    const detailsPanelRect = layoutById.get("detailsPanel");
+    if (!detailsPanelRect) {
+      return;
+    }
+
+    const detailsPanelInnerRect = computePanelInnerRect(detailsPanelRect, panelPadding);
+    const normalizedSelection = selectedDetailsCard
+      ? (
+        selectedDetailsCard.card_type === 6
+          ? selectedDetailsCard
+          : allOwnedCards.find((card) => card.card_id === selectedDetailsCard.card_id) ?? null
+      )
+      : null;
+    const detailsData = buildDetailsPanelData(normalizedSelection, allOwnedCards, viewState.viewed_id);
+    renderDetailsPanel(detailsLayer, detailsPanelInnerRect, detailsData, screenHeight);
   };
+
+  const interactionManager = new InteractionManager({
+    stage: app.stage,
+    onSelectionChanged: (metadata) => {
+      selectedDetailsCard = metadata ? createSelectionCardFromMetadata(metadata, viewState.viewed_id) : null;
+      redrawLayout();
+    },
+  });
 
   await loadCardDefinitions();
 
