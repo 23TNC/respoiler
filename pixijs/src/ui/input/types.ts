@@ -39,6 +39,7 @@ export type InputPanelRegistration = {
 
 export type InputAction =
   | "left_mouse_down"
+  | "left_mouse_move"
   | "left_mouse_start_drag"
   | "left_mouse_up"
   | "left_mouse_click"
