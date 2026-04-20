@@ -12,9 +12,10 @@ export function axialPointyTopToPixel(
   coord: AxialHexCoord,
   size: number,
 ): Point2D {
+  // NOTE: Kept legacy function name for API compatibility; conversion is flat-top.
   return {
-    x: size * Math.sqrt(3) * (coord.q + (coord.r / 2)),
-    y: size * (3 / 2) * coord.r,
+    x: size * (3 / 2) * coord.q,
+    y: size * Math.sqrt(3) * (coord.r + (coord.q / 2)),
   };
 }
 
