@@ -90,7 +90,11 @@ export class WorldBoardPanel extends Panel {
             id: tile.id,
             type: 6,
             name: getCardDefinition(tile.definition)?.name ?? `#${tile.definition_id}`,
-            colors: [resolveStyleColor(getCardDefinition(tile.definition), 0, 0xd3deef)],
+            colors: [
+              resolveStyleColor(getCardDefinition(tile.definition), 0, 0xd3deef),
+              resolveStyleColor(getCardDefinition(tile.definition), 1, 0x7fb377),
+              resolveStyleColor(getCardDefinition(tile.definition), 2, 0x0b1a2a),
+            ],
             progress: 0,
             progressDirection: "clockwise",
             progressFillColor: 0x8da6c6,

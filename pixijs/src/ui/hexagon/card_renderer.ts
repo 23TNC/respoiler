@@ -65,7 +65,6 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
   const label = new Text({
     text: card.name,
     style: {
-      fill: 0xf4f8ff,
       fontFamily: "Arial",
       fontSize: Math.max(10, config.screenHeight / 75),
       fontWeight: "700",
@@ -75,6 +74,8 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
       breakWords: true,
     },
   });
+  console.log("text color", card.id, card.type, card.colors);
+  label.style.fill = normalizeTextColor(card.colors?.[2], 0x0b1a2a);
 
   label.anchor.set(0.5, 0.5);
   label.x = config.centerX;
@@ -97,6 +98,23 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
   spriteLayer.label = `hex-card-sprite-layer:${card.id}`;
 
   return container;
+}
+
+function normalizeTextColor(rawColor: number | string | undefined, fallback: number): number {
+  if (typeof rawColor === "number") {
+    return rawColor;
+  }
+
+  if (typeof rawColor !== "string") {
+    return fallback;
+  }
+
+  const normalized = rawColor.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return fallback;
+  }
+
+  return Number.parseInt(normalized, 16);
 }
 
 interface DrawHexProgressConfig {

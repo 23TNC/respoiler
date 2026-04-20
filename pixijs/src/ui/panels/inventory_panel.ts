@@ -57,11 +57,14 @@ export class InventoryPanel extends Panel {
     const topColor = resolveStyleColor(definition, 0, fallbackColors[0]);
     const bottomColor = resolveStyleColor(definition, 1, fallbackColors[1]);
 
+    const textColor = resolveStyleColor(definition, 2, fallbackColors[2]);
+
     const cardView = createRectangleCardView(
       {
         id: String(card.card_id),
+        type: card.card_type,
         name: title,
-        colors: [topColor, bottomColor, fallbackColors[2]],
+        colors: [topColor, bottomColor, textColor],
         progress: 0,
         progressDirection: "clockwise",
         progressFillColor: 0xc9d8ed,
@@ -112,14 +115,14 @@ export class InventoryPanel extends Panel {
 
 function inventoryColorsForType(cardType: number): [number, number, number] {
   const paletteByType: Record<number, [number, number, number]> = {
-    1: [0x43617e, 0x2f4258, 0xf4f8ff],
-    2: [0x465d77, 0x33465e, 0xf4f8ff],
-    3: [0x4a5a71, 0x37485c, 0xf4f8ff],
-    4: [0x4d576b, 0x3b4a59, 0xf4f8ff],
-    5: [0x505465, 0x3f4c56, 0xf4f8ff],
+    1: [0x43617e, 0x2f4258, 0x0b1a2a],
+    2: [0x465d77, 0x33465e, 0x0b1a2a],
+    3: [0x4a5a71, 0x37485c, 0x0b1a2a],
+    4: [0x4d576b, 0x3b4a59, 0x0b1a2a],
+    5: [0x505465, 0x3f4c56, 0x0b1a2a],
   };
 
-  return paletteByType[cardType] ?? [0x43617e, 0x2f4258, 0xf4f8ff];
+  return paletteByType[cardType] ?? [0x43617e, 0x2f4258, 0x0b1a2a];
 }
 
 function resolveStyleColor(
