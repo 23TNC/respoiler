@@ -19,6 +19,7 @@ interface InteractableRegistration {
 }
 
 interface DragState {
+  interactionToken: number;
   registration: InteractableRegistration;
   pointerId: number;
   pointerOffsetX: number;
@@ -30,29 +31,33 @@ interface DragState {
   moved: boolean;
 }
 
+interface PointerInteractionState {
+  interactionToken: number;
+  registration: InteractableRegistration;
+  pointerId: number;
+  downX: number;
+  downY: number;
+  clickEligible: boolean;
+}
+
 interface InteractionManagerConfig {
   stage: Container;
-  doubleClickThresholdMs?: number;
 }
 
 export class InteractionManager {
   private readonly stage: Container;
 
-  private readonly doubleClickThresholdMs: number;
-
   private readonly registrations = new Set<InteractableRegistration>();
-
-  private readonly pendingSingleClicks = new WeakMap<DisplayObject, number>();
-
-  private readonly lastClickAtMs = new WeakMap<DisplayObject, number>();
 
   private selected: InteractableRegistration | null = null;
 
   private dragState: DragState | null = null;
 
-  private readonly hexDropTargets = new Set<InteractableRegistration>();
+  private readonly pointerInteractions = new Map<number, PointerInteractionState>();
 
-  private readonly suppressNextTap = new WeakSet<DisplayObject>();
+  private nextInteractionToken = 1;
+
+  private readonly hexDropTargets = new Set<InteractableRegistration>();
 
   private readonly returnTweenCancels = new WeakMap<DisplayObject, () => void>();
 
@@ -60,7 +65,6 @@ export class InteractionManager {
 
   public constructor(config: InteractionManagerConfig) {
     this.stage = config.stage;
-    this.doubleClickThresholdMs = config.doubleClickThresholdMs ?? 250;
 
     this.stage.eventMode = "static";
     this.stage.on("pointermove", this.onStagePointerMove, this);
@@ -70,12 +74,6 @@ export class InteractionManager {
 
   public clear(): void {
     for (const registration of this.registrations) {
-      const pendingClickTimeout = this.pendingSingleClicks.get(registration.target);
-      if (pendingClickTimeout !== undefined) {
-        clearTimeout(pendingClickTimeout);
-        this.pendingSingleClicks.delete(registration.target);
-      }
-
       registration.target.removeAllListeners();
       registration.setSelected(false);
       this.cancelReturnTween(registration.target);
@@ -85,6 +83,7 @@ export class InteractionManager {
     this.hexDropTargets.clear();
     this.selected = null;
     this.dragState = null;
+    this.pointerInteractions.clear();
     this.worldDropBounds = null;
   }
 
@@ -112,14 +111,6 @@ export class InteractionManager {
 
     registration.target.eventMode = "static";
 
-    registration.target.on("pointertap", (event: FederatedPointerEvent) => {
-      if (event.button !== 0) {
-        return;
-      }
-
-      this.onPointerTap(registration, event);
-    });
-
     registration.target.on("pointerdown", (event: FederatedPointerEvent) => {
       if (event.button !== 0) {
         return;
@@ -128,97 +119,72 @@ export class InteractionManager {
       this.onPointerDown(registration, event);
     });
 
-    registration.target.on("pointerup", (event: FederatedPointerEvent) => {
-      if (event.button !== 0) {
-        return;
-      }
-
-      this.stopDrag(event);
-    });
-
-    registration.target.on("pointerupoutside", (event: FederatedPointerEvent) => {
-      if (event.button !== 0) {
-        return;
-      }
-
-      this.stopDrag(event);
-    });
-
     return registration;
   }
 
-  private onPointerTap(registration: InteractableRegistration, event: FederatedPointerEvent): void {
-    if (this.suppressNextTap.has(registration.target)) {
-      this.suppressNextTap.delete(registration.target);
-      return;
+  private onPointerDown(registration: InteractableRegistration, event: FederatedPointerEvent): void {
+    const interaction: PointerInteractionState = {
+      interactionToken: this.nextInteractionToken,
+      registration,
+      pointerId: event.pointerId,
+      downX: event.global.x,
+      downY: event.global.y,
+      clickEligible: true,
+    };
+    this.nextInteractionToken += 1;
+
+    this.pointerInteractions.set(event.pointerId, interaction);
+
+    if (registration.draggable) {
+      this.cancelReturnTween(registration.target);
     }
 
-    if (this.dragState?.registration.target === registration.target) {
-      return;
-    }
-
-    // Tile selection is applied on pointerdown for instant feedback.
-    if (!registration.draggable) {
-      event.stopPropagation();
-      return;
-    }
-
-    const nowMs = performance.now();
-    const lastClickAtMs = this.lastClickAtMs.get(registration.target) ?? 0;
-    const pendingSingleClick = this.pendingSingleClicks.get(registration.target);
-
-    if ((nowMs - lastClickAtMs) <= this.doubleClickThresholdMs && pendingSingleClick !== undefined) {
-      clearTimeout(pendingSingleClick);
-      this.pendingSingleClicks.delete(registration.target);
-      this.lastClickAtMs.delete(registration.target);
-
-      console.log("[interaction] double click", registration.metadata);
-      return;
-    }
-
-    this.lastClickAtMs.set(registration.target, nowMs);
-
-    const timeoutHandle = window.setTimeout(() => {
-      this.pendingSingleClicks.delete(registration.target);
-      this.select(registration);
-    }, this.doubleClickThresholdMs);
-
-    this.pendingSingleClicks.set(registration.target, timeoutHandle);
     event.stopPropagation();
   }
 
-  private onPointerDown(registration: InteractableRegistration, event: FederatedPointerEvent): void {
-    this.select(registration);
-
-    if (!registration.draggable || this.dragState) {
-      return;
-    }
-
-    this.cancelReturnTween(registration.target);
-
-    const parent = registration.target.parent;
-    if (!parent || !(parent instanceof Container)) {
-      return;
-    }
-
-    const localPoint = parent.toLocal(event.global);
-    this.dragState = {
-      registration,
-      pointerId: event.pointerId,
-      pointerOffsetX: localPoint.x - registration.target.x,
-      pointerOffsetY: localPoint.y - registration.target.y,
-      parent,
-      originalIndex: parent.getChildIndex(registration.target),
-      homeX: registration.target.x,
-      homeY: registration.target.y,
-      moved: false,
-    };
-
-    parent.addChild(registration.target);
-  }
-
   private onStagePointerMove(event: FederatedPointerEvent): void {
-    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+    const interaction = this.pointerInteractions.get(event.pointerId);
+    if (!interaction || !interaction.registration.draggable) {
+      return;
+    }
+
+    if (this.dragState && event.pointerId !== this.dragState.pointerId) {
+      return;
+    }
+
+    if (!this.dragState) {
+      const movedX = event.global.x - interaction.downX;
+      const movedY = event.global.y - interaction.downY;
+      const exceededThreshold = ((movedX * movedX) + (movedY * movedY)) > 9;
+      if (!exceededThreshold) {
+        return;
+      }
+
+      const parent = interaction.registration.target.parent;
+      if (!parent || !(parent instanceof Container)) {
+        interaction.clickEligible = false;
+        return;
+      }
+
+      const localPoint = parent.toLocal({ x: interaction.downX, y: interaction.downY });
+      this.dragState = {
+        interactionToken: interaction.interactionToken,
+        registration: interaction.registration,
+        pointerId: interaction.pointerId,
+        pointerOffsetX: localPoint.x - interaction.registration.target.x,
+        pointerOffsetY: localPoint.y - interaction.registration.target.y,
+        parent,
+        originalIndex: parent.getChildIndex(interaction.registration.target),
+        homeX: interaction.registration.target.x,
+        homeY: interaction.registration.target.y,
+        moved: false,
+      };
+
+      interaction.clickEligible = false;
+      parent.addChild(interaction.registration.target);
+    }
+
+    if (!this.dragState || this.dragState.interactionToken !== interaction.interactionToken) {
       return;
     }
 
@@ -226,14 +192,9 @@ export class InteractionManager {
     const nextX = localPoint.x - this.dragState.pointerOffsetX;
     const nextY = localPoint.y - this.dragState.pointerOffsetY;
 
-    if (!this.dragState.moved) {
-      const movedX = nextX - this.dragState.homeX;
-      const movedY = nextY - this.dragState.homeY;
-      this.dragState.moved = ((movedX * movedX) + (movedY * movedY)) > 9;
-    }
-
     this.dragState.registration.target.x = nextX;
     this.dragState.registration.target.y = nextY;
+    this.dragState.moved = true;
   }
 
   private onStagePointerUp(event: FederatedPointerEvent): void {
@@ -241,17 +202,34 @@ export class InteractionManager {
       return;
     }
 
-    this.stopDrag(event);
+    this.finishPointerInteraction(event);
   }
 
-  private stopDrag(event: FederatedPointerEvent): void {
-    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+  private finishPointerInteraction(event: FederatedPointerEvent): void {
+    const interaction = this.pointerInteractions.get(event.pointerId);
+    if (!interaction) {
       return;
     }
 
-    const activeDrag = this.dragState;
-    this.dragState = null;
+    this.pointerInteractions.delete(event.pointerId);
 
+    if (
+      this.dragState
+      && this.dragState.pointerId === event.pointerId
+      && this.dragState.interactionToken === interaction.interactionToken
+    ) {
+      const activeDrag = this.dragState;
+      this.dragState = null;
+      this.releaseDrag(activeDrag, event);
+      return;
+    }
+
+    if (interaction.clickEligible) {
+      this.select(interaction.registration);
+    }
+  }
+
+  private releaseDrag(activeDrag: DragState, event: FederatedPointerEvent): void {
     if (activeDrag.originalIndex < activeDrag.parent.children.length) {
       activeDrag.parent.setChildIndex(activeDrag.registration.target, activeDrag.originalIndex);
     }
@@ -259,10 +237,6 @@ export class InteractionManager {
     // Guard drops by pointer position only: if release happens outside the board panel,
     // treat it as invalid before doing any hex hit detection.
     if (this.worldDropBounds && !this.worldDropBounds.contains(event.global.x, event.global.y)) {
-      if (activeDrag.moved) {
-        this.suppressNextTap.add(activeDrag.registration.target);
-      }
-
       this.returnCardToHome(activeDrag);
       return;
     }
@@ -277,10 +251,6 @@ export class InteractionManager {
         dropTarget.metadata,
       );
       return;
-    }
-
-    if (activeDrag.moved) {
-      this.suppressNextTap.add(activeDrag.registration.target);
     }
 
     this.returnCardToHome(activeDrag);
