@@ -6,7 +6,7 @@ import {
   computeInsetHexSize,
   drawClosedPolygonPath,
   type HexProgressDirection,
-} from "./hexGeometry";
+} from "./geometry";
 
 export interface HexCard {
   id: string;
@@ -38,7 +38,7 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
   const spriteLayer = new Container();
   const labelLayer = new Container();
 
-  const strokeWidth = Math.max(1, 2 * ( config.screenHeight / 240 ) );
+  const strokeWidth = Math.max(1, 2 * (config.screenHeight / 240));
   const progressStrokeWidth = Math.max(1, strokeWidth * 0.5);
 
   const hexPathInset = strokeWidth / 2;

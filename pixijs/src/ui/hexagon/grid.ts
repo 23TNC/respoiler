@@ -8,22 +8,14 @@ export interface Point2D {
   y: number;
 }
 
-export function axialPointyTopToPixel(
-  coord: AxialHexCoord,
-  size: number,
-): Point2D {
-  // NOTE: Kept legacy function name for API compatibility; conversion is flat-top.
+export function axialPointyTopToPixel(coord: AxialHexCoord, size: number): Point2D {
   return {
     x: size * (3 / 2) * coord.q,
     y: size * Math.sqrt(3) * (coord.r + (coord.q / 2)),
   };
 }
 
-export function worldHexToPanelPixel(
-  coord: AxialHexCoord,
-  size: number,
-  origin: Point2D,
-): Point2D {
+export function worldHexToPanelPixel(coord: AxialHexCoord, size: number, origin: Point2D): Point2D {
   const local = axialPointyTopToPixel(coord, size);
 
   return {

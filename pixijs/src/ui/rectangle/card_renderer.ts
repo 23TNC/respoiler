@@ -1,26 +1,34 @@
 import { Container, Graphics, Text } from "pixi.js";
 
-import type { CardLayoutRect } from "./cardLayout";
+import type { CardLayoutRect } from "./card_layout";
 
 export type ProgressDirection = "clockwise" | "counterclockwise";
 
-export interface DebugCard {
+export interface RectangleCard {
   id: string;
   name: string;
-  colors: [number, number];
+  colors: [number, number, number?];
   progress: number;
   progressDirection: ProgressDirection;
   progressFillColor: number;
   progressEmptyColor: number;
 }
 
-interface Point {
+interface ProgressOutlineConfig {
   x: number;
   y: number;
+  width: number;
+  height: number;
+  radius: number;
+  value: number;
+  direction: ProgressDirection;
+  fillColor: number;
+  emptyColor: number;
+  strokeWidth: number;
 }
 
-export function createCardView(
-  card: DebugCard,
+export function createRectangleCardView(
+  card: RectangleCard,
   layoutRect: CardLayoutRect,
   cardPadding: number,
   screenHeight: number,
@@ -28,8 +36,8 @@ export function createCardView(
   const container = new Container();
   const graphics = new Graphics();
 
-  const innerX = layoutRect.x + 2*cardPadding;
-  const innerY = layoutRect.y + 2*cardPadding;
+  const innerX = layoutRect.x + (2 * cardPadding);
+  const innerY = layoutRect.y + (2 * cardPadding);
   const innerWidth = Math.max(0, layoutRect.width - (4 * cardPadding));
   const innerHeight = Math.max(0, layoutRect.height - (4 * cardPadding));
   const cornerRadius = Math.max(1, cardPadding * 1.5);
@@ -56,17 +64,17 @@ export function createCardView(
   const text = new Text({
     text: card.name,
     style: {
-      fill: card.colors[2], // 0xf4f8ff,
+      fill: card.colors[2] ?? 0xf4f8ff,
       fontFamily: "Segoe UI",
-      fontSize: Math.round(screenHeight/70), // Math.min(20, screenHeight / 70),
+      fontSize: Math.round(screenHeight / 70),
       fontWeight: "700",
       align: "center",
     },
   });
 
   text.anchor.set(0.5, 0.5);
-  text.x = Math.round( innerX + (innerWidth / 2) );
-  text.y = Math.round( innerY + topSectionHeight + (bottomSectionHeight / 2) );
+  text.x = Math.round(innerX + (innerWidth / 2));
+  text.y = Math.round(innerY + topSectionHeight + (bottomSectionHeight / 2));
 
   container.addChild(graphics);
   container.addChild(text);
@@ -74,68 +82,53 @@ export function createCardView(
   return container;
 }
 
-interface ProgressOutlineConfig {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  radius: number;
-  value: number;
-  direction: ProgressDirection;
-  fillColor: number;
-  emptyColor: number;
-  strokeWidth: number;
-}
-
 function drawCardProgressOutline(graphics: Graphics, config: ProgressOutlineConfig): void {
   const value = Math.max(0, Math.min(1, config.value));
-  const r = Math.max(0, Math.min(config.radius, config.width / 2, config.height / 2));
+  const radius = Math.max(0, Math.min(config.radius, config.width / 2, config.height / 2));
 
   graphics
-    .roundRect(config.x, config.y, config.width, config.height, r)
+    .roundRect(config.x, config.y, config.width, config.height, radius)
     .stroke({ color: config.emptyColor, width: config.strokeWidth, alpha: 1 });
 
   if (value <= 0) {
     return;
   }
 
-  const straightTopBottom = Math.max(0, config.width - (2 * r));
-  const straightLeftRight = Math.max(0, config.height - (2 * r));
-  const cornerArcLength = (Math.PI / 2) * r;
+  const straightTopBottom = Math.max(0, config.width - (2 * radius));
+  const straightLeftRight = Math.max(0, config.height - (2 * radius));
+  const cornerArcLength = (Math.PI / 2) * radius;
   const perimeter =
     (2 * straightTopBottom) +
     (2 * straightLeftRight) +
     (4 * cornerArcLength);
-
-  let remaining = perimeter * value;
 
   const x0 = config.x;
   const y0 = config.y;
   const x1 = config.x + config.width;
   const y1 = config.y + config.height;
 
+  let remaining = perimeter * value;
+
   if (config.direction === "clockwise") {
-    graphics.moveTo(x0 + r, y0);
-
-    remaining = drawLineProgress(graphics, x0 + r, y0, x1 - r, y0, remaining);
-    remaining = drawArcProgress(graphics, x1 - r, y0 + r, r, -Math.PI / 2, 0, remaining, false);
-    remaining = drawLineProgress(graphics, x1, y0 + r, x1, y1 - r, remaining);
-    remaining = drawArcProgress(graphics, x1 - r, y1 - r, r, 0, Math.PI / 2, remaining, false);
-    remaining = drawLineProgress(graphics, x1 - r, y1, x0 + r, y1, remaining);
-    remaining = drawArcProgress(graphics, x0 + r, y1 - r, r, Math.PI / 2, Math.PI, remaining, false);
-    remaining = drawLineProgress(graphics, x0, y1 - r, x0, y0 + r, remaining);
-    remaining = drawArcProgress(graphics, x0 + r, y0 + r, r, Math.PI, (3 * Math.PI) / 2, remaining, false);
+    graphics.moveTo(x0 + radius, y0);
+    remaining = drawLineProgress(graphics, x0 + radius, y0, x1 - radius, y0, remaining);
+    remaining = drawArcProgress(graphics, x1 - radius, y0 + radius, radius, -Math.PI / 2, 0, remaining, false);
+    remaining = drawLineProgress(graphics, x1, y0 + radius, x1, y1 - radius, remaining);
+    remaining = drawArcProgress(graphics, x1 - radius, y1 - radius, radius, 0, Math.PI / 2, remaining, false);
+    remaining = drawLineProgress(graphics, x1 - radius, y1, x0 + radius, y1, remaining);
+    remaining = drawArcProgress(graphics, x0 + radius, y1 - radius, radius, Math.PI / 2, Math.PI, remaining, false);
+    remaining = drawLineProgress(graphics, x0, y1 - radius, x0, y0 + radius, remaining);
+    drawArcProgress(graphics, x0 + radius, y0 + radius, radius, Math.PI, (3 * Math.PI) / 2, remaining, false);
   } else {
-    graphics.moveTo(x0, y0 + r);
-
-    remaining = drawLineProgress(graphics, x0, y0 + r, x0, y1 - r, remaining);
-    remaining = drawArcProgress(graphics, x0 + r, y1 - r, r, Math.PI, Math.PI / 2, remaining, true);
-    remaining = drawLineProgress(graphics, x0 + r, y1, x1 - r, y1, remaining);
-    remaining = drawArcProgress(graphics, x1 - r, y1 - r, r, Math.PI / 2, 0, remaining, true);
-    remaining = drawLineProgress(graphics, x1, y1 - r, x1, y0 + r, remaining);
-    remaining = drawArcProgress(graphics, x1 - r, y0 + r, r, 0, -Math.PI / 2, remaining, true);
-    remaining = drawLineProgress(graphics, x1 - r, y0, x0 + r, y0, remaining);
-    remaining = drawArcProgress(graphics, x0 + r, y0 + r, r, -Math.PI / 2, Math.PI, remaining, true);
+    graphics.moveTo(x0, y0 + radius);
+    remaining = drawLineProgress(graphics, x0, y0 + radius, x0, y1 - radius, remaining);
+    remaining = drawArcProgress(graphics, x0 + radius, y1 - radius, radius, Math.PI, Math.PI / 2, remaining, true);
+    remaining = drawLineProgress(graphics, x0 + radius, y1, x1 - radius, y1, remaining);
+    remaining = drawArcProgress(graphics, x1 - radius, y1 - radius, radius, Math.PI / 2, 0, remaining, true);
+    remaining = drawLineProgress(graphics, x1, y1 - radius, x1, y0 + radius, remaining);
+    remaining = drawArcProgress(graphics, x1 - radius, y0 + radius, radius, 0, -Math.PI / 2, remaining, true);
+    remaining = drawLineProgress(graphics, x1 - radius, y0, x0 + radius, y0, remaining);
+    drawArcProgress(graphics, x0 + radius, y0 + radius, radius, -Math.PI / 2, Math.PI, remaining, true);
   }
 
   graphics.stroke({ color: config.fillColor, width: config.strokeWidth, alpha: 1 });
@@ -164,10 +157,7 @@ function drawLineProgress(
   const drawLength = Math.min(length, remaining);
   const t = drawLength / length;
 
-  graphics.lineTo(
-    x0 + (dx * t),
-    y0 + (dy * t),
-  );
+  graphics.lineTo(x0 + (dx * t), y0 + (dy * t));
 
   return remaining - drawLength;
 }
@@ -197,6 +187,7 @@ function drawArcProgress(
   }
 
   const arcLength = Math.abs(delta) * radius;
+
   if (arcLength <= 0) {
     return remaining;
   }
