@@ -56,6 +56,8 @@ export class InteractionManager {
 
   private readonly returnTweenCancels = new WeakMap<DisplayObject, () => void>();
 
+  private worldDropBounds: Rectangle | null = null;
+
   public constructor(config: InteractionManagerConfig) {
     this.stage = config.stage;
     this.doubleClickThresholdMs = config.doubleClickThresholdMs ?? 250;
@@ -83,6 +85,16 @@ export class InteractionManager {
     this.hexDropTargets.clear();
     this.selected = null;
     this.dragState = null;
+    this.worldDropBounds = null;
+  }
+
+  public setWorldDropBounds(bounds: Rectangle | null): void {
+    if (!bounds) {
+      this.worldDropBounds = null;
+      return;
+    }
+
+    this.worldDropBounds = new Rectangle(bounds.x, bounds.y, bounds.width, bounds.height);
   }
 
   public registerRectCard(target: Container, metadata: InteractableMetadata, setSelected: (selected: boolean) => void): void {
@@ -264,12 +276,37 @@ export class InteractionManager {
   }
 
   private findHexDropTarget(globalPoint: PointData): InteractableRegistration | null {
+    if (this.worldDropBounds && !this.worldDropBounds.contains(globalPoint.x, globalPoint.y)) {
+      return null;
+    }
+
     const targetsInDrawOrder = [...this.hexDropTargets];
 
     for (let index = targetsInDrawOrder.length - 1; index >= 0; index -= 1) {
       const target = targetsInDrawOrder[index];
       if (!target?.target) {
         continue;
+      }
+
+      if (this.worldDropBounds) {
+        const candidateBounds = target.target.getBounds();
+        const candidateLeft = candidateBounds.x;
+        const candidateTop = candidateBounds.y;
+        const candidateRight = candidateBounds.x + candidateBounds.width;
+        const candidateBottom = candidateBounds.y + candidateBounds.height;
+
+        const isCandidateFullyInsideBoard = Number.isFinite(candidateLeft)
+          && Number.isFinite(candidateTop)
+          && Number.isFinite(candidateRight)
+          && Number.isFinite(candidateBottom)
+          && candidateLeft >= this.worldDropBounds.x
+          && candidateTop >= this.worldDropBounds.y
+          && candidateRight <= (this.worldDropBounds.x + this.worldDropBounds.width)
+          && candidateBottom <= (this.worldDropBounds.y + this.worldDropBounds.height);
+
+        if (!isCandidateFullyInsideBoard) {
+          continue;
+        }
       }
 
       const localPoint = target.target.toLocal(globalPoint);
