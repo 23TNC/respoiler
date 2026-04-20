@@ -115,7 +115,6 @@ export function bootstrap(): void {
   for (const key in server_cards) {
     const card_id = Number(key) as CardId;
     upsertClientCard(server_cards[card_id]);
-    console.log(server_cards[card_id])
   }
 
   

@@ -74,7 +74,6 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
       breakWords: true,
     },
   });
-  console.log("text color", card.id, card.type, card.colors);
   label.style.fill = normalizeTextColor(card.colors?.[2], 0x0b1a2a);
 
   label.anchor.set(0.5, 0.5);
