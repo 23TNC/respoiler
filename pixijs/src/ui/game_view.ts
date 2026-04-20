@@ -1,21 +1,15 @@
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container } from "pixi.js";
 
-import { createHexCardView, isHexCardType, type HexCard } from "./hexagon/card_renderer";
-import { worldHexToPanelPixel, type AxialHexCoord } from "./hexagon/grid";
-import { computeHexTileSize } from "./hexagon/layout";
-import { drawPanel } from "./panels/panel_renderer";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./panels/layout";
-import { computeInventoryCardLayoutRects } from "./rectangle/card_layout";
-import { createRectangleCardView, type RectangleCard } from "./rectangle/card_renderer";
-
-export interface HexTile {
-  world: AxialHexCoord;
-  card: HexCard;
-}
+import { DetailsPanel } from "./panels/details_panel";
+import { EventPanel } from "./panels/event_panel";
+import { InventoryPanel } from "./panels/inventory_panel";
+import { Panel } from "./panels/panel";
+import { SlotPanel } from "./panels/slot_panel";
+import { WorldBoardPanel } from "./panels/world_board_panel";
 
 export interface GameViewData {
-  rectangleCardsByPanel: Partial<Record<PanelId, RectangleCard[]>>;
-  hexTiles: HexTile[];
+  // Card rendering is sourced directly from spacetime/data.ts client_cards.
 }
 
 interface GameViewOptions {
@@ -24,42 +18,24 @@ interface GameViewOptions {
   initialData?: Partial<GameViewData>;
 }
 
-const EMPTY_DATA: GameViewData = {
-  rectangleCardsByPanel: {},
-  hexTiles: [],
-};
-
 export class GameView {
   private readonly app: Application;
   private readonly viewedId: string;
-  private readonly panelLayer: Graphics;
-  private readonly worldLayer: Container;
-  private readonly cardLayer: Container;
-  private data: GameViewData;
+  private readonly panelLayer: Container;
+  private readonly panelById: Partial<Record<PanelId, Panel>>;
 
   constructor(options: GameViewOptions) {
     this.app = options.app;
     this.viewedId = options.viewedId;
-    this.panelLayer = new Graphics();
-    this.worldLayer = new Container();
-    this.cardLayer = new Container();
-    this.data = {
-      rectangleCardsByPanel: options.initialData?.rectangleCardsByPanel ?? EMPTY_DATA.rectangleCardsByPanel,
-      hexTiles: options.initialData?.hexTiles ?? EMPTY_DATA.hexTiles,
-    };
+    this.panelLayer = new Container();
+    this.panelById = {};
 
     this.app.stage.label = `game-view:${this.viewedId}`;
     this.app.stage.addChild(this.panelLayer);
-    this.app.stage.addChild(this.worldLayer);
-    this.app.stage.addChild(this.cardLayer);
   }
 
-  setData(data: Partial<GameViewData>): void {
-    this.data = {
-      rectangleCardsByPanel: data.rectangleCardsByPanel ?? this.data.rectangleCardsByPanel,
-      hexTiles: data.hexTiles ?? this.data.hexTiles,
-    };
-
+  setData(_data: Partial<GameViewData>): void {
+    // Rendering now reads directly from global client_cards state.
     this.render();
   }
 
@@ -72,83 +48,69 @@ export class GameView {
     const screenWidth = this.app.screen.width;
     const screenHeight = this.app.screen.height;
     const panelPadding = screenHeight / 240;
-    const cardPadding = screenHeight / 240;
 
     const layoutRects = computePanelLayout(screenWidth, screenHeight);
-    const layoutById = new Map<PanelId, LayoutRect>(layoutRects.map((rect) => [rect.id, rect]));
-
-    this.panelLayer.clear();
-    this.worldLayer.removeChildren();
-    this.cardLayer.removeChildren();
+    this.syncPanelInstances(layoutRects, panelPadding);
 
     for (const layoutRect of layoutRects) {
-      drawPanel(this.panelLayer, layoutRect, panelPadding);
-    }
-
-    this.renderHexTiles(layoutById, screenHeight);
-    this.renderRectangleCards(layoutById, screenWidth, screenHeight, cardPadding);
-  }
-
-  private renderRectangleCards(
-    layoutById: Map<PanelId, LayoutRect>,
-    screenWidth: number,
-    screenHeight: number,
-    cardPadding: number,
-  ): void {
-    for (const [panelId, cards] of Object.entries(this.data.rectangleCardsByPanel)) {
-      if (!cards || cards.length === 0) {
+      const panel = this.panelById[layoutRect.id];
+      if (!panel) {
         continue;
       }
 
-      const panelRect = layoutById.get(panelId as PanelId);
-
-      if (!panelRect) {
-        continue;
-      }
-
-      const cardLayoutRects = computeInventoryCardLayoutRects(panelRect, cards.length, screenWidth, screenHeight);
-
-      for (let index = 0; index < cards.length; index += 1) {
-        const cardData = cards[index];
-        const cardLayoutRect = cardLayoutRects[index];
-
-        if (!cardData || !cardLayoutRect) {
-          continue;
-        }
-
-        const cardView = createRectangleCardView(cardData, cardLayoutRect, cardPadding, screenHeight);
-        this.cardLayer.addChild(cardView);
-      }
+      panel.setLayout(layoutRect, panelPadding);
+      panel.refresh(screenWidth, screenHeight);
     }
   }
 
-  private renderHexTiles(layoutById: Map<PanelId, LayoutRect>, screenHeight: number): void {
-    const worldPanelRect = layoutById.get("worldPanel");
+  private syncPanelInstances(layoutRects: LayoutRect[], panelPadding: number): void {
+    const existingPanels = new Set(this.panelLayer.children);
 
-    if (!worldPanelRect || this.data.hexTiles.length === 0) {
-      return;
-    }
+    for (const layoutRect of layoutRects) {
+      let panel = this.panelById[layoutRect.id];
 
-    const hexSize = computeHexTileSize(screenHeight);
-    const worldOrigin = {
-      x: worldPanelRect.x + (worldPanelRect.width / 2),
-      y: worldPanelRect.y + (worldPanelRect.height / 2),
-    };
-
-    for (const tile of this.data.hexTiles) {
-      if (!isHexCardType(tile.card.type)) {
-        continue;
+      if (!panel) {
+        panel = this.createPanel(layoutRect, panelPadding);
+        this.panelById[layoutRect.id] = panel;
       }
 
-      const pixel = worldHexToPanelPixel(tile.world, hexSize, worldOrigin);
-      const hexCard = createHexCardView(tile.card, {
-        centerX: pixel.x,
-        centerY: pixel.y,
-        size: hexSize,
-        screenHeight,
-      });
+      if (panel && !panel.root.parent) {
+        this.panelLayer.addChild(panel.root);
+      }
 
-      this.worldLayer.addChild(hexCard);
+      if (panel) {
+        existingPanels.delete(panel.root);
+      }
+    }
+
+    for (const stalePanelRoot of existingPanels) {
+      stalePanelRoot.removeFromParent();
+    }
+  }
+
+  private createPanel(layoutRect: LayoutRect, panelPadding: number): Panel {
+    switch (layoutRect.id) {
+      case "worldPanel":
+        return new WorldBoardPanel(layoutRect, panelPadding);
+      case "disciplinesPanel":
+        return new InventoryPanel(layoutRect, panelPadding, 1);
+      case "facultiesPanel":
+        return new InventoryPanel(layoutRect, panelPadding, 2);
+      case "requisitesPanel":
+        return new InventoryPanel(layoutRect, panelPadding, 3);
+      case "reveriesPanel":
+        return new InventoryPanel(layoutRect, panelPadding, 4);
+      case "soulsPanel":
+        return new InventoryPanel(layoutRect, panelPadding, 5);
+      case "detailsPanel":
+        return new DetailsPanel(layoutRect, panelPadding);
+      case "eventPanel":
+        return new EventPanel(layoutRect, panelPadding);
+      case "slotPanel":
+        return new SlotPanel(layoutRect, panelPadding);
+      case "titlePanel":
+      default:
+        return new Panel(layoutRect, panelPadding);
     }
   }
 }
