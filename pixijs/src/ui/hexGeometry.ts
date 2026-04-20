@@ -3,7 +3,7 @@ export interface HexPoint {
   y: number;
 }
 
-const POINTY_TOP_HEX_CORNER_ANGLES_DEG = [-90, -30, 30, 90, 150, 210];
+const FLAT_TOP_HEX_CORNER_ANGLES_DEG = [0, 60, 120, 180, 240, 300];
 
 export function computeInsetHexSize(size: number, strokeWidth: number): number {
   return Math.max(0, size - (strokeWidth / 2));
@@ -17,7 +17,7 @@ export function buildPointyTopHexVertices(
 ): HexPoint[] {
   const effectiveSize = Math.max(0, size - inset);
 
-  return POINTY_TOP_HEX_CORNER_ANGLES_DEG.map((angleDeg) => {
+  return FLAT_TOP_HEX_CORNER_ANGLES_DEG.map((angleDeg) => {
     const angleRad = (Math.PI / 180) * angleDeg;
 
     return {

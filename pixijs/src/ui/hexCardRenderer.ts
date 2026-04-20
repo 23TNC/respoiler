@@ -71,7 +71,7 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
       fontWeight: "700",
       align: "center",
       wordWrap: true,
-      wordWrapWidth: Math.sqrt(3) * pathSize * 0.75,
+      wordWrapWidth: 2 * pathSize * 0.75,
       breakWords: true,
     },
   });
