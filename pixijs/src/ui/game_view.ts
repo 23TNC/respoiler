@@ -1,5 +1,7 @@
-import { Application, Container } from "pixi.js";
+import { Application, Container, Rectangle } from "pixi.js";
 
+import { InputManager } from "./input/input_manager";
+import { InteractionResolver } from "./input/interaction_resolver";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./panels/layout";
 import { DetailsPanel } from "./panels/details_panel";
 import { EventPanel } from "./panels/event_panel";
@@ -23,15 +25,27 @@ export class GameView {
   private readonly viewedId: number;
   private readonly panelLayer: Container;
   private readonly panelById: Partial<Record<PanelId, Panel>>;
+  private readonly inputManager: InputManager;
 
   constructor(options: GameViewOptions) {
     this.app = options.app;
     this.viewedId = options.viewedId;
     this.panelLayer = new Container();
     this.panelById = {};
+    this.inputManager = new InputManager({
+      interactionResolver: new InteractionResolver({
+        onStateChanged: () => this.render(),
+      }),
+    });
 
     this.app.stage.label = `game-view:${this.viewedId}`;
+    this.app.stage.eventMode = "static";
+    this.app.stage.hitArea = new Rectangle(0, 0, this.app.screen.width, this.app.screen.height);
     this.app.stage.addChild(this.panelLayer);
+    this.app.stage.on("pointerdown", (event) => this.inputManager.onPointerDown(event));
+    this.app.stage.on("pointermove", (event) => this.inputManager.onPointerMove(event));
+    this.app.stage.on("pointerup", (event) => this.inputManager.onPointerUp(event));
+    this.app.stage.on("pointerupoutside", (event) => this.inputManager.onPointerUp(event));
   }
 
   setData(_data: Partial<GameViewData>): void {
@@ -41,6 +55,7 @@ export class GameView {
 
   resize(width: number, height: number): void {
     this.app.renderer.resize(Math.max(1, width), Math.max(1, height));
+    this.app.stage.hitArea = new Rectangle(0, 0, this.app.screen.width, this.app.screen.height);
     this.render();
   }
 
@@ -51,6 +66,7 @@ export class GameView {
 
     const layoutRects = computePanelLayout(screenWidth, screenHeight);
     this.syncPanelInstances(layoutRects, panelPadding);
+    this.syncInputPanels(layoutRects);
 
     for (const layoutRect of layoutRects) {
       const panel = this.panelById[layoutRect.id];
@@ -60,6 +76,19 @@ export class GameView {
 
       panel.setLayout(layoutRect, panelPadding);
       panel.refresh(screenWidth, screenHeight);
+    }
+  }
+
+  private syncInputPanels(layoutRects: LayoutRect[]): void {
+    this.inputManager.clearPanels();
+
+    for (const layoutRect of layoutRects) {
+      const panel = this.panelById[layoutRect.id];
+      if (!panel) {
+        continue;
+      }
+
+      this.inputManager.registerPanel(panel.getInputRegistration(getPanelInputPriority(layoutRect.id)));
     }
   }
 
@@ -112,5 +141,26 @@ export class GameView {
       default:
         return new Panel(layoutRect, panelPadding);
     }
+  }
+}
+
+function getPanelInputPriority(panelId: PanelId): number {
+  switch (panelId) {
+    case "eventPanel":
+    case "slotPanel":
+      return 30;
+    case "detailsPanel":
+      return 20;
+    case "worldPanel":
+      return 10;
+    case "disciplinesPanel":
+    case "facultiesPanel":
+    case "requisitesPanel":
+    case "reveriesPanel":
+    case "soulsPanel":
+      return 5;
+    case "titlePanel":
+    default:
+      return 0;
   }
 }

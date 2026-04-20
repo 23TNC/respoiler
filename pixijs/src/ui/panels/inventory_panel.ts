@@ -1,4 +1,5 @@
 import { type ClientCard, client_cards, viewed_id } from "../../spacetime/data";
+import type { HitEntity } from "../input/types";
 import { computeInventoryCardLayoutRects } from "../rectangle/card_layout";
 import { createRectangleCardView } from "../rectangle/card_renderer";
 import type { LayoutRect } from "./layout";
@@ -63,6 +64,32 @@ export class InventoryPanel extends Panel {
     );
 
     this.content.addChild(cardView);
+  }
+
+  protected override hitTest(x: number, y: number, options?: { ignoreEntity?: HitEntity | null }): HitEntity | null {
+    for (let index = this.content.children.length - 1; index >= 0; index -= 1) {
+      const child = this.content.children[index];
+      if (!child.getBounds().contains(x, y)) {
+        continue;
+      }
+
+      const match = /^rectangle-card:(\d+)$/.exec(child.label ?? "");
+      if (!match) {
+        continue;
+      }
+
+      const cardId = Number(match[1]);
+      if (options?.ignoreEntity?.type === "card" && options.ignoreEntity.id === cardId) {
+        continue;
+      }
+
+      return {
+        type: "card",
+        id: cardId,
+      };
+    }
+
+    return null;
   }
 }
 

@@ -1,5 +1,6 @@
 import { Container, Graphics } from "pixi.js";
 
+import type { HitEntity, InputPanelRegistration } from "../input/types";
 import type { LayoutRect } from "./layout";
 
 const PANEL_FILL = 0x172233;
@@ -46,6 +47,15 @@ export class Panel {
     // Implemented by subclasses when needed.
   }
 
+  getInputRegistration(priority: number): InputPanelRegistration {
+    return {
+      id: this.layoutRect.id,
+      priority,
+      containsPoint: (x, y) => this.containsPoint(x, y),
+      hitTest: (x, y, options) => this.hitTest(x, y, options),
+    };
+  }
+
   protected clearContent(): void {
     this.content.removeChildren();
   }
@@ -62,6 +72,17 @@ export class Panel {
       width: Math.max(0, this.layoutRect.width - (2 * this.panelPadding)),
       height: Math.max(0, this.layoutRect.height - (2 * this.panelPadding)),
     };
+  }
+
+  protected containsPoint(x: number, y: number): boolean {
+    const innerRect = this.getInnerRect();
+    const withinX = x >= innerRect.x && x <= (innerRect.x + innerRect.width);
+    const withinY = y >= innerRect.y && y <= (innerRect.y + innerRect.height);
+    return withinX && withinY;
+  }
+
+  protected hitTest(_x: number, _y: number, _options?: { ignoreEntity?: HitEntity | null }): HitEntity | null {
+    return null;
   }
 
   private redrawFrame(): void {
