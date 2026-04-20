@@ -276,6 +276,31 @@ export function upsertClientCard(server: ServerCard): void {
   addClientCardToZone(next);
 }
 
+export function updateClientCardLocation(card_id: CardId, zone: ZoneId, position: PackedPosition): void {
+  const card = client_cards[card_id];
+  if (!card) {
+    return;
+  }
+
+  removeClientCardFromZone(card.zone, card_id);
+
+  const { zone_q, zone_r, z } = unpackZone(zone);
+  const { local_q, local_r } = unpackPosition(position);
+
+  card.zone = zone;
+  card.position = position;
+  card.zone_q = zone_q;
+  card.zone_r = zone_r;
+  card.z = z;
+  card.local_q = local_q;
+  card.local_r = local_r;
+  card.world_q = zone_q * 8 + local_q;
+  card.world_r = zone_r * 8 + local_r;
+  card.dirty = true;
+
+  addClientCardToZone(card);
+}
+
 export function removeClientCard(card_id: CardId): void {
   const previous = client_cards[card_id];
   if (!previous) return;
