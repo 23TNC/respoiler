@@ -256,6 +256,17 @@ export class InteractionManager {
       activeDrag.parent.setChildIndex(activeDrag.registration.target, activeDrag.originalIndex);
     }
 
+    // Guard drops by pointer position only: if release happens outside the board panel,
+    // treat it as invalid before doing any hex hit detection.
+    if (this.worldDropBounds && !this.worldDropBounds.contains(event.global.x, event.global.y)) {
+      if (activeDrag.moved) {
+        this.suppressNextTap.add(activeDrag.registration.target);
+      }
+
+      this.returnCardToHome(activeDrag);
+      return;
+    }
+
     const dropTarget = this.findHexDropTarget(event.global);
 
     if (dropTarget) {
@@ -276,37 +287,12 @@ export class InteractionManager {
   }
 
   private findHexDropTarget(globalPoint: PointData): InteractableRegistration | null {
-    if (this.worldDropBounds && !this.worldDropBounds.contains(globalPoint.x, globalPoint.y)) {
-      return null;
-    }
-
     const targetsInDrawOrder = [...this.hexDropTargets];
 
     for (let index = targetsInDrawOrder.length - 1; index >= 0; index -= 1) {
       const target = targetsInDrawOrder[index];
       if (!target?.target) {
         continue;
-      }
-
-      if (this.worldDropBounds) {
-        const candidateBounds = target.target.getBounds();
-        const candidateLeft = candidateBounds.x;
-        const candidateTop = candidateBounds.y;
-        const candidateRight = candidateBounds.x + candidateBounds.width;
-        const candidateBottom = candidateBounds.y + candidateBounds.height;
-
-        const isCandidateFullyInsideBoard = Number.isFinite(candidateLeft)
-          && Number.isFinite(candidateTop)
-          && Number.isFinite(candidateRight)
-          && Number.isFinite(candidateBottom)
-          && candidateLeft >= this.worldDropBounds.x
-          && candidateTop >= this.worldDropBounds.y
-          && candidateRight <= (this.worldDropBounds.x + this.worldDropBounds.width)
-          && candidateBottom <= (this.worldDropBounds.y + this.worldDropBounds.height);
-
-        if (!isCandidateFullyInsideBoard) {
-          continue;
-        }
       }
 
       const localPoint = target.target.toLocal(globalPoint);
