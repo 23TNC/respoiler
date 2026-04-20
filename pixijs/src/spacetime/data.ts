@@ -74,6 +74,8 @@ export const client_cards_by_zone: Record<ZoneId, Set<CardId>> = {};
 export let observer_id = 0;
 export let viewed_id = 0;
 export let selected_card_id = 0;
+export let selected_zone = 0;
+export let selected_position = 0;
 
 export function setViewedId(id: number): void {
   viewed_id = id;
@@ -85,6 +87,26 @@ export function setObserverId(id: number): void {
 
 export function setSelectedCardId(id: number): void {
   selected_card_id = id;
+}
+
+export function setSelectedZone(zone: number): void {
+  selected_zone = zone;
+}
+
+export function setSelectedPosition(position: number): void {
+  selected_position = position;
+}
+
+export function setSelectedState(card_id: number, zone: number, position: number): void {
+  selected_card_id = card_id;
+  selected_zone = zone;
+  selected_position = position;
+}
+
+export function clearSelectedState(): void {
+  selected_card_id = 0;
+  selected_zone = 0;
+  selected_position = 0;
 }
 
 export function decodeCardType(definition: number): number {
@@ -118,6 +140,10 @@ export function unpackPosition(position: number): { local_q: number; local_r: nu
   const local_r = position & 0x7;
   const local_q = (position >>> 3) & 0x7;
   return { local_q, local_r };
+}
+
+export function packPosition(local_q: number, local_r: number): number {
+  return ((local_q & 0x7) << 3) | (local_r & 0x7);
 }
 
 function addClientCardToZone(card: ClientCard): void {

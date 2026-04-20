@@ -16,7 +16,7 @@ import {
   buildClientCard,
   setViewedId,
   setObserverId,
-  setSelectedCardId,
+  clearSelectedState,
   upsertClientCard,
 } from './data';
 
@@ -111,5 +111,5 @@ export function bootstrap(): void {
   }
 
   
-  setSelectedCardId(0);
+  clearSelectedState();
 }
