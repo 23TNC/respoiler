@@ -98,8 +98,8 @@ const doesHexIntersectPanel = (
   hexSize: number,
   panelRect: PanelInnerRect,
 ): boolean => {
-  const halfWidth = (SQRT3 * hexSize) / 2;
-  const halfHeight = hexSize;
+  const halfWidth = hexSize;
+  const halfHeight = (SQRT3 * hexSize) / 2;
   const hexMinX = centerX - halfWidth;
   const hexMaxX = centerX + halfWidth;
   const hexMinY = centerY - halfHeight;

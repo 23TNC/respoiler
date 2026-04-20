@@ -8,13 +8,14 @@ export interface Point2D {
   y: number;
 }
 
-export function axialPointyTopToPixel(
+export function axialFlatTopToPixel(
   coord: AxialHexCoord,
   size: number,
 ): Point2D {
   return {
-    x: size * Math.sqrt(3) * (coord.q + (coord.r / 2)),
-    y: size * (3 / 2) * coord.r,
+    // Flat-top axial layout keeps q/r storage, but changes the pixel projection.
+    x: size * (3 / 2) * coord.q,
+    y: size * Math.sqrt(3) * (coord.r + (coord.q / 2)),
   };
 }
 
@@ -23,7 +24,7 @@ export function worldHexToPanelPixel(
   size: number,
   origin: Point2D,
 ): Point2D {
-  const local = axialPointyTopToPixel(coord, size);
+  const local = axialFlatTopToPixel(coord, size);
 
   return {
     x: origin.x + local.x,

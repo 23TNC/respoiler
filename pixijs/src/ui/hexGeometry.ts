@@ -3,13 +3,12 @@ export interface HexPoint {
   y: number;
 }
 
-const POINTY_TOP_HEX_CORNER_ANGLES_DEG = [-90, -30, 30, 90, 150, 210];
 
 export function computeInsetHexSize(size: number, strokeWidth: number): number {
   return Math.max(0, size - (strokeWidth / 2));
 }
 
-export function buildPointyTopHexVertices(
+export function buildFlatTopHexVertices(
   centerX: number,
   centerY: number,
   size: number,
@@ -17,8 +16,9 @@ export function buildPointyTopHexVertices(
 ): HexPoint[] {
   const effectiveSize = Math.max(0, size - inset);
 
-  return POINTY_TOP_HEX_CORNER_ANGLES_DEG.map((angleDeg) => {
-    const angleRad = (Math.PI / 180) * angleDeg;
+  return Array.from({ length: 6 }, (_, index) => {
+    // Flat-top hexes use 0°, 60°, 120°... corner angles.
+    const angleRad = (Math.PI / 3) * index;
 
     return {
       x: centerX + (effectiveSize * Math.cos(angleRad)),
@@ -57,7 +57,7 @@ interface HexPerimeterProgressConfig {
 
 export function buildHexPerimeterProgressPath(config: HexPerimeterProgressConfig): HexPoint[] {
   const value = Math.max(0, Math.min(1, config.value));
-  const vertices = buildPointyTopHexVertices(config.centerX, config.centerY, config.size, config.inset ?? 0);
+  const vertices = buildFlatTopHexVertices(config.centerX, config.centerY, config.size, config.inset ?? 0);
 
   if (vertices.length !== 6 || value <= 0) {
     return [];
