@@ -3,6 +3,7 @@ import type { PanelId } from "../panels/layout";
 export type HitEntityType =
   | "card"
   | "tile"
+  | "details_cancel"
   | "event"
   | "slot"
   | "none";

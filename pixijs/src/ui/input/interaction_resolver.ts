@@ -1,8 +1,13 @@
 import {
   client_cards,
+  client_cards_by_zone,
   packPosition,
+  selected_card_id,
+  selected_position,
+  selected_zone,
   setSelectedState,
   updateClientCardLocation,
+  viewed_id,
 } from "../../spacetime/data";
 import type { InputAction, InputContext } from "./types";
 
@@ -42,8 +47,12 @@ export class InteractionResolver {
       return;
     }
     if (target.type === "card" && typeof target.id === "number") {
-      
       this.selectSingleCard(target.id);
+      return;
+    }
+
+    if (target.type === "details_cancel") {
+      this.cancelSharedLocationCards();
       return;
     }
 
@@ -181,6 +190,57 @@ export class InteractionResolver {
 
     for (const key in client_cards) {
       client_cards[Number(key)].selected = false;
+    }
+
+    this.onStateChanged?.();
+  }
+
+  private cancelSharedLocationCards(): void {
+    let zone = selected_zone;
+    let position = selected_position;
+    let selectedTileCardId = 0;
+
+    if (selected_card_id !== 0) {
+      const selectedCard = client_cards[selected_card_id];
+      if (!selectedCard || selectedCard.card_type !== 6) {
+        return;
+      }
+
+      zone = selectedCard.zone;
+      position = selectedCard.position;
+      selectedTileCardId = selectedCard.card_id;
+    }
+
+    if (zone === 0) {
+      return;
+    }
+
+    const zoneCards = client_cards_by_zone[zone];
+    if (!zoneCards) {
+      return;
+    }
+
+    const cancelableCardIds: number[] = [];
+
+    for (const cardId of zoneCards) {
+      const card = client_cards[cardId];
+      if (!card) {
+        continue;
+      }
+
+      if (card.position !== position || card.link !== viewed_id) {
+        continue;
+      }
+
+      if (card.card_id === selectedTileCardId || card.card_type === 6) {
+        continue;
+      }
+
+      cancelableCardIds.push(card.card_id);
+    }
+
+    for (const cardId of cancelableCardIds) {
+      updateClientCardLocation(cardId, 0, 0);
     }
 
     this.onStateChanged?.();
