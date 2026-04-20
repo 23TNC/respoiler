@@ -1,10 +1,13 @@
 import { Container, Graphics, Text } from "pixi.js";
 
 import type { InventoryCard } from "../spacetime/inventory";
+import { packedZoneAndPositionToWorld } from "../spacetime/zoneMath";
 import type { PanelInnerRect } from "./panelRenderer";
 
 export interface DetailsPanelData {
   selectedName: string;
+  selectedCoordinates?: string;
+  attachedCards?: InventoryCard[];
   stagedSubpanel?: {
     title: string;
     cards: InventoryCard[];
@@ -32,6 +35,24 @@ export const buildDetailsPanelData = (
     return { selectedName: selectedCard.name };
   }
 
+  const selectedWorld = packedZoneAndPositionToWorld(selectedCard.zone, selectedCard.position);
+  const coordinateLine = `q: ${selectedWorld.worldQ} r: ${selectedWorld.worldR} z: ${selectedWorld.z}`;
+
+  const attachedCards = allOwnedCards
+    .filter((card) => card.linked === viewedId)
+    .filter((card) => {
+      const world = packedZoneAndPositionToWorld(card.zone, card.position);
+      return world.worldQ === selectedWorld.worldQ
+        && world.worldR === selectedWorld.worldR
+        && world.z === selectedWorld.z;
+    })
+    .sort((left, right) => {
+      if (left.card_type !== right.card_type) {
+        return left.card_type - right.card_type;
+      }
+      return left.card_id - right.card_id;
+    });
+
   const stagedCards = allOwnedCards
     .filter((card) => (
       card.linked === viewedId
@@ -45,7 +66,11 @@ export const buildDetailsPanelData = (
   const stagedTypeOneCard = stagedCards.find((card) => card.card_type === 1);
 
   if (!stagedTypeOneCard) {
-    return { selectedName: selectedCard.name };
+    return {
+      selectedName: selectedCard.name,
+      selectedCoordinates: coordinateLine,
+      attachedCards,
+    };
   }
 
   // Type 1 is expected to be unique for a staged recipe. If duplicates appear,
@@ -61,6 +86,8 @@ export const buildDetailsPanelData = (
 
   return {
     selectedName: selectedCard.name,
+    selectedCoordinates: coordinateLine,
+    attachedCards,
     stagedSubpanel: {
       title: stagedTypeOneCard.name,
       cards: stagedBodyCards,
@@ -97,11 +124,80 @@ export const renderDetailsPanel = (
   titleText.y = detailsPanelRect.y + leftPadding;
   detailsLayer.addChild(titleText);
 
+  let nextContentTop = titleText.y + titleText.height + Math.max(6, Math.round(screenHeight / 180));
+
+  if (panelData.selectedCoordinates) {
+    const coordinateText = new Text({
+      text: panelData.selectedCoordinates,
+      style: {
+        fill: DETAILS_TEXT_COLOR,
+        fontSize: bodyFontSize,
+        fontFamily: "Segoe UI",
+        fontWeight: "500",
+      },
+    });
+
+    coordinateText.x = titleText.x;
+    coordinateText.y = nextContentTop;
+    detailsLayer.addChild(coordinateText);
+    nextContentTop = coordinateText.y + coordinateText.height + Math.max(8, Math.round(screenHeight / 160));
+  }
+
+  if (panelData.attachedCards) {
+    const attachedHeading = new Text({
+      text: "Attached cards",
+      style: {
+        fill: DETAILS_TEXT_COLOR,
+        fontSize: bodyFontSize,
+        fontFamily: "Segoe UI",
+        fontWeight: "700",
+      },
+    });
+
+    attachedHeading.x = titleText.x;
+    attachedHeading.y = nextContentTop;
+    detailsLayer.addChild(attachedHeading);
+    nextContentTop = attachedHeading.y + attachedHeading.height + Math.max(6, Math.round(screenHeight / 180));
+
+    if (panelData.attachedCards.length === 0) {
+      const emptyAttachedCardsText = new Text({
+        text: "• None",
+        style: {
+          fill: DETAILS_TEXT_COLOR,
+          fontSize: bodyFontSize,
+          fontFamily: "Segoe UI",
+        },
+      });
+
+      emptyAttachedCardsText.x = titleText.x;
+      emptyAttachedCardsText.y = nextContentTop;
+      detailsLayer.addChild(emptyAttachedCardsText);
+      nextContentTop = emptyAttachedCardsText.y + emptyAttachedCardsText.height + Math.max(8, Math.round(screenHeight / 160));
+    } else {
+      panelData.attachedCards.forEach((card, index) => {
+        const attachedCardText = new Text({
+          text: `• ${card.name}`,
+          style: {
+            fill: DETAILS_TEXT_COLOR,
+            fontSize: bodyFontSize,
+            fontFamily: "Segoe UI",
+          },
+        });
+
+        attachedCardText.x = titleText.x;
+        attachedCardText.y = nextContentTop + (index * rowHeight);
+        detailsLayer.addChild(attachedCardText);
+      });
+
+      nextContentTop += (panelData.attachedCards.length * rowHeight) + Math.max(8, Math.round(screenHeight / 160));
+    }
+  }
+
   if (!panelData.stagedSubpanel) {
     return;
   }
 
-  const subPanelTop = titleText.y + titleText.height + Math.max(10, Math.round(screenHeight / 120));
+  const subPanelTop = nextContentTop;
   const subPanelHeight = Math.max(0, detailsPanelRect.y + detailsPanelRect.height - subPanelTop - leftPadding);
 
   const subPanelGraphics = new Graphics()

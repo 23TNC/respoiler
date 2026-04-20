@@ -17,6 +17,27 @@ export const unpackZoneCoord = (zone: number): { zoneQ: number; zoneR: number; z
   };
 };
 
+export const unpackTilePosition = (position: number): { q: number; r: number } => {
+  return {
+    q: (position >> 3) & 0x07,
+    r: position & 0x07,
+  };
+};
+
+export const packedZoneAndPositionToWorld = (
+  zone: number,
+  position: number,
+): { worldQ: number; worldR: number; z: number } => {
+  const { zoneQ, zoneR, z } = unpackZoneCoord(zone);
+  const { q, r } = unpackTilePosition(position);
+
+  return {
+    worldQ: (zoneQ * ZONE_SIZE) + q,
+    worldR: (zoneR * ZONE_SIZE) + r,
+    z,
+  };
+};
+
 export const worldToZone = (
   worldQ: number,
   worldR: number,
