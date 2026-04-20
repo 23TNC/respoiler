@@ -15,7 +15,6 @@ import {
   client_cards,
   buildClientCard,
   setObserverId,
-  setViewedId,
   setSelectedCardId,
 } from './data';
 
@@ -106,6 +105,5 @@ export function bootstrap(): void {
   }
 
   setObserverId(1);
-  setViewedId(1);
   setSelectedCardId(0);
 }

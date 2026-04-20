@@ -71,15 +71,11 @@ export const server_zones: Record<ZoneId, ServerZone> = {};
 export const client_cards: Record<CardId, ClientCard> = {};
 
 export let observer_id = 0;
-export let viewed_id = 0;
+export const viewed_id: number = 1;
 export let selected_card_id = 0;
 
 export function setObserverId(id: number): void {
   observer_id = id;
-}
-
-export function setViewedId(id: number): void {
-  viewed_id = id;
 }
 
 export function setSelectedCardId(id: number): void {
