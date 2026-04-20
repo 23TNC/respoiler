@@ -6,6 +6,7 @@ export type ProgressDirection = "clockwise" | "counterclockwise";
 
 export interface RectangleCard {
   id: string;
+  type?: number;
   name: string;
   colors: [number, number, number?];
   progress: number;
@@ -64,13 +65,14 @@ export function createRectangleCardView(
   const text = new Text({
     text: card.name,
     style: {
-      fill: card.colors[2] ?? 0xf4f8ff,
       fontFamily: "Segoe UI",
       fontSize: Math.round(screenHeight / 70),
       fontWeight: "700",
       align: "center",
     },
   });
+  console.log("text color", card.id, card.type, card.colors);
+  text.style.fill = normalizeTextColor(card.colors?.[2], 0x0b1a2a);
 
   text.anchor.set(0.5, 0.5);
   text.x = Math.round(innerX + (innerWidth / 2));
@@ -81,6 +83,23 @@ export function createRectangleCardView(
   container.label = `rectangle-card:${card.id}`;
 
   return container;
+}
+
+function normalizeTextColor(rawColor: number | string | undefined, fallback: number): number {
+  if (typeof rawColor === "number") {
+    return rawColor;
+  }
+
+  if (typeof rawColor !== "string") {
+    return fallback;
+  }
+
+  const normalized = rawColor.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return fallback;
+  }
+
+  return Number.parseInt(normalized, 16);
 }
 
 function drawCardProgressOutline(graphics: Graphics, config: ProgressOutlineConfig): void {

@@ -26,6 +26,7 @@ export interface ServerCard {
 export interface ClientCard extends ServerCard {
   card_type: number;
   definition_id: number;
+  colors: number[];
 
   stale: boolean;
   dirty: boolean;
@@ -199,11 +200,18 @@ export function buildClientCard(server: ServerCard, previous?: ClientCard): Clie
 
   const card_type = decodeCardType(server.definition);
   const definition_id = decodeDefinitionId(server.definition);
+  const definition = getCardDefinition(server.definition);
+  const colors = normalizeCardColors(definition?.style?.color);
+
+  if (card_type >= 1 && card_type <= 5 && colors[2] == null) {
+    colors[2] = 0x0b1a2a;
+  }
 
   return {
     ...server,
     card_type,
     definition_id,
+    colors,
 
     stale: false,
     dirty: true,
@@ -219,6 +227,35 @@ export function buildClientCard(server: ServerCard, previous?: ClientCard): Clie
     world_q: zone_q * 8 + local_q,
     world_r: zone_r * 8 + local_r,
   };
+}
+
+function normalizeCardColors(colors: Array<number | string> | undefined): number[] {
+  if (!colors) {
+    return [];
+  }
+
+  const normalized: number[] = [];
+  for (const rawColor of colors) {
+    const parsedColor = parseColorNumber(rawColor);
+    if (parsedColor != null) {
+      normalized.push(parsedColor);
+    }
+  }
+
+  return normalized;
+}
+
+function parseColorNumber(rawColor: number | string): number | null {
+  if (typeof rawColor === "number") {
+    return rawColor;
+  }
+
+  const normalizedHex = rawColor.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalizedHex)) {
+    return null;
+  }
+
+  return Number.parseInt(normalizedHex, 16);
 }
 
 export function markClientCardsStale(): void {
