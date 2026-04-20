@@ -1,4 +1,9 @@
-import { client_cards, packPosition, setSelectedState } from "../../spacetime/data";
+import {
+  client_cards,
+  packPosition,
+  setSelectedState,
+  updateClientCardLocation,
+} from "../../spacetime/data";
 import type { InputAction, InputContext } from "./types";
 
 interface InteractionResolverOptions {
@@ -64,17 +69,79 @@ export class InteractionResolver {
 
   private handleLeftMouseStopDrag(context: InputContext): void {
     const source = context.sourceEntity;
-    if (!source || source.type !== "card" || typeof source.id !== "number") {
+    if (!source || source.type !== "card") {
       return;
     }
 
-    const card = client_cards[source.id];
+    const cardId = this.resolveCardEntityId(source);
+    if (cardId == null) {
+      return;
+    }
+
+    const card = client_cards[cardId];
     if (!card) {
       return;
     }
 
     card.dragging = false;
+
+    const target = context.targetEntity;
+    if (target?.type === "tile") {
+      const destination = this.resolveTileEntityLocation(target);
+      if (destination) {
+        updateClientCardLocation(cardId, destination.zone, destination.position);
+      }
+    }
+
     this.onStateChanged?.();
+  }
+
+  private resolveCardEntityId(entity: { id: number | string | null; ref?: unknown }): number | null {
+    if (typeof entity.ref === "object" && entity.ref !== null) {
+      const card_id = (entity.ref as { card_id?: unknown }).card_id;
+      if (typeof card_id === "number") {
+        return card_id;
+      }
+    }
+
+    return typeof entity.id === "number" ? entity.id : null;
+  }
+
+  private resolveTileEntityLocation(entity: { id: number | string | null; ref?: unknown }): { zone: number; position: number } | null {
+    if (typeof entity.ref === "object" && entity.ref !== null) {
+      const zone = (entity.ref as { zone?: unknown }).zone;
+      const position = (entity.ref as { position?: unknown }).position;
+
+      if (typeof zone === "number" && typeof position === "number") {
+        return { zone, position };
+      }
+    }
+
+    if (typeof entity.id === "string") {
+      const tileCardId = Number(entity.id);
+      if (Number.isInteger(tileCardId) && tileCardId > 0) {
+        const tileCard = client_cards[tileCardId];
+        if (tileCard) {
+          return {
+            zone: tileCard.zone,
+            position: tileCard.position,
+          };
+        }
+      }
+
+      const match = /^zone:(\d+):(\d+):(\d+)$/.exec(entity.id);
+      if (match) {
+        const zone = Number(match[1]);
+        const local_q = Number(match[2]);
+        const local_r = Number(match[3]);
+        return {
+          zone,
+          position: packPosition(local_q, local_r),
+        };
+      }
+    }
+
+    return null;
   }
 
   private selectSingleCard(cardId: number): void {
