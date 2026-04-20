@@ -69,10 +69,15 @@ export const server_actions: Record<CardId, ServerAction> = {};
 export const server_zones: Record<ZoneId, ServerZone> = {};
 
 export const client_cards: Record<CardId, ClientCard> = {};
+export const client_cards_by_zone: Record<ZoneId, Set<CardId>> = {};
 
 export let observer_id = 0;
-export const viewed_id: number = 1;
+export let viewed_id = 0;
 export let selected_card_id = 0;
+
+export function setViewedId(id: number): void {
+  viewed_id = id;
+}
 
 export function setObserverId(id: number): void {
   observer_id = id;
@@ -82,13 +87,20 @@ export function setSelectedCardId(id: number): void {
   selected_card_id = id;
 }
 
-
 export function decodeCardType(definition: number): number {
   return (definition >>> 12) & 0x000f;
 }
 
 export function decodeDefinitionId(definition: number): number {
   return definition & 0x0fff;
+}
+
+export function packZone(zone_q: number, zone_r: number, z: number): number {
+  // normalize to 12-bit signed
+  const q = zone_q & 0xfff;
+  const r = zone_r & 0xfff;
+
+  return ((q << 20) | (r << 8) | (z & 0xff)) >>> 0;
 }
 
 export function unpackZone(zone: number): { zone_q: number; zone_r: number; z: number } {
@@ -106,6 +118,25 @@ export function unpackPosition(position: number): { local_q: number; local_r: nu
   const local_r = position & 0x7;
   const local_q = (position >>> 3) & 0x7;
   return { local_q, local_r };
+}
+
+function addClientCardToZone(card: ClientCard): void {
+  if (!client_cards_by_zone[card.zone]) {
+    client_cards_by_zone[card.zone] = new Set<CardId>();
+  }
+
+  client_cards_by_zone[card.zone].add(card.card_id);
+}
+
+function removeClientCardFromZone(zone: ZoneId, card_id: CardId): void {
+  const zone_cards = client_cards_by_zone[zone];
+  if (!zone_cards) return;
+
+  zone_cards.delete(card_id);
+
+  if (zone_cards.size === 0) {
+    delete client_cards_by_zone[zone];
+  }
 }
 
 export function buildClientCard(server: ServerCard, previous?: ClientCard): ClientCard {
@@ -142,19 +173,35 @@ export function markClientCardsStale(): void {
   }
 }
 
+export function upsertClientCard(server: ServerCard): void {
+  const previous = client_cards[server.card_id];
+  const next = buildClientCard(server, previous);
+
+  if (previous && previous.zone !== next.zone) {
+    removeClientCardFromZone(previous.zone, server.card_id);
+  }
+
+  client_cards[server.card_id] = next;
+  addClientCardToZone(next);
+}
+
+export function removeClientCard(card_id: CardId): void {
+  const previous = client_cards[card_id];
+  if (!previous) return;
+
+  removeClientCardFromZone(previous.zone, card_id);
+  delete client_cards[card_id];
+}
+
 export function syncClientCardsFromServer(): void {
   for (const key in server_cards) {
-    const card_id = Number(key);
-    const server = server_cards[card_id];
-    const previous = client_cards[card_id];
-
-    client_cards[card_id] = buildClientCard(server, previous);
+    upsertClientCard(server_cards[Number(key)]);
   }
 
   for (const key in client_cards) {
     const card_id = Number(key);
     if (!(card_id in server_cards)) {
-      delete client_cards[card_id];
+      removeClientCard(card_id);
     }
   }
 }

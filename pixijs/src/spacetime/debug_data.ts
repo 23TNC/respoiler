@@ -14,8 +14,10 @@ import {
   server_zones,
   client_cards,
   buildClientCard,
+  setViewedId,
   setObserverId,
   setSelectedCardId,
+  upsertClientCard,
 } from './data';
 
 function clearRecord<T>(record: Record<number, T>): void {
@@ -25,11 +27,15 @@ function clearRecord<T>(record: Record<number, T>): void {
 }
 
 export function bootstrap(): void {
+  
   clearRecord(server_cards);
   clearRecord(server_players);
   clearRecord(server_actions);
   clearRecord(server_zones);
   clearRecord(client_cards);
+
+  setViewedId(1);
+  setObserverId(1);
 
   const cards: ServerCard[] = [
     { card_id: 1, definition: 20481, link: 0, flags: 0, zone: 0, position: 0 },
@@ -101,9 +107,9 @@ export function bootstrap(): void {
 
   for (const key in server_cards) {
     const card_id = Number(key) as CardId;
-    client_cards[card_id] = buildClientCard(server_cards[card_id]);
+    upsertClientCard(server_cards[card_id]);
   }
 
-  setObserverId(1);
+  
   setSelectedCardId(0);
 }
