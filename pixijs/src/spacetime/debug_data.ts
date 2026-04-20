@@ -45,6 +45,7 @@ export function bootstrap(): void {
     { card_id: 5, definition: 8193, link: 1, flags: 0, zone: 0, position: 0 },
     { card_id: 6, definition: 8193, link: 1, flags: 0, zone: 0, position: 0 },
     { card_id: 7, definition: 4097, link: 1, flags: 0, zone: 1, position: 0 },
+    { card_id: 8, definition: 24578, link: 0, flags: 0, zone: 1, position: 0 },
   ];
 
   const players: ServerPlayer[] = [
@@ -91,6 +92,7 @@ export function bootstrap(): void {
 
   for (const card of cards) {
     server_cards[card.card_id as CardId] = card;
+    
   }
 
   for (const player of players) {
@@ -108,6 +110,7 @@ export function bootstrap(): void {
   for (const key in server_cards) {
     const card_id = Number(key) as CardId;
     upsertClientCard(server_cards[card_id]);
+    console.log(server_cards[card_id])
   }
 
   

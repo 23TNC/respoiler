@@ -32,12 +32,12 @@ export class InteractionResolver {
   }
 
   private handleLeftMouseClick(context: InputContext): void {
-    const target = context.targetEntity;
+    const target = context.sourceEntity;
     if (!target) {
       return;
     }
-
     if (target.type === "card" && typeof target.id === "number") {
+      
       this.selectSingleCard(target.id);
       return;
     }
