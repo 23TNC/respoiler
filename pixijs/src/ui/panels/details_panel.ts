@@ -7,6 +7,8 @@ import {
   selected_position,
   selected_zone,
   server_zones,
+  unpackPosition,
+  unpackZone,
   viewed_id,
 } from "../../spacetime/data";
 import type { LayoutRect } from "./layout";
@@ -15,6 +17,9 @@ import { Panel } from "./panel";
 interface DetailItem {
   card_type: number;
   definition_id: number;
+  world_q?: number;
+  world_r?: number;
+  z?: number;
 }
 
 export class DetailsPanel extends Panel {
@@ -36,6 +41,10 @@ export class DetailsPanel extends Panel {
     ];
 
     if (selected.card_type === 6) {
+      lines.push(`q: ${selected.world_q ?? 0}`);
+      lines.push(`r: ${selected.world_r ?? 0}`);
+      lines.push(`z: ${selected.z ?? 0}`);
+
       const zoneCards = client_cards_by_zone[selected_zone];
       if (zoneCards) {
         for (const card_id of zoneCards) {
@@ -88,7 +97,7 @@ export class DetailsPanel extends Panel {
       };
     }
 
-    if (selected_zone === 0 || selected_position === 0) {
+    if (selected_zone === 0) {
       return null;
     }
 
@@ -97,9 +106,15 @@ export class DetailsPanel extends Panel {
       return null;
     }
 
+    const { zone_q, zone_r, z } = unpackZone(selected_zone);
+    const { local_q, local_r } = unpackPosition(selected_position);
+
     return {
       card_type: 6,
       definition_id,
+      world_q: zone_q * 8 + local_q,
+      world_r: zone_r * 8 + local_r,
+      z,
     };
   }
 
@@ -109,8 +124,7 @@ export class DetailsPanel extends Panel {
       return 0;
     }
 
-    const local_q = (selected_position >>> 3) & 0x7;
-    const local_r = selected_position & 0x7;
+    const { local_q, local_r } = unpackPosition(selected_position);
     const columns = [zone.t_0, zone.t_1, zone.t_2, zone.t_3, zone.t_4, zone.t_5, zone.t_6, zone.t_7];
     const packedColumn = columns[local_q];
     if (packedColumn === undefined) {
