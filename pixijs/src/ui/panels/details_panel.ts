@@ -15,6 +15,7 @@ import {
   viewed_id,
 } from "../../spacetime/data";
 import type { HitEntity } from "../input/types";
+import { createRectangleCardView } from "../rectangle/card_renderer";
 import type { LayoutRect } from "./layout";
 import { Panel } from "./panel";
 
@@ -44,27 +45,28 @@ export class DetailsPanel extends Panel {
     }
 
     const innerRect = this.getInnerRect();
-    const fontSize = Math.max(12, Math.round(screenHeight / 70));
-    const label = new Text({
-      text: this.buildPrimaryLabel(selected),
-      style: {
-        fill: 0xf4f8ff,
-        fontFamily: "Segoe UI",
-        fontSize,
-        align: "left",
-      },
-    });
-
-    label.x = Math.round(innerRect.x + this.panelPadding);
-    label.y = Math.round(innerRect.y + this.panelPadding);
-    this.content.addChild(label);
 
     if (selected.card_type === 6) {
-      this.drawTypeOneGroupPanel(innerRect, label.y + label.height + Math.round(this.panelPadding * 1.5), fontSize);
-    }
+      const titleBottom = this.drawTileTitlePanel(selected, innerRect, innerRect.y + this.panelPadding, screenHeight);
+      this.drawTypeOneGroupPanel(innerRect, titleBottom + this.panelPadding, screenHeight);
 
-    if (selected.card_type === 6 && this.getCancelableSharedLocationCards().length > 0) {
-      this.drawCancelButton(innerRect, screenHeight);
+      if (this.getCancelableSharedLocationCards().length > 0) {
+        this.drawCancelButton(innerRect, screenHeight);
+      }
+    } else {
+      const fontSize = Math.max(12, Math.round(screenHeight / 70));
+      const label = new Text({
+        text: this.resolveDisplayName(selected.definition, selected.definition_id),
+        style: {
+          fill: 0xf4f8ff,
+          fontFamily: "Segoe UI",
+          fontSize,
+          align: "left",
+        },
+      });
+      label.x = Math.round(innerRect.x + this.panelPadding);
+      label.y = Math.round(innerRect.y + this.panelPadding);
+      this.content.addChild(label);
     }
   }
 
@@ -86,65 +88,158 @@ export class DetailsPanel extends Panel {
     return null;
   }
 
-  private resolveSelectedItem(): DetailItem | null {
-    if (selected_card_id === 0 && selected_zone === 0 && selected_position === 0) {
-      return null;
-    }
+  private drawTileTitlePanel(selected: DetailItem, innerRect: LayoutRect, yStart: number, screenHeight: number): number {
+    const subpanelPadding = Math.round(this.panelPadding * 1.5);
+    const titleFontSize = Math.max(14, Math.round(screenHeight / 55));
+    const coordFontSize = Math.max(11, Math.round(screenHeight / 85));
+    const usableWidth = Math.max(0, innerRect.width - subpanelPadding * 2);
 
-    if (selected_card_id !== 0) {
-      const selectedCard = client_cards[selected_card_id];
-      if (!selectedCard) {
-        return null;
-      }
+    const titleText = new Text({
+      text: this.resolveDisplayName(selected.definition, selected.definition_id),
+      style: {
+        fill: 0xf4f8ff,
+        fontFamily: "Segoe UI",
+        fontSize: titleFontSize,
+        fontWeight: "700",
+        wordWrap: true,
+        wordWrapWidth: usableWidth,
+      },
+    });
 
-      return {
-        card_type: selectedCard.card_type,
-        definition_id: selectedCard.definition_id,
-        definition: selectedCard.definition,
-        world_q: selectedCard.world_q,
-        world_r: selectedCard.world_r,
-        z: selectedCard.z,
+    const coordText = new Text({
+      text: `q: ${selected.world_q ?? 0}   r: ${selected.world_r ?? 0}   z: ${selected.z ?? 0}`,
+      style: {
+        fill: 0x8da6c6,
+        fontFamily: "Segoe UI",
+        fontSize: coordFontSize,
+      },
+    });
 
-      };
-    }
+    const innerGap = Math.round(subpanelPadding * 0.5);
+    const panelHeight = subpanelPadding + titleText.height + innerGap + coordText.height + subpanelPadding;
+    const panelX = Math.round(innerRect.x);
+    const panelY = Math.round(yStart);
+    const panelWidth = Math.round(innerRect.width);
 
-    if (selected_zone === 0) {
-      return null;
-    }
+    const subPanel = new Graphics();
+    subPanel
+      .roundRect(panelX, panelY, panelWidth, panelHeight, Math.max(4, Math.round(this.panelPadding)))
+      .fill({ color: 0x233447, alpha: 0.78 })
+      .stroke({ color: 0x7a90aa, width: 1, alpha: 0.95 });
+    this.content.addChild(subPanel);
 
-    const definition_id = this.decodeSelectedTileDefinitionId();
-    if (definition_id === 0) {
-      return null;
-    }
+    titleText.x = Math.round(panelX + subpanelPadding);
+    titleText.y = Math.round(panelY + subpanelPadding);
+    this.content.addChild(titleText);
 
-    const { zone_q, zone_r, z } = unpackZone(selected_zone);
-    const { local_q, local_r } = unpackPosition(selected_position);
+    coordText.x = Math.round(panelX + subpanelPadding);
+    coordText.y = Math.round(titleText.y + titleText.height + innerGap);
+    this.content.addChild(coordText);
 
-    return {
-      card_type: 6,
-      definition_id,
-      definition: packDefinition(6, definition_id),
-      world_q: zone_q * 8 + local_q,
-      world_r: zone_r * 8 + local_r,
-      z,
-    };
+    return panelY + panelHeight;
   }
 
-  private decodeSelectedTileDefinitionId(): number {
-    const zone = server_zones[selected_zone];
-    if (!zone) {
-      return 0;
+  private drawTypeOneGroupPanel(innerRect: LayoutRect, yStart: number, screenHeight: number): void {
+    const sharedLocationCards = this.getSharedLocationCards();
+    if (sharedLocationCards.length === 0) {
+      return;
     }
 
-    const { local_q, local_r } = unpackPosition(selected_position);
-    const columns = [zone.t_0, zone.t_1, zone.t_2, zone.t_3, zone.t_4, zone.t_5, zone.t_6, zone.t_7];
-    const packedColumn = columns[local_q];
-    if (packedColumn === undefined) {
-      return 0;
+    const typeOneCard = sharedLocationCards.find((card) => card.card_type === 1);
+    if (!typeOneCard) {
+      return;
     }
 
-    const shifted = packedColumn >> BigInt(local_r * 8);
-    return Number(shifted & 0xffn);
+    const additionalCards = sharedLocationCards.filter((card) => card.card_id !== typeOneCard.card_id);
+
+    const subpanelPadding = Math.round(this.panelPadding);
+    const cardPadding = Math.round(screenHeight / 240);
+    const labelFontSize = Math.max(14, Math.round(screenHeight / 55));
+    const availableWidth = Math.max(0, innerRect.width - subpanelPadding * 2);
+    const cardGap = subpanelPadding;
+
+    const panelHeight = Math.round((18 / 120) * screenHeight);
+
+    const label = new Text({
+      text: this.resolveDisplayName(typeOneCard.definition, typeOneCard.definition_id),
+      style: {
+        fill: 0xf4f8ff,
+        fontFamily: "Segoe UI",
+        fontSize: labelFontSize,
+        fontWeight: "600",
+        wordWrap: true,
+        wordWrapWidth: availableWidth,
+      },
+    });
+
+    const numCards = additionalCards.length;
+    let cardWidth = 0;
+    let cardHeight = 0;
+
+    if (numCards > 0) {
+      const cardAreaHeight = Math.max(0, panelHeight - subpanelPadding - label.height - cardGap - subpanelPadding);
+      cardHeight = cardAreaHeight;
+      cardWidth = Math.round(cardHeight * 5 / 8);
+    }
+
+    const panelX = Math.round(innerRect.x);
+    const panelY = Math.round(yStart);
+    const panelWidth = Math.round(innerRect.width);
+
+    const subPanel = new Graphics();
+    subPanel
+      .roundRect(panelX, panelY, panelWidth, panelHeight, Math.max(4, Math.round(this.panelPadding)))
+      .fill({ color: 0x233447, alpha: 0.78 })
+      .stroke({ color: 0x7a90aa, width: 1, alpha: 0.95 });
+    this.content.addChild(subPanel);
+
+    label.x = Math.round(panelX + subpanelPadding);
+    label.y = Math.round(panelY + subpanelPadding);
+    this.content.addChild(label);
+
+    if (numCards > 0) {
+      const cardsY = Math.round(label.y + label.height + cardGap);
+      let cardX = Math.round(panelX + subpanelPadding);
+
+      for (const card of additionalCards) {
+        const cardView = this.createCardRectView(card, cardX, cardsY, cardWidth, cardHeight, cardPadding, screenHeight);
+        this.content.addChild(cardView);
+        cardX += cardWidth + cardGap;
+      }
+    }
+  }
+
+  private createCardRectView(
+    card: ClientCard,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    cardPadding: number,
+    screenHeight: number,
+  ) {
+    const definition = getCardDefinition(card.definition);
+    const fallback = inventoryColorsForType(card.card_type);
+
+    return createRectangleCardView(
+      {
+        id: String(card.card_id),
+        type: card.card_type,
+        name: definition?.name ?? `#${card.card_id}`,
+        colors: [
+          resolveStyleColor(definition, 0, fallback[0]),
+          resolveStyleColor(definition, 1, fallback[1]),
+          resolveStyleColor(definition, 2, fallback[2]),
+        ],
+        progress: 0,
+        progressDirection: "clockwise",
+        progressFillColor: 0xc9d8ed,
+        progressEmptyColor: 0x2f4258,
+      },
+      { x, y, width, height },
+      cardPadding,
+      screenHeight,
+    );
   }
 
   private drawCancelButton(innerRect: LayoutRect, screenHeight: number): void {
@@ -154,12 +249,7 @@ export class DetailsPanel extends Panel {
     const x = Math.round(innerRect.x + ((innerRect.width - buttonWidth) * 0.5));
     const y = Math.round(innerRect.y + innerRect.height - buttonHeight - buttonMargin);
 
-    this.cancelButtonBounds = {
-      x,
-      y,
-      width: buttonWidth,
-      height: buttonHeight,
-    };
+    this.cancelButtonBounds = { x, y, width: buttonWidth, height: buttonHeight };
 
     const button = new Graphics();
     button
@@ -213,87 +303,64 @@ export class DetailsPanel extends Panel {
     return this.getSharedLocationCards().filter((card) => card.card_type !== 6);
   }
 
-  private buildPrimaryLabel(selected: DetailItem): string {
-    if (selected.card_type !== 6) {
-      return this.resolveDisplayName(selected.definition, selected.definition_id);
+  private resolveSelectedItem(): DetailItem | null {
+    if (selected_card_id === 0 && selected_zone === 0 && selected_position === 0) {
+      return null;
     }
 
-    const typeName = this.resolveDisplayName(selected.definition, selected.definition_id);
-    return `${typeName}    q: ${selected.world_q ?? 0} r: ${selected.world_r ?? 0} z: ${selected.z ?? 0}`;
+    if (selected_card_id !== 0) {
+      const selectedCard = client_cards[selected_card_id];
+      if (!selectedCard) {
+        return null;
+      }
+
+      return {
+        card_type: selectedCard.card_type,
+        definition_id: selectedCard.definition_id,
+        definition: selectedCard.definition,
+        world_q: selectedCard.world_q,
+        world_r: selectedCard.world_r,
+        z: selectedCard.z,
+      };
+    }
+
+    if (selected_zone === 0) {
+      return null;
+    }
+
+    const definition_id = this.decodeSelectedTileDefinitionId();
+    if (definition_id === 0) {
+      return null;
+    }
+
+    const { zone_q, zone_r, z } = unpackZone(selected_zone);
+    const { local_q, local_r } = unpackPosition(selected_position);
+
+    return {
+      card_type: 6,
+      definition_id,
+      definition: packDefinition(6, definition_id),
+      world_q: zone_q * 8 + local_q,
+      world_r: zone_r * 8 + local_r,
+      z,
+    };
   }
 
-  private drawTypeOneGroupPanel(innerRect: LayoutRect, yStart: number, fontSize: number): void {
-    const sharedLocationCards = this.getSharedLocationCards();
-    if (sharedLocationCards.length === 0) {
-      return;
+  private decodeSelectedTileDefinitionId(): number {
+    const zone = server_zones[selected_zone];
+    if (!zone) {
+      return 0;
     }
 
-    const typeOneCard = sharedLocationCards.find((card) => card.card_type === 1);
-    if (!typeOneCard) {
-      return;
+    const { local_q, local_r } = unpackPosition(selected_position);
+    const columns = [zone.t_0, zone.t_1, zone.t_2, zone.t_3, zone.t_4, zone.t_5, zone.t_6, zone.t_7];
+    const packedColumn = columns[local_q];
+    if (packedColumn === undefined) {
+      return 0;
     }
 
-    const additionalCards = sharedLocationCards.filter((card) => card.card_id !== typeOneCard.card_id);
-    const title = this.resolveCardDisplayName(typeOneCard);
-    const bodyLines = additionalCards.map((card) => this.resolveCardDisplayName(card));
-    const panelText = bodyLines.length > 0 ? bodyLines.join("\n") : "";
-
-    const panelPadding = Math.max(8, Math.round(this.panelPadding * 1.5));
-    const titleText = new Text({
-      text: title,
-      style: {
-        fill: 0xf4f8ff,
-        fontFamily: "Segoe UI",
-        fontSize: Math.max(fontSize + 1, 13),
-        fontWeight: "600",
-      },
-    });
-
-    const bodyText = new Text({
-      text: panelText,
-      style: {
-        fill: 0xdfe8f6,
-        fontFamily: "Segoe UI",
-        fontSize,
-        align: "left",
-      },
-    });
-
-    const usableWidth = Math.max(0, innerRect.width - panelPadding * 2);
-    titleText.style.wordWrap = true;
-    titleText.style.wordWrapWidth = usableWidth;
-    bodyText.style.wordWrap = true;
-    bodyText.style.wordWrapWidth = usableWidth;
-
-    const panelHeight = Math.max(
-      Math.round(fontSize * 2.4),
-      panelPadding + titleText.height + (bodyLines.length > 0 ? Math.round(panelPadding * 0.75) + bodyText.height : 0) + panelPadding,
-    );
-
-    const panelX = Math.round(innerRect.x);
-    const panelY = Math.round(yStart);
-    const panelWidth = Math.round(innerRect.width);
-
-    const subPanel = new Graphics();
-    subPanel
-      .roundRect(panelX, panelY, panelWidth, panelHeight, Math.max(4, Math.round(this.panelPadding)))
-      .fill({ color: 0x233447, alpha: 0.78 })
-      .stroke({ color: 0x7a90aa, width: 1, alpha: 0.95 });
-    this.content.addChild(subPanel);
-
-    titleText.x = Math.round(panelX + panelPadding);
-    titleText.y = Math.round(panelY + panelPadding);
-    this.content.addChild(titleText);
-
-    if (bodyLines.length > 0) {
-      bodyText.x = Math.round(panelX + panelPadding);
-      bodyText.y = Math.round(titleText.y + titleText.height + Math.round(panelPadding * 0.75));
-      this.content.addChild(bodyText);
-    }
-  }
-
-  private resolveCardDisplayName(card: ClientCard): string {
-    return this.resolveDisplayName(card.definition, card.definition_id);
+    const shifted = packedColumn >> BigInt(local_r * 8);
+    return Number(shifted & 0xffn);
   }
 
   private resolveDisplayName(definition: number, definitionId: number): string {
@@ -308,4 +375,34 @@ export class DetailsPanel extends Panel {
 
     return "Unknown";
   }
+}
+
+function inventoryColorsForType(cardType: number): [number, number, number] {
+  const paletteByType: Record<number, [number, number, number]> = {
+    1: [0x43617e, 0x2f4258, 0x0b1a2a],
+    2: [0x465d77, 0x33465e, 0x0b1a2a],
+    3: [0x4a5a71, 0x37485c, 0x0b1a2a],
+    4: [0x4d576b, 0x3b4a59, 0x0b1a2a],
+    5: [0x505465, 0x3f4c56, 0x0b1a2a],
+  };
+  return paletteByType[cardType] ?? [0x43617e, 0x2f4258, 0x0b1a2a];
+}
+
+function resolveStyleColor(
+  definition: { style?: { color?: Array<number | string> } } | undefined,
+  index: number,
+  fallback: number,
+): number {
+  const rawColor = definition?.style?.color?.[index];
+  if (typeof rawColor === "number") {
+    return rawColor;
+  }
+  if (typeof rawColor !== "string") {
+    return fallback;
+  }
+  const normalized = rawColor.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return fallback;
+  }
+  return Number.parseInt(normalized, 16);
 }
