@@ -10,6 +10,7 @@ export interface RectangleCard {
   name: string;
   colors: [number, number, number?];
   progress: number;
+  progressVisible?: boolean;
   progressDirection: ProgressDirection;
   progressFillColor: number;
   progressEmptyColor: number;
@@ -47,20 +48,23 @@ export function createRectangleCardView(
   const bottomSectionHeight = (3 / 8) * innerHeight;
 
   graphics.roundRect(innerX, innerY, innerWidth, innerHeight, cornerRadius).fill({ color: card.colors[0], alpha: 1 });
-  graphics.rect(innerX, innerY + topSectionHeight, innerWidth, bottomSectionHeight).fill({ color: card.colors[1], alpha: 1 });
+  // Rounded bottom: draw a full roundRect starting above the seam so the top corners are hidden behind the top fill.
+  graphics.roundRect(innerX, innerY + topSectionHeight - cornerRadius, innerWidth, bottomSectionHeight + cornerRadius, cornerRadius).fill({ color: card.colors[1], alpha: 1 });
 
-  drawCardProgressOutline(graphics, {
-    x: innerX,
-    y: innerY,
-    width: innerWidth,
-    height: innerHeight,
-    radius: cornerRadius,
-    value: card.progress,
-    direction: card.progressDirection,
-    fillColor: card.progressFillColor,
-    emptyColor: card.progressEmptyColor,
-    strokeWidth: Math.max(1, cardPadding * 0.9),
-  });
+  if (card.progressVisible) {
+    drawCardProgressOutline(graphics, {
+      x: innerX,
+      y: innerY,
+      width: innerWidth,
+      height: innerHeight,
+      radius: cornerRadius,
+      value: card.progress,
+      direction: card.progressDirection,
+      fillColor: card.progressFillColor,
+      emptyColor: card.progressEmptyColor,
+      strokeWidth: Math.max(1, cardPadding * 0.9),
+    });
+  }
 
   const text = new Text({
     text: card.name,

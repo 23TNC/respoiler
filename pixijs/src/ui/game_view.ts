@@ -1,9 +1,10 @@
-import { Application, Container, Rectangle } from "pixi.js";
+import { Application, Container, Rectangle, Text } from "pixi.js";
 
 import { InputManager } from "./input/input_manager";
 import { InteractionResolver, type RenderHint } from "./input/interaction_resolver";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./panels/layout";
 import { DetailsPanel } from "./panels/details_panel";
+import { DragPanel } from "./panels/drag_panel";
 import { EventPanel } from "./panels/event_panel";
 import { InventoryPanel } from "./panels/inventory_panel";
 import { Panel } from "./panels/panel";
@@ -32,8 +33,11 @@ export class GameView {
   private readonly app: Application;
   private readonly viewedId: number;
   private readonly panelLayer: Container;
+  private readonly overlayLayer: Container;
   private readonly panelById: Partial<Record<PanelId, Panel>>;
   private readonly inputManager: InputManager;
+  private readonly dragPanel: DragPanel;
+  private readonly fpsText: Text;
   private readonly pendingHints = new Set<RenderHint>();
   private needsRender = false;
 
@@ -41,7 +45,17 @@ export class GameView {
     this.app = options.app;
     this.viewedId = options.viewedId;
     this.panelLayer = new Container();
+    this.overlayLayer = new Container();
     this.panelById = {};
+    this.dragPanel = new DragPanel();
+    this.overlayLayer.addChild(this.dragPanel.root);
+
+    this.fpsText = new Text({
+      text: "",
+      style: { fontFamily: "monospace", fontSize: 12, fill: 0x8da6c6, align: "right" },
+    });
+    this.fpsText.anchor.set(1, 0);
+    this.overlayLayer.addChild(this.fpsText);
     const interactionResolver = new InteractionResolver({
       onStateChanged: (hint) => this.requestRender(hint),
       getWorldViewport: () => {
@@ -65,6 +79,10 @@ export class GameView {
         }
         return panel.screenDeltaToWorldDelta(dx, dy);
       },
+      onDragMove: (x, y) => {
+        this.dragPanel.setPointerPosition(x, y);
+        this.dragPanel.refresh(this.app.screen.width, this.app.screen.height);
+      },
     });
     this.inputManager = new InputManager({ interactionResolver });
 
@@ -72,12 +90,17 @@ export class GameView {
     this.app.stage.eventMode = "static";
     this.app.stage.hitArea = new Rectangle(0, 0, this.app.screen.width, this.app.screen.height);
     this.app.stage.addChild(this.panelLayer);
+    this.app.stage.addChild(this.overlayLayer);
     this.app.stage.on("pointerdown", (event) => this.inputManager.onPointerDown(event));
     this.app.stage.on("pointermove", (event) => this.inputManager.onPointerMove(event));
     this.app.stage.on("pointerup", (event) => this.inputManager.onPointerUp(event));
     this.app.stage.on("pointerupoutside", (event) => this.inputManager.onPointerUp(event));
 
     this.app.ticker.add(() => {
+      this.fpsText.text = `${Math.round(this.app.ticker.FPS)} fps`;
+      this.fpsText.x = this.app.screen.width - 6;
+      this.fpsText.y = 6;
+
       if (this.needsRender) {
         this.needsRender = false;
         this.doRender();
@@ -160,6 +183,8 @@ export class GameView {
         panel.clearDirty();
       }
     }
+
+    this.dragPanel.refresh(screenWidth, screenHeight);
   }
 
   private syncInputPanels(layoutRects: LayoutRect[]): void {

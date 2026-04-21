@@ -17,6 +17,7 @@ export type RenderHint = "viewport" | "selection" | "drag" | "full";
 
 interface InteractionResolverOptions {
   onStateChanged?: (hint: RenderHint) => void;
+  onDragMove?: (x: number, y: number) => void;
   getWorldViewport?: () => { q: number; r: number } | null;
   setWorldViewport?: (q: number, r: number) => void;
   screenDeltaToWorldDelta?: (dx: number, dy: number) => { q: number; r: number };
@@ -24,11 +25,13 @@ interface InteractionResolverOptions {
 
 export class InteractionResolver {
   private readonly onStateChanged?: (hint: RenderHint) => void;
+  private readonly onDragMove?: (x: number, y: number) => void;
   private readonly getWorldViewport?: () => { q: number; r: number } | null;
   private readonly setWorldViewport?: (q: number, r: number) => void;
   private readonly screenDeltaToWorldDelta?: (dx: number, dy: number) => { q: number; r: number };
 
   private activeDragMode: ActiveDragMode = "none";
+  private isDraggingCard = false;
   private viewport_drag_candidate = false;
   private viewport_dragging = false;
   private viewport_drag_start_screen_x = 0;
@@ -40,6 +43,7 @@ export class InteractionResolver {
 
   constructor(options: InteractionResolverOptions = {}) {
     this.onStateChanged = options.onStateChanged;
+    this.onDragMove = options.onDragMove;
     this.getWorldViewport = options.getWorldViewport;
     this.setWorldViewport = options.setWorldViewport;
     this.screenDeltaToWorldDelta = options.screenDeltaToWorldDelta;
@@ -131,6 +135,11 @@ export class InteractionResolver {
   }
 
   private handleLeftMouseMove(context: InputContext): void {
+    if (this.isDraggingCard) {
+      this.onDragMove?.(context.pointer.x, context.pointer.y);
+      return;
+    }
+
     if (this.activeDragMode !== "viewport" || !this.viewport_drag_candidate) {
       return;
     }
@@ -169,6 +178,7 @@ export class InteractionResolver {
     }
 
     this.activeDragMode = "card";
+    this.isDraggingCard = true;
 
     const card = client_cards[source.id];
     if (!card) {
@@ -176,6 +186,7 @@ export class InteractionResolver {
     }
 
     card.dragging = true;
+    this.onDragMove?.(context.pointer.x, context.pointer.y);
     this.onStateChanged?.("drag");
   }
 
@@ -183,6 +194,7 @@ export class InteractionResolver {
     // Viewport path already cleaned up in handleLeftMouseUp; make sure mode is reset.
     if (this.activeDragMode !== "card") {
       this.activeDragMode = "none";
+      this.isDraggingCard = false;
       return;
     }
 
@@ -205,6 +217,7 @@ export class InteractionResolver {
     }
 
     card.dragging = false;
+    this.isDraggingCard = false;
 
     const target = context.targetEntity;
     if (target?.type === "tile") {

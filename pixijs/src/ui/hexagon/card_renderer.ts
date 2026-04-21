@@ -14,6 +14,7 @@ export interface HexCard {
   name: string;
   colors: number[];
   progress: number;
+  progressVisible?: boolean;
   progressDirection: HexProgressDirection;
   progressFillColor: number;
   progressEmptyColor: number;
@@ -38,8 +39,8 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
   const spriteLayer = new Container();
   const labelLayer = new Container();
 
-  const strokeWidth = Math.max(1, 2 * (config.screenHeight / 240));
-  const progressStrokeWidth = Math.max(1, strokeWidth * 0.5);
+  const strokeWidth = Math.max(1, (config.screenHeight / 240));
+  const progressStrokeWidth = Math.max(1, strokeWidth);
 
   const hexPathInset = strokeWidth / 2;
   const pathSize = computeInsetHexSize(config.size, strokeWidth);
@@ -50,17 +51,19 @@ export function createHexCardView(card: HexCard, config: HexCardViewConfig): Con
     .fill({ color: card.colors[0] ?? 0xd3deef, alpha: 1 })
     .stroke({ color: config.strokeColor ?? 0xd3deef, width: strokeWidth, alpha: 1 });
 
-  drawHexProgress(progressLayer, {
-    centerX: config.centerX,
-    centerY: config.centerY,
-    size: config.size,
-    inset: hexPathInset,
-    value: card.progress,
-    direction: card.progressDirection,
-    strokeWidth: progressStrokeWidth,
-    fillColor: card.progressFillColor,
-    emptyColor: card.progressEmptyColor,
-  });
+  if (card.progressVisible) {
+    drawHexProgress(progressLayer, {
+      centerX: config.centerX,
+      centerY: config.centerY,
+      size: config.size,
+      inset: hexPathInset,
+      value: card.progress,
+      direction: card.progressDirection,
+      strokeWidth: progressStrokeWidth,
+      fillColor: card.progressFillColor,
+      emptyColor: card.progressEmptyColor,
+    });
+  }
 
   const label = new Text({
     text: card.name,
