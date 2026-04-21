@@ -32,11 +32,31 @@ export class GameView {
     this.viewedId = options.viewedId;
     this.panelLayer = new Container();
     this.panelById = {};
-    this.inputManager = new InputManager({
-      interactionResolver: new InteractionResolver({
-        onStateChanged: () => this.render(),
-      }),
+    const interactionResolver = new InteractionResolver({
+      onStateChanged: () => this.render(),
+      getWorldViewport: () => {
+        const panel = this.panelById.worldPanel;
+        if (!(panel instanceof WorldBoardPanel)) {
+          return null;
+        }
+        return panel.getViewportPosition();
+      },
+      setWorldViewport: (q, r) => {
+        const panel = this.panelById.worldPanel;
+        if (!(panel instanceof WorldBoardPanel)) {
+          return;
+        }
+        panel.setViewportPosition(q, r);
+      },
+      screenDeltaToWorldDelta: (dx, dy) => {
+        const panel = this.panelById.worldPanel;
+        if (!(panel instanceof WorldBoardPanel)) {
+          return { q: 0, r: 0 };
+        }
+        return panel.screenDeltaToWorldDelta(dx, dy);
+      },
     });
+    this.inputManager = new InputManager({ interactionResolver });
 
     this.app.stage.label = `game-view:${this.viewedId}`;
     this.app.stage.eventMode = "static";

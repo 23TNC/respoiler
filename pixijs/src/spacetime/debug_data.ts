@@ -45,6 +45,8 @@ export function bootstrap(): void {
     { card_id: 6, definition: 8193, link: 1, flags: 0, zone: 0, position: 0 },
     { card_id: 7, definition: 4097, link: 1, flags: 0, zone: 1, position: 0 },
     { card_id: 8, definition: 24578, link: 0, flags: 0, zone: 1, position: 1 },
+    { card_id: 9, definition: 8194, link: 1, flags: 0, zone: 0, position: 0 },
+    { card_id: 10, definition: 8195, link: 1, flags: 0, zone: 0, position: 0 },
   ];
 
   const players: ServerPlayer[] = [

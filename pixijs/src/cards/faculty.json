@@ -2,15 +2,29 @@
   "card_type": 2,
   "cards": [
     {
-      "card_type": 2,
-      "id": 1,
-      "name": "Health",
+      "name": "Corpus",
       "style": {
-        "color": [ "#e67373", "#ecd6aa" ]
+        "color": [ "#E67E7E", "#ecd6aa" ]
       },
       "flags": [
         [ "woodcutter", false, true, false ],
         [ "forager",    false, true, false ]
+      ]
+    },
+    {
+      "name": "Anima",
+      "style": {
+        "color": [ "#7D96E3", "#ecd6aa" ]
+      },
+      "flags": [
+      ]
+    },
+    {
+      "name": "Soller",
+      "style": {
+        "color": [ "#97e3a7", "#ecd6aa" ]
+      },
+      "flags": [
       ]
     }
   ]

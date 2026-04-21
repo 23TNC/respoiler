@@ -11,21 +11,48 @@ import {
 } from "../../spacetime/data";
 import type { InputAction, InputContext } from "./types";
 
+type ActiveDragMode = "none" | "card" | "viewport";
+
 interface InteractionResolverOptions {
   onStateChanged?: () => void;
+  getWorldViewport?: () => { q: number; r: number } | null;
+  setWorldViewport?: (q: number, r: number) => void;
+  screenDeltaToWorldDelta?: (dx: number, dy: number) => { q: number; r: number };
 }
 
 export class InteractionResolver {
   private readonly onStateChanged?: () => void;
+  private readonly getWorldViewport?: () => { q: number; r: number } | null;
+  private readonly setWorldViewport?: (q: number, r: number) => void;
+  private readonly screenDeltaToWorldDelta?: (dx: number, dy: number) => { q: number; r: number };
+
+  private activeDragMode: ActiveDragMode = "none";
+  private viewport_drag_candidate = false;
+  private viewport_dragging = false;
+  private viewport_drag_start_screen_x = 0;
+  private viewport_drag_start_screen_y = 0;
+  private viewport_drag_start_world_q = 0;
+  private viewport_drag_start_world_r = 0;
+  private readonly viewport_drag_threshold_px = 6;
+  private suppressNextClick = false;
 
   constructor(options: InteractionResolverOptions = {}) {
     this.onStateChanged = options.onStateChanged;
+    this.getWorldViewport = options.getWorldViewport;
+    this.setWorldViewport = options.setWorldViewport;
+    this.screenDeltaToWorldDelta = options.screenDeltaToWorldDelta;
   }
 
   resolve(action: InputAction, context: InputContext): void {
     switch (action) {
       case "left_mouse_down":
+        this.handleLeftMouseDown(context);
+        return;
+      case "left_mouse_move":
+        this.handleLeftMouseMove(context);
+        return;
       case "left_mouse_up":
+        this.handleLeftMouseUp(context);
         return;
       case "left_mouse_start_drag":
         this.handleLeftMouseStartDrag(context);
@@ -42,6 +69,11 @@ export class InteractionResolver {
   }
 
   private handleLeftMouseClick(context: InputContext): void {
+    if (this.suppressNextClick) {
+      this.suppressNextClick = false;
+      return;
+    }
+
     const target = context.sourceEntity;
     if (!target) {
       return;
@@ -61,11 +93,80 @@ export class InteractionResolver {
     }
   }
 
+  private handleLeftMouseDown(context: InputContext): void {
+    // Always discard any residual viewport-drag state from a prior gesture.
+    this.resetViewportDragState();
+    this.suppressNextClick = false;
+
+    const source = context.sourceEntity;
+
+    // Card path: drag is driven by start_drag / stop_drag handlers.
+    if (source?.type === "card" && typeof source.id === "number") {
+      this.activeDragMode = "card";
+      return;
+    }
+
+    // Viewport pan only starts inside worldPanel on tile or empty space.
+    if (context.sourcePanelId !== "worldPanel") {
+      return;
+    }
+    if (source && source.type !== "tile") {
+      return;
+    }
+
+    const viewport = this.getWorldViewport?.();
+    if (!viewport) {
+      return;
+    }
+
+    this.activeDragMode = "viewport";
+    this.viewport_drag_candidate = true;
+    this.viewport_dragging = false;
+    this.viewport_drag_start_screen_x = context.pointer.x;
+    this.viewport_drag_start_screen_y = context.pointer.y;
+    this.viewport_drag_start_world_q = viewport.q;
+    this.viewport_drag_start_world_r = viewport.r;
+  }
+
+  private handleLeftMouseMove(context: InputContext): void {
+    if (this.activeDragMode !== "viewport" || !this.viewport_drag_candidate) {
+      return;
+    }
+
+    const dx = context.pointer.x - this.viewport_drag_start_screen_x;
+    const dy = context.pointer.y - this.viewport_drag_start_screen_y;
+
+    if (!this.viewport_dragging) {
+      if (Math.hypot(dx, dy) < this.viewport_drag_threshold_px) {
+        return;
+      }
+      this.viewport_dragging = true;
+      this.suppressNextClick = true;
+    }
+
+    this.panViewportFromScreenDelta(dx, dy);
+  }
+
+  private handleLeftMouseUp(_context: InputContext): void {
+    if (!this.viewport_drag_candidate) {
+      return;
+    }
+
+    const consumeClick = this.viewport_dragging;
+    this.resetViewportDragState();
+
+    if (consumeClick) {
+      this.suppressNextClick = true;
+    }
+  }
+
   private handleLeftMouseStartDrag(context: InputContext): void {
     const source = context.sourceEntity;
     if (!source || source.type !== "card" || typeof source.id !== "number") {
       return;
     }
+
+    this.activeDragMode = "card";
 
     const card = client_cards[source.id];
     if (!card) {
@@ -77,18 +178,27 @@ export class InteractionResolver {
   }
 
   private handleLeftMouseStopDrag(context: InputContext): void {
+    // Viewport path already cleaned up in handleLeftMouseUp; make sure mode is reset.
+    if (this.activeDragMode !== "card") {
+      this.activeDragMode = "none";
+      return;
+    }
+
     const source = context.sourceEntity;
     if (!source || source.type !== "card") {
+      this.activeDragMode = "none";
       return;
     }
 
     const cardId = this.resolveCardEntityId(source);
     if (cardId == null) {
+      this.activeDragMode = "none";
       return;
     }
 
     const card = client_cards[cardId];
     if (!card) {
+      this.activeDragMode = "none";
       return;
     }
 
@@ -102,7 +212,28 @@ export class InteractionResolver {
       }
     }
 
+    this.activeDragMode = "none";
     this.onStateChanged?.();
+  }
+
+  private panViewportFromScreenDelta(dx: number, dy: number): void {
+    if (!this.setWorldViewport) {
+      return;
+    }
+
+    const worldDelta = this.screenDeltaToWorldDelta?.(dx, dy) ?? { q: 0, r: 0 };
+
+    this.setWorldViewport(
+      this.viewport_drag_start_world_q - worldDelta.q,
+      this.viewport_drag_start_world_r - worldDelta.r,
+    );
+    this.onStateChanged?.();
+  }
+
+  private resetViewportDragState(): void {
+    this.activeDragMode = "none";
+    this.viewport_drag_candidate = false;
+    this.viewport_dragging = false;
   }
 
   private resolveCardEntityId(entity: { id: number | string | null; ref?: unknown }): number | null {
