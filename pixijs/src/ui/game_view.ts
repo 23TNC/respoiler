@@ -1,7 +1,7 @@
 import { Application, Container, Rectangle } from "pixi.js";
 
 import { InputManager } from "./input/input_manager";
-import { InteractionResolver } from "./input/interaction_resolver";
+import { InteractionResolver, type RenderHint } from "./input/interaction_resolver";
 import { computePanelLayout, type LayoutRect, type PanelId } from "./panels/layout";
 import { DetailsPanel } from "./panels/details_panel";
 import { EventPanel } from "./panels/event_panel";
@@ -20,12 +20,22 @@ interface GameViewOptions {
   initialData?: Partial<GameViewData>;
 }
 
+const INVENTORY_PANEL_IDS: PanelId[] = [
+  "disciplinesPanel",
+  "facultiesPanel",
+  "requisitesPanel",
+  "reveriesPanel",
+  "soulsPanel",
+];
+
 export class GameView {
   private readonly app: Application;
   private readonly viewedId: number;
   private readonly panelLayer: Container;
   private readonly panelById: Partial<Record<PanelId, Panel>>;
   private readonly inputManager: InputManager;
+  private readonly pendingHints = new Set<RenderHint>();
+  private needsRender = false;
 
   constructor(options: GameViewOptions) {
     this.app = options.app;
@@ -33,7 +43,7 @@ export class GameView {
     this.panelLayer = new Container();
     this.panelById = {};
     const interactionResolver = new InteractionResolver({
-      onStateChanged: () => this.render(),
+      onStateChanged: (hint) => this.requestRender(hint),
       getWorldViewport: () => {
         const panel = this.panelById.worldPanel;
         if (!(panel instanceof WorldBoardPanel)) {
@@ -66,20 +76,65 @@ export class GameView {
     this.app.stage.on("pointermove", (event) => this.inputManager.onPointerMove(event));
     this.app.stage.on("pointerup", (event) => this.inputManager.onPointerUp(event));
     this.app.stage.on("pointerupoutside", (event) => this.inputManager.onPointerUp(event));
+
+    this.app.ticker.add(() => {
+      if (this.needsRender) {
+        this.needsRender = false;
+        this.doRender();
+      }
+    });
   }
 
   setData(_data: Partial<GameViewData>): void {
-    // Rendering now reads directly from global client_cards state.
-    this.render();
+    this.requestRender("full");
   }
 
   resize(width: number, height: number): void {
     this.app.renderer.resize(Math.max(1, width), Math.max(1, height));
     this.app.stage.hitArea = new Rectangle(0, 0, this.app.screen.width, this.app.screen.height);
-    this.render();
+    this.requestRender("full");
   }
 
   render(): void {
+    // Called once from main.ts for the initial synchronous render.
+    this.requestRender("full");
+    this.doRender();
+  }
+
+  private requestRender(hint: RenderHint): void {
+    this.pendingHints.add(hint);
+    this.needsRender = true;
+  }
+
+  private markDirtyFromHints(hints: Set<RenderHint>): void {
+    const full = hints.has("full");
+
+    for (const id of Object.keys(this.panelById) as PanelId[]) {
+      const panel = this.panelById[id];
+      if (!panel) {
+        continue;
+      }
+
+      if (full) {
+        panel.markDirty();
+        continue;
+      }
+
+      if (hints.has("viewport") && id === "worldPanel") {
+        panel.markDirty();
+      }
+
+      if (hints.has("selection") && id === "detailsPanel") {
+        panel.markDirty();
+      }
+
+      if (hints.has("drag") && (INVENTORY_PANEL_IDS.includes(id) || id === "detailsPanel")) {
+        panel.markDirty();
+      }
+    }
+  }
+
+  private doRender(): void {
     const screenWidth = this.app.screen.width;
     const screenHeight = this.app.screen.height;
     const panelPadding = screenHeight / 240;
@@ -88,6 +143,10 @@ export class GameView {
     this.syncPanelInstances(layoutRects, panelPadding);
     this.syncInputPanels(layoutRects);
 
+    const hints = new Set(this.pendingHints);
+    this.pendingHints.clear();
+    this.markDirtyFromHints(hints);
+
     for (const layoutRect of layoutRects) {
       const panel = this.panelById[layoutRect.id];
       if (!panel) {
@@ -95,7 +154,11 @@ export class GameView {
       }
 
       panel.setLayout(layoutRect, panelPadding);
-      panel.refresh(screenWidth, screenHeight);
+
+      if (panel.isDirty()) {
+        panel.refresh(screenWidth, screenHeight);
+        panel.clearDirty();
+      }
     }
   }
 

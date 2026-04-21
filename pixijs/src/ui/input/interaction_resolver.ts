@@ -13,15 +13,17 @@ import type { InputAction, InputContext } from "./types";
 
 type ActiveDragMode = "none" | "card" | "viewport";
 
+export type RenderHint = "viewport" | "selection" | "drag" | "full";
+
 interface InteractionResolverOptions {
-  onStateChanged?: () => void;
+  onStateChanged?: (hint: RenderHint) => void;
   getWorldViewport?: () => { q: number; r: number } | null;
   setWorldViewport?: (q: number, r: number) => void;
   screenDeltaToWorldDelta?: (dx: number, dy: number) => { q: number; r: number };
 }
 
 export class InteractionResolver {
-  private readonly onStateChanged?: () => void;
+  private readonly onStateChanged?: (hint: RenderHint) => void;
   private readonly getWorldViewport?: () => { q: number; r: number } | null;
   private readonly setWorldViewport?: (q: number, r: number) => void;
   private readonly screenDeltaToWorldDelta?: (dx: number, dy: number) => { q: number; r: number };
@@ -174,7 +176,7 @@ export class InteractionResolver {
     }
 
     card.dragging = true;
-    this.onStateChanged?.();
+    this.onStateChanged?.("drag");
   }
 
   private handleLeftMouseStopDrag(context: InputContext): void {
@@ -213,7 +215,7 @@ export class InteractionResolver {
     }
 
     this.activeDragMode = "none";
-    this.onStateChanged?.();
+    this.onStateChanged?.("drag");
   }
 
   private panViewportFromScreenDelta(dx: number, dy: number): void {
@@ -227,7 +229,7 @@ export class InteractionResolver {
       this.viewport_drag_start_world_q - worldDelta.q,
       this.viewport_drag_start_world_r - worldDelta.r,
     );
-    this.onStateChanged?.();
+    this.onStateChanged?.("viewport");
   }
 
   private resetViewportDragState(): void {
@@ -297,7 +299,7 @@ export class InteractionResolver {
       client_cards[id].selected = id === cardId;
     }
 
-    this.onStateChanged?.();
+    this.onStateChanged?.("selection");
   }
 
   private selectSingleTile(tileId: string): void {
@@ -323,7 +325,7 @@ export class InteractionResolver {
       client_cards[Number(key)].selected = false;
     }
 
-    this.onStateChanged?.();
+    this.onStateChanged?.("selection");
   }
 
   private cancelSharedLocationCards(): void {
@@ -374,6 +376,6 @@ export class InteractionResolver {
       updateClientCardLocation(cardId, 0, 0);
     }
 
-    this.onStateChanged?.();
+    this.onStateChanged?.("drag");
   }
 }

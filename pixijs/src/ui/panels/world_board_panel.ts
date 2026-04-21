@@ -1,3 +1,5 @@
+import { type Container } from "pixi.js";
+
 import {
   client_cards,
   client_cards_by_zone,
@@ -25,38 +27,107 @@ interface DisplayWorldTile {
   id: string;
 }
 
+interface CachedHexTile {
+  container: Container;
+  definition: number;
+}
+
 export class WorldBoardPanel extends Panel {
   private viewport_q = 0;
   private viewport_r = 0;
   private readonly z = 1;
   private hexSize = 0;
 
+  private readonly tileCache = new Map<string, CachedHexTile>();
+  private cachedHexSize = 0;
+  private cachedScreenHeight = 0;
+  private cachedInnerRectX = 0;
+  private cachedInnerRectY = 0;
+  private cachedInnerRectWidth = 0;
+  private cachedInnerRectHeight = 0;
+
   constructor(layoutRect: LayoutRect, panelPadding: number) {
     super(layoutRect, panelPadding);
   }
 
   override refresh(_screenWidth: number, screenHeight: number): void {
-    this.clearContent();
-
     const innerRect = this.getInnerRect();
     const hexSize = computeHexTileSize(screenHeight);
     this.hexSize = hexSize;
+
+    const geometryChanged = (
+      hexSize !== this.cachedHexSize ||
+      screenHeight !== this.cachedScreenHeight ||
+      innerRect.x !== this.cachedInnerRectX ||
+      innerRect.y !== this.cachedInnerRectY ||
+      innerRect.width !== this.cachedInnerRectWidth ||
+      innerRect.height !== this.cachedInnerRectHeight
+    );
+
+    if (geometryChanged) {
+      this.purgeTileCache();
+      this.cachedHexSize = hexSize;
+      this.cachedScreenHeight = screenHeight;
+      this.cachedInnerRectX = innerRect.x;
+      this.cachedInnerRectY = innerRect.y;
+      this.cachedInnerRectWidth = innerRect.width;
+      this.cachedInnerRectHeight = innerRect.height;
+    }
+
     const worldOrigin = {
       x: innerRect.x + (innerRect.width / 2),
       y: innerRect.y + (innerRect.height / 2),
     };
 
-    const viewport_zone_q = Math.floor(this.viewport_q / 8);
-    const viewport_zone_r = Math.floor(this.viewport_r / 8);
-    const viewport_local_q = ((this.viewport_q % 8) + 8) % 8;
-    const viewport_local_r = ((this.viewport_r % 8) + 8) % 8;
-    const neighbor_zone_q = viewport_local_q < 4 ? viewport_zone_q - 1 : viewport_zone_q + 1;
-    const neighbor_zone_r = viewport_local_r < 4 ? viewport_zone_r - 1 : viewport_zone_r + 1;
+    // Compute which zones are visible based on actual panel dimensions.
+    // hexSize * 1.5 = horizontal distance between hex centers (q axis).
+    // hexSize * sqrt(3) = vertical distance between hex centers (r axis).
+    // Add halfTilesQ/2 extra to r range to account for the axial skew term.
+    const halfTilesQ = Math.ceil((innerRect.width / 2) / (hexSize * 1.5)) + 1;
+    const halfTilesR = Math.ceil((innerRect.height / 2) / (hexSize * Math.sqrt(3))) + Math.ceil(halfTilesQ / 2) + 1;
 
-    this.renderZone(viewport_zone_q, viewport_zone_r, this.z, hexSize, screenHeight, worldOrigin);
-    this.renderZone(neighbor_zone_q, viewport_zone_r, this.z, hexSize, screenHeight, worldOrigin);
-    this.renderZone(viewport_zone_q, neighbor_zone_r, this.z, hexSize, screenHeight, worldOrigin);
-    this.renderZone(neighbor_zone_q, neighbor_zone_r, this.z, hexSize, screenHeight, worldOrigin);
+    const minZoneQ = Math.floor((this.viewport_q - halfTilesQ) / 8);
+    const maxZoneQ = Math.floor((this.viewport_q + halfTilesQ) / 8);
+    const minZoneR = Math.floor((this.viewport_r - halfTilesR) / 8);
+    const maxZoneR = Math.floor((this.viewport_r + halfTilesR) / 8);
+
+    const needed = new Map<string, { tile: DisplayWorldTile; pixel: { x: number; y: number } }>();
+    for (let zq = minZoneQ; zq <= maxZoneQ; zq += 1) {
+      for (let zr = minZoneR; zr <= maxZoneR; zr += 1) {
+        this.collectZoneTiles(zq, zr, hexSize, worldOrigin, innerRect, needed);
+      }
+    }
+
+    for (const [key, { tile, pixel }] of needed) {
+      const cached = this.tileCache.get(key);
+      if (cached && cached.definition === tile.definition) {
+        cached.container.x = pixel.x;
+        cached.container.y = pixel.y;
+      } else {
+        if (cached) {
+          this.content.removeChild(cached.container);
+          cached.container.destroy({ children: true });
+        }
+        const container = this.createTileContainer(tile, hexSize, screenHeight);
+        container.x = pixel.x;
+        container.y = pixel.y;
+        this.content.addChild(container);
+        this.tileCache.set(key, { container, definition: tile.definition });
+      }
+    }
+
+    const staleKeys: string[] = [];
+    for (const key of this.tileCache.keys()) {
+      if (!needed.has(key)) {
+        staleKeys.push(key);
+      }
+    }
+    for (const key of staleKeys) {
+      const cached = this.tileCache.get(key)!;
+      this.content.removeChild(cached.container);
+      cached.container.destroy({ children: true });
+      this.tileCache.delete(key);
+    }
   }
 
   getViewportPosition(): { q: number; r: number } {
@@ -79,60 +150,78 @@ export class WorldBoardPanel extends Panel {
     return { q, r };
   }
 
-  private renderZone(
+  private purgeTileCache(): void {
+    this.clearContent();
+    this.tileCache.clear();
+  }
+
+  private collectZoneTiles(
     zone_q: number,
     zone_r: number,
-    z: number,
     hexSize: number,
-    screenHeight: number,
     worldOrigin: { x: number; y: number },
+    innerRect: LayoutRect,
+    needed: Map<string, { tile: DisplayWorldTile; pixel: { x: number; y: number } }>,
   ): void {
-    const zone = packZone(zone_q, zone_r, z);
+    const zone = packZone(zone_q, zone_r, this.z);
+    // Flat-top hex (vertices at 0°,60°,120°…): half-width = size, half-height = size * sqrt(3)/2
+    const hexHalfW = hexSize;
+    const hexHalfH = hexSize * Math.sqrt(3) / 2;
 
     for (let local_q = 0; local_q < 8; local_q += 1) {
       for (let local_r = 0; local_r < 8; local_r += 1) {
         const world_q = zone_q * 8 + local_q;
         const world_r = zone_r * 8 + local_r;
-        const tile = this.resolveDisplayedWorldTile(zone, world_q, world_r, local_q, local_r, z);
+        const tile = this.resolveDisplayedWorldTile(zone, world_q, world_r, local_q, local_r, this.z);
         if (!tile) {
           continue;
         }
 
         const pixel = worldHexToPanelPixel(
-          {
-            q: tile.world_q - this.viewport_q,
-            r: tile.world_r - this.viewport_r,
-          },
+          { q: tile.world_q - this.viewport_q, r: tile.world_r - this.viewport_r },
           hexSize,
           worldOrigin,
         );
 
-        const hexCard = createHexCardView(
-          {
-            id: tile.id,
-            type: 6,
-            name: getCardDefinition(tile.definition)?.name ?? `#${tile.definition_id}`,
-            colors: [
-              resolveStyleColor(getCardDefinition(tile.definition), 0, 0xd3deef),
-              resolveStyleColor(getCardDefinition(tile.definition), 1, 0x7fb377),
-              resolveStyleColor(getCardDefinition(tile.definition), 2, 0x0b1a2a),
-            ],
-            progress: 0,
-            progressDirection: "clockwise",
-            progressFillColor: 0x8da6c6,
-            progressEmptyColor: 0x32475f,
-          },
-          {
-            centerX: pixel.x,
-            centerY: pixel.y,
-            size: hexSize,
-            screenHeight,
-          },
-        );
+        // Skip tiles whose bounding box is entirely outside the panel.
+        if (
+          pixel.x + hexHalfW < innerRect.x ||
+          pixel.x - hexHalfW > innerRect.x + innerRect.width ||
+          pixel.y + hexHalfH < innerRect.y ||
+          pixel.y - hexHalfH > innerRect.y + innerRect.height
+        ) {
+          continue;
+        }
 
-        this.content.addChild(hexCard);
+        const key = `${world_q}:${world_r}:${this.z}`;
+        needed.set(key, { tile, pixel });
       }
     }
+  }
+
+  private createTileContainer(tile: DisplayWorldTile, hexSize: number, screenHeight: number): Container {
+    return createHexCardView(
+      {
+        id: tile.id,
+        type: 6,
+        name: getCardDefinition(tile.definition)?.name ?? `#${tile.definition_id}`,
+        colors: [
+          resolveStyleColor(getCardDefinition(tile.definition), 0, 0xd3deef),
+          resolveStyleColor(getCardDefinition(tile.definition), 1, 0x7fb377),
+          resolveStyleColor(getCardDefinition(tile.definition), 2, 0x0b1a2a),
+        ],
+        progress: 0,
+        progressDirection: "clockwise",
+        progressFillColor: 0x8da6c6,
+        progressEmptyColor: 0x32475f,
+      },
+      {
+        centerX: 0,
+        centerY: 0,
+        size: hexSize,
+        screenHeight,
+      },
+    );
   }
 
   private resolveDisplayedWorldTile(

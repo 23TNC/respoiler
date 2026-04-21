@@ -16,6 +16,8 @@ export class Panel {
   protected layoutRect: LayoutRect;
   protected panelPadding: number;
 
+  private _dirty = true;
+
   constructor(layoutRect: LayoutRect, panelPadding: number) {
     this.layoutRect = layoutRect;
     this.panelPadding = panelPadding;
@@ -37,10 +39,24 @@ export class Panel {
     this.redrawFrame();
   }
 
+  markDirty(): void { this._dirty = true; }
+  isDirty(): boolean { return this._dirty; }
+  clearDirty(): void { this._dirty = false; }
+
   setLayout(layoutRect: LayoutRect, panelPadding: number): void {
+    const changed = (
+      this.panelPadding !== panelPadding ||
+      this.layoutRect.x !== layoutRect.x ||
+      this.layoutRect.y !== layoutRect.y ||
+      this.layoutRect.width !== layoutRect.width ||
+      this.layoutRect.height !== layoutRect.height
+    );
     this.layoutRect = layoutRect;
     this.panelPadding = panelPadding;
-    this.redrawFrame();
+    if (changed) {
+      this.redrawFrame();
+      this.markDirty();
+    }
   }
 
   refresh(_screenWidth: number, _screenHeight: number): void {
@@ -57,7 +73,7 @@ export class Panel {
   }
 
   protected clearContent(): void {
-    this.content.removeChildren();
+    this.content.removeChildren().forEach(child => child.destroy({ children: true }));
   }
 
   protected getLayoutRect(): LayoutRect {
