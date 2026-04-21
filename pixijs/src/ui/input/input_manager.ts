@@ -76,12 +76,6 @@ export class InputManager {
       return;
     }
 
-    const x = event.global.x;
-    const y = event.global.y;
-    const time = event.timeStamp ?? performance.now();
-
-    this.interactionResolver.resolve("left_mouse_move", this.buildContext(x, y, time));
-
     if (this.state.leftDrag) {
       return;
     }
@@ -91,12 +85,16 @@ export class InputManager {
       return;
     }
 
+    const x = event.global.x;
+    const y = event.global.y;
     const dx = x - down.x;
     const dy = y - down.y;
 
     if (Math.abs(dx) < this.dragThreshold && Math.abs(dy) < this.dragThreshold) {
       return;
     }
+
+    const time = event.timeStamp ?? performance.now();
 
     // State updates happen before resolver calls.
     this.state.leftDrag = true;

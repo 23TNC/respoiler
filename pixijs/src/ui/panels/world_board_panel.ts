@@ -26,10 +26,9 @@ interface DisplayWorldTile {
 }
 
 export class WorldBoardPanel extends Panel {
-  private viewport_q = 0;
-  private viewport_r = 0;
+  private readonly viewport_q = 0;
+  private readonly viewport_r = 0;
   private readonly z = 1;
-  private hexSize = 0;
 
   constructor(layoutRect: LayoutRect, panelPadding: number) {
     super(layoutRect, panelPadding);
@@ -40,7 +39,6 @@ export class WorldBoardPanel extends Panel {
 
     const innerRect = this.getInnerRect();
     const hexSize = computeHexTileSize(screenHeight);
-    this.hexSize = hexSize;
     const worldOrigin = {
       x: innerRect.x + (innerRect.width / 2),
       y: innerRect.y + (innerRect.height / 2),
@@ -57,29 +55,6 @@ export class WorldBoardPanel extends Panel {
     this.renderZone(neighbor_zone_q, viewport_zone_r, this.z, hexSize, screenHeight, worldOrigin);
     this.renderZone(viewport_zone_q, neighbor_zone_r, this.z, hexSize, screenHeight, worldOrigin);
     this.renderZone(neighbor_zone_q, neighbor_zone_r, this.z, hexSize, screenHeight, worldOrigin);
-  }
-
-  getViewportPosition(): { q: number; r: number } {
-    return {
-      q: this.viewport_q,
-      r: this.viewport_r,
-    };
-  }
-
-  setViewportPosition(q: number, r: number): void {
-    this.viewport_q = q;
-    this.viewport_r = r;
-  }
-
-  screenDeltaToWorldDelta(dx: number, dy: number): { q: number; r: number } {
-    if (this.hexSize <= 0) {
-      return { q: 0, r: 0 };
-    }
-
-    const q = dx / (this.hexSize * (3 / 2));
-    const r = (dy / (this.hexSize * Math.sqrt(3))) - (q / 2);
-
-    return { q, r };
   }
 
   private renderZone(
